@@ -7,7 +7,7 @@
 	npm i
 	npm run dev
 
-3. Fontend:
+3. Frontend:
 	cd ../frontend
 	npm i
 	npm run dev
