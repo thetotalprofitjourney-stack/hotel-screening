@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api';
 import MonthlyTable from '../components/MonthlyTable';
+import ProjectConfigForm, { ProjectConfig } from '../components/ProjectConfigForm';
 
 export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:()=>void }) {
+  const [config, setConfig] = useState<ProjectConfig | null>(null);
+  const [configLoaded, setConfigLoaded] = useState(false);
+  const [showConfigForm, setShowConfigForm] = useState(false);
+
   const [anio, setAnio] = useState<number>(new Date().getFullYear());
   const [meses, setMeses] = useState<any[]>([]);
   const [accepted, setAccepted] = useState(false);
@@ -22,12 +27,49 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   const [debt, setDebt] = useState<any|null>(null);
   const [vr, setVR] = useState<any|null>(null);
 
+  async function loadConfig() {
+    try {
+      const data = await api(`/v1/projects/${projectId}/config`);
+      setConfig(data);
+      setConfigLoaded(true);
+      // Verificar si la configuración está completa (al menos nombre y precio_compra)
+      if (!data.nombre || data.precio_compra === null || data.precio_compra === undefined) {
+        setShowConfigForm(true);
+      }
+    } catch (error) {
+      console.error('Error cargando configuración:', error);
+      setShowConfigForm(true);
+    }
+  }
+
+  async function saveConfig(newConfig: ProjectConfig) {
+    try {
+      await api(`/v1/projects/${projectId}/config`, {
+        method: 'PUT',
+        body: JSON.stringify(newConfig)
+      });
+      setConfig(newConfig);
+      setShowConfigForm(false);
+    } catch (error) {
+      console.error('Error guardando configuración:', error);
+      alert('Error al guardar la configuración');
+    }
+  }
+
   async function loadBenchmark() {
     const data = await api(`/v1/projects/${projectId}/y1/benchmark?anio_base=${anio}`);
     setMeses(data.meses.map((m:any)=>({ ...m, ocupacion:m.occ, adr:m.adr })));
   }
 
-  useEffect(()=>{ loadBenchmark().catch(console.error); },[anio, projectId]);
+  useEffect(() => {
+    loadConfig().catch(console.error);
+  }, [projectId]);
+
+  useEffect(()=>{
+    if (configLoaded) {
+      loadBenchmark().catch(console.error);
+    }
+  },[anio, projectId, configLoaded]);
 
   async function accept() {
     await api(`/v1/projects/${projectId}/y1/benchmark/accept`, {
@@ -66,6 +108,58 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         </div>
       </div>
 
+      {/* Paso 0: Configuración del proyecto */}
+      <section>
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="text-lg font-semibold">Paso 0 — Configuración del Proyecto</h3>
+          {config && !showConfigForm && (
+            <button
+              className="px-3 py-1 border rounded text-sm hover:bg-gray-50"
+              onClick={() => setShowConfigForm(true)}
+            >
+              Editar configuración
+            </button>
+          )}
+        </div>
+
+        {showConfigForm ? (
+          <ProjectConfigForm
+            initialData={config || undefined}
+            onSubmit={saveConfig}
+            onCancel={config ? () => setShowConfigForm(false) : undefined}
+          />
+        ) : config ? (
+          <div className="border rounded-lg p-4 bg-gray-50">
+            <div className="grid grid-cols-3 gap-4 text-sm">
+              <div>
+                <span className="font-medium">Proyecto:</span> {config.nombre}
+              </div>
+              <div>
+                <span className="font-medium">Ubicación:</span> {config.ubicacion}
+              </div>
+              <div>
+                <span className="font-medium">Habitaciones:</span> {config.habitaciones}
+              </div>
+              <div>
+                <span className="font-medium">Precio compra:</span> {fmt(config.precio_compra || 0)}
+              </div>
+              <div>
+                <span className="font-medium">CAPEX:</span> {fmt(config.capex_inicial || 0)}
+              </div>
+              <div>
+                <span className="font-medium">Horizonte:</span> {config.horizonte} años
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="border rounded-lg p-4 bg-yellow-50 text-sm">
+            Cargando configuración...
+          </div>
+        )}
+      </section>
+
+      {!showConfigForm && config && (
+        <>
       <section>
         <h3 className="text-lg font-semibold mb-2">Paso 1 — Validación comercial Y1</h3>
         <MonthlyTable rows={meses} onChange={setMeses} />
@@ -256,6 +350,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
             </div>
           )}
         </section>
+      )}
+        </>
       )}
     </div>
   );
