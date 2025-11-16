@@ -1,0 +1,15 @@
+1. MySQL: ejecuta schema.sql y luego seed_sizes_and_ratios.sql.
+
+2. Backend:
+	cd backend
+	cp .env.example .env
+	# ajusta credenciales MySQL
+	npm i
+	npm run dev
+
+3. Fontend:
+	cd ../frontend
+	npm i
+	npm run dev
+	
+4. Abre http://localhost:5173. Introduce email (simulado), crea un proyecto, entra al wizard, acepta Y1 y calcula USALI.

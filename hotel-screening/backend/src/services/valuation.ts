@@ -1,0 +1,132 @@
+import { pool } from '../db.js';
+import { frenchLoanSchedule, bulletLoanSchedule, irr } from './finance.js';
+
+export async function computeDebt(project_id:string) {
+  const [[ft]]: any = await pool.query(
+    `SELECT precio_compra, capex_inicial, ltv, interes, plazo_anios, tipo_amortizacion
+       FROM financing_terms WHERE project_id=?`, [project_id]
+  );
+  if (!ft || ft.ltv==null || ft.interes==null || !ft.plazo_anios || !ft.tipo_amortizacion)
+    throw new Error('FINANCING_TERMS_INCOMPLETE');
+
+  const base = Number(ft.precio_compra ?? 0) + Number(ft.capex_inicial ?? 0);
+  const loan = Math.max(0, Number(ft.ltv) * base);
+  const rate = Number(ft.interes);
+  const years = Number(ft.plazo_anios);
+
+  const sched = ft.tipo_amortizacion === 'bullet'
+    ? bulletLoanSchedule(loan, rate, years)
+    : frenchLoanSchedule(loan, rate, years);
+
+  // Persist
+  await pool.query(`DELETE FROM debt_schedule_annual WHERE project_id=?`, [project_id]);
+  if (sched.length) {
+    const ph = sched.map(()=>'(?,?,?,?,?)').join(',');
+    const vals: any[] = [];
+    sched.forEach(r => vals.push(project_id, r.anio, r.intereses, r.amortizacion, r.cuota, r.saldo_final));
+    await pool.query(
+      `INSERT INTO debt_schedule_annual (project_id, anio, intereses, amortizacion, cuota, saldo_final)
+       VALUES ${ph}`, vals
+    );
+  }
+
+  return { loan_amount: loan, schedule: sched };
+}
+
+export async function valuationAndReturns(project_id:string) {
+  // Lee anualidades proyectadas
+  const [annRows]: any = await pool.query(
+    `SELECT anio, operating_revenue, ebitda, ebitda_less_ffe FROM usali_annual WHERE project_id=? ORDER BY anio`, [project_id]
+  );
+  if (!annRows.length) throw new Error('ANNUALS_NOT_FOUND');
+
+  const [[ps]]: any = await pool.query(
+    `SELECT metodo_valoracion, cap_rate_salida, multiplo_salida, coste_tx_compra_pct, coste_tx_venta_pct
+       FROM project_settings WHERE project_id=?`, [project_id]
+  );
+  const [[ft]]: any = await pool.query(
+    `SELECT precio_compra, capex_inicial, ltv FROM financing_terms WHERE project_id=?`, [project_id]
+  );
+  const [debt]: any = await pool.query(
+    `SELECT anio, intereses, amortizacion, cuota, saldo_final FROM debt_schedule_annual WHERE project_id=? ORDER BY anio`, [project_id]
+  );
+
+  const years = annRows[annRows.length - 1].anio;
+  const exitBase = annRows.find((r:any)=> r.anio===years);
+  const noi = Number(exitBase.ebitda_less_ffe ?? exitBase.ebitda); // NOI proxy
+
+  let valor_salida_bruto = 0;
+  if (ps.metodo_valoracion === 'multiplo') {
+    if (!ps.multiplo_salida) throw new Error('MISSING_MULTIPLO');
+    valor_salida_bruto = noi * Number(ps.multiplo_salida);
+  } else {
+    if (!ps.cap_rate_salida) throw new Error('MISSING_CAP_RATE');
+    valor_salida_bruto = noi / Number(ps.cap_rate_salida);
+  }
+  const costs_sell = Number(ps.coste_tx_venta_pct ?? 0) * valor_salida_bruto;
+  const valor_salida_neto = valor_salida_bruto - costs_sell;
+
+  // Equity inicial (t0)
+  const base = Number(ft.precio_compra ?? 0) + Number(ft.capex_inicial ?? 0);
+  const costs_buy = Number(ps.coste_tx_compra_pct ?? 0) * base;
+  const loan0 = Number(ft.ltv ?? 0) * base;
+  const equity0 = base + costs_buy - loan0;
+
+  // Flujos UNLEVERED: -equity0 (negativo), +EBITDA_less_FFE anual, + valor salida neto en año N
+  const cf_unlev: number[] = [-equity0];
+  for (let y=1; y<=years; y++) {
+    const r:any = annRows.find((a:any)=>a.anio===y);
+    const cash = Number(r.ebitda_less_ffe ?? r.ebitda);
+    if (y === years) cf_unlev.push(cash + valor_salida_neto);
+    else cf_unlev.push(cash);
+  }
+
+  const irr_unlev = irr(cf_unlev);
+  const moic_unlev = (cf_unlev.slice(1).reduce((a,b)=>a+b,0)) / Math.max(1e-9, -cf_unlev[0]);
+
+  // Flujos LEVERED: -equity0; cada año: EBITDA_less_FFE - cuota deuda; año N: + venta neta - saldo_final
+  const cf_lev: number[] = [-equity0];
+  for (let y=1; y<=years; y++) {
+    const r:any = annRows.find((a:any)=>a.anio===y)!;
+    const debtRow:any = debt.find((d:any)=> d.anio===y) ?? { cuota:0, saldo_final:0 };
+    const cash = Number(r.ebitda_less_ffe ?? r.ebitda) - Number(debtRow.cuota ?? 0);
+    if (y === years) {
+      const netExit = valor_salida_neto - Number(debtRow.saldo_final ?? 0);
+      cf_lev.push(cash + netExit);
+    } else {
+      cf_lev.push(cash);
+    }
+  }
+  const irr_lev = irr(cf_lev);
+  const moic_lev = (cf_lev.slice(1).reduce((a,b)=>a+b,0)) / Math.max(1e-9, -cf_lev[0]);
+
+  // Persist
+  await pool.query(
+    `REPLACE INTO valuations (project_id, valor_salida_bruto, valor_salida_neto, ltv_salida)
+     VALUES (?,?,?,?)`,
+    [project_id, valor_salida_bruto, valor_salida_neto, null]
+  );
+  await pool.query(
+    `REPLACE INTO returns (project_id, irr_unlevered, moic_unlevered, yield_on_cost_y1, irr_levered, moic_levered, payback_anios, fcfe_json)
+     VALUES (?,?,?,?,?,?,?,?)`,
+    [
+      project_id,
+      irr_unlev ?? null,
+      moic_unlev ?? null,
+      (annRows[0].ebitda_less_ffe / (base + costs_buy)) || null,
+      irr_lev ?? null,
+      moic_lev ?? null,
+      null,
+      JSON.stringify(cf_lev)
+    ]
+  );
+
+  return {
+    valuation: { valor_salida_bruto, valor_salida_neto },
+    returns: {
+      unlevered: { irr: irr_unlev, moic: moic_unlev },
+      levered:   { irr: irr_lev,   moic: moic_lev, equity0 }
+    },
+    cashflows: { unlevered: cf_unlev, levered: cf_lev }
+  };
+}
