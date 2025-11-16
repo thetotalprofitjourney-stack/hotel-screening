@@ -16,6 +16,47 @@ const createProjectSchema = z.object({
   moneda: z.string().length(3).default('EUR')
 });
 
+const updateConfigSchema = z.object({
+  // Datos del proyecto
+  nombre: z.string().min(2).optional(),
+  ubicacion: z.string().min(2).optional(),
+  segmento: z.enum(['urbano','vacacional']).optional(),
+  categoria: z.enum(['economy','midscale','upper_midscale','upscale','upper_upscale','luxury']).optional(),
+  habitaciones: z.number().int().positive().optional(),
+  horizonte: z.number().int().min(1).max(40).optional(),
+  moneda: z.string().length(3).optional(),
+  rol: z.enum(['inversor','operador','banco']).optional(),
+
+  // Financiación
+  precio_compra: z.number().optional(),
+  capex_inicial: z.number().optional(),
+  ltv: z.number().min(0).max(1).optional(),
+  interes: z.number().min(0).max(1).optional(),
+  plazo_anios: z.number().int().min(1).max(40).optional(),
+  tipo_amortizacion: z.enum(['frances','bullet']).optional(),
+
+  // Operator contract
+  operacion_tipo: z.enum(['gestion_propia','operador']).optional(),
+  fee_base_anual: z.number().nullable().optional(),
+  fee_pct_gop: z.number().min(0).max(1).nullable().optional(),
+  fee_incentive_pct: z.number().min(0).max(1).nullable().optional(),
+  fee_hurdle_gop_margin: z.number().min(0).max(1).nullable().optional(),
+
+  // Settings
+  ffe: z.number().min(0).max(1).optional(),
+  metodo_valoracion: z.enum(['cap_rate','multiplo']).optional(),
+  cap_rate_salida: z.number().min(0).max(1).nullable().optional(),
+  multiplo_salida: z.number().nullable().optional(),
+  coste_tx_compra_pct: z.number().min(0).max(1).nullable().optional(),
+  coste_tx_venta_pct: z.number().min(0).max(1).optional(),
+
+  // Non-operating
+  nonop_taxes_anual: z.number().optional(),
+  nonop_insurance_anual: z.number().optional(),
+  nonop_rent_anual: z.number().optional(),
+  nonop_other_anual: z.number().optional(),
+});
+
 router.get('/v1/projects', async (req, res) => {
   const email = (req as any).userEmail as string;
   const [rows] = await pool.query(
@@ -47,6 +88,223 @@ router.post('/v1/projects', async (req,res)=>{
   await pool.query(`INSERT INTO operator_contracts (project_id, operacion_tipo) VALUES (?, 'gestion_propia')`, [id]);
 
   res.status(201).json({ project_id: id });
+});
+
+// GET /v1/projects/:id/config - Obtener configuración completa del proyecto
+router.get('/v1/projects/:id/config', async (req, res) => {
+  const email = (req as any).userEmail as string;
+  const projectId = req.params.id;
+
+  // Verificar que el usuario es dueño del proyecto
+  const [projectRows] = await pool.query<any[]>(
+    `SELECT * FROM projects WHERE project_id=? AND owner_email=?`,
+    [projectId, email]
+  );
+  if (!projectRows || projectRows.length === 0) {
+    return res.status(404).json({ error: 'Proyecto no encontrado' });
+  }
+
+  const project = projectRows[0];
+
+  // Obtener settings
+  const [settingsRows] = await pool.query<any[]>(
+    `SELECT * FROM project_settings WHERE project_id=?`,
+    [projectId]
+  );
+  const settings = settingsRows?.[0] || {};
+
+  // Obtener financing
+  const [financingRows] = await pool.query<any[]>(
+    `SELECT * FROM financing_terms WHERE project_id=?`,
+    [projectId]
+  );
+  const financing = financingRows?.[0] || {};
+
+  // Obtener operator contract
+  const [operatorRows] = await pool.query<any[]>(
+    `SELECT * FROM operator_contracts WHERE project_id=?`,
+    [projectId]
+  );
+  const operator = operatorRows?.[0] || {};
+
+  // Obtener nonoperating
+  const [nonopRows] = await pool.query<any[]>(
+    `SELECT * FROM nonoperating_assumptions WHERE project_id=?`,
+    [projectId]
+  );
+  const nonop = nonopRows?.[0] || {};
+
+  // Combinar todo
+  const config = {
+    // Proyecto
+    nombre: project.nombre,
+    ubicacion: project.ubicacion,
+    segmento: project.segmento,
+    categoria: project.categoria,
+    habitaciones: project.habitaciones,
+    horizonte: project.horizonte,
+    moneda: project.moneda,
+    rol: project.rol,
+
+    // Financiación
+    precio_compra: financing.precio_compra,
+    capex_inicial: financing.capex_inicial,
+    ltv: financing.ltv,
+    interes: financing.interes,
+    plazo_anios: financing.plazo_anios,
+    tipo_amortizacion: financing.tipo_amortizacion,
+
+    // Operator
+    operacion_tipo: operator.operacion_tipo,
+    fee_base_anual: operator.fee_base_anual,
+    fee_pct_gop: operator.fee_pct_gop,
+    fee_incentive_pct: operator.fee_incentive_pct,
+    fee_hurdle_gop_margin: operator.fee_hurdle_gop_margin,
+
+    // Settings
+    ffe: settings.ffe,
+    metodo_valoracion: settings.metodo_valoracion,
+    cap_rate_salida: settings.cap_rate_salida,
+    multiplo_salida: settings.multiplo_salida,
+    coste_tx_compra_pct: settings.coste_tx_compra_pct,
+    coste_tx_venta_pct: settings.coste_tx_venta_pct,
+
+    // Non-operating
+    nonop_taxes_anual: nonop.nonop_taxes_anual,
+    nonop_insurance_anual: nonop.nonop_insurance_anual,
+    nonop_rent_anual: nonop.nonop_rent_anual,
+    nonop_other_anual: nonop.nonop_other_anual,
+  };
+
+  res.json(config);
+});
+
+// PUT /v1/projects/:id/config - Actualizar configuración completa del proyecto
+router.put('/v1/projects/:id/config', async (req, res) => {
+  const email = (req as any).userEmail as string;
+  const projectId = req.params.id;
+
+  const parsed = updateConfigSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error);
+
+  const data = parsed.data;
+
+  // Verificar que el usuario es dueño del proyecto
+  const [projectRows] = await pool.query<any[]>(
+    `SELECT * FROM projects WHERE project_id=? AND owner_email=?`,
+    [projectId, email]
+  );
+  if (!projectRows || projectRows.length === 0) {
+    return res.status(404).json({ error: 'Proyecto no encontrado' });
+  }
+
+  // Actualizar tabla projects
+  const projectUpdates: any = {};
+  if (data.nombre !== undefined) projectUpdates.nombre = data.nombre;
+  if (data.ubicacion !== undefined) projectUpdates.ubicacion = data.ubicacion;
+  if (data.segmento !== undefined) projectUpdates.segmento = data.segmento;
+  if (data.categoria !== undefined) projectUpdates.categoria = data.categoria;
+  if (data.habitaciones !== undefined) projectUpdates.habitaciones = data.habitaciones;
+  if (data.horizonte !== undefined) projectUpdates.horizonte = data.horizonte;
+  if (data.moneda !== undefined) projectUpdates.moneda = data.moneda;
+  if (data.rol !== undefined) projectUpdates.rol = data.rol;
+
+  if (Object.keys(projectUpdates).length > 0) {
+    const setClauses = Object.keys(projectUpdates).map(k => `${k}=?`).join(', ');
+    const values = Object.values(projectUpdates);
+    await pool.query(
+      `UPDATE projects SET ${setClauses} WHERE project_id=?`,
+      [...values, projectId]
+    );
+  }
+
+  // Actualizar financing_terms
+  const financingUpdates: any = {};
+  if (data.precio_compra !== undefined) financingUpdates.precio_compra = data.precio_compra;
+  if (data.capex_inicial !== undefined) financingUpdates.capex_inicial = data.capex_inicial;
+  if (data.ltv !== undefined) financingUpdates.ltv = data.ltv;
+  if (data.interes !== undefined) financingUpdates.interes = data.interes;
+  if (data.plazo_anios !== undefined) financingUpdates.plazo_anios = data.plazo_anios;
+  if (data.tipo_amortizacion !== undefined) financingUpdates.tipo_amortizacion = data.tipo_amortizacion;
+
+  if (Object.keys(financingUpdates).length > 0) {
+    // Verificar si existe
+    const [existingFin] = await pool.query<any[]>(
+      `SELECT project_id FROM financing_terms WHERE project_id=?`,
+      [projectId]
+    );
+
+    if (existingFin && existingFin.length > 0) {
+      const setClauses = Object.keys(financingUpdates).map(k => `${k}=?`).join(', ');
+      const values = Object.values(financingUpdates);
+      await pool.query(
+        `UPDATE financing_terms SET ${setClauses} WHERE project_id=?`,
+        [...values, projectId]
+      );
+    } else {
+      // Crear si no existe
+      await pool.query(
+        `INSERT INTO financing_terms (project_id, precio_compra, capex_inicial, ltv, interes, plazo_anios, tipo_amortizacion)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [projectId, financingUpdates.precio_compra, financingUpdates.capex_inicial,
+         financingUpdates.ltv, financingUpdates.interes, financingUpdates.plazo_anios,
+         financingUpdates.tipo_amortizacion]
+      );
+    }
+  }
+
+  // Actualizar operator_contracts
+  const operatorUpdates: any = {};
+  if (data.operacion_tipo !== undefined) operatorUpdates.operacion_tipo = data.operacion_tipo;
+  if (data.fee_base_anual !== undefined) operatorUpdates.fee_base_anual = data.fee_base_anual;
+  if (data.fee_pct_gop !== undefined) operatorUpdates.fee_pct_gop = data.fee_pct_gop;
+  if (data.fee_incentive_pct !== undefined) operatorUpdates.fee_incentive_pct = data.fee_incentive_pct;
+  if (data.fee_hurdle_gop_margin !== undefined) operatorUpdates.fee_hurdle_gop_margin = data.fee_hurdle_gop_margin;
+
+  if (Object.keys(operatorUpdates).length > 0) {
+    const setClauses = Object.keys(operatorUpdates).map(k => `${k}=?`).join(', ');
+    const values = Object.values(operatorUpdates);
+    await pool.query(
+      `UPDATE operator_contracts SET ${setClauses} WHERE project_id=?`,
+      [...values, projectId]
+    );
+  }
+
+  // Actualizar project_settings
+  const settingsUpdates: any = {};
+  if (data.ffe !== undefined) settingsUpdates.ffe = data.ffe;
+  if (data.metodo_valoracion !== undefined) settingsUpdates.metodo_valoracion = data.metodo_valoracion;
+  if (data.cap_rate_salida !== undefined) settingsUpdates.cap_rate_salida = data.cap_rate_salida;
+  if (data.multiplo_salida !== undefined) settingsUpdates.multiplo_salida = data.multiplo_salida;
+  if (data.coste_tx_compra_pct !== undefined) settingsUpdates.coste_tx_compra_pct = data.coste_tx_compra_pct;
+  if (data.coste_tx_venta_pct !== undefined) settingsUpdates.coste_tx_venta_pct = data.coste_tx_venta_pct;
+
+  if (Object.keys(settingsUpdates).length > 0) {
+    const setClauses = Object.keys(settingsUpdates).map(k => `${k}=?`).join(', ');
+    const values = Object.values(settingsUpdates);
+    await pool.query(
+      `UPDATE project_settings SET ${setClauses} WHERE project_id=?`,
+      [...values, projectId]
+    );
+  }
+
+  // Actualizar nonoperating_assumptions
+  const nonopUpdates: any = {};
+  if (data.nonop_taxes_anual !== undefined) nonopUpdates.nonop_taxes_anual = data.nonop_taxes_anual;
+  if (data.nonop_insurance_anual !== undefined) nonopUpdates.nonop_insurance_anual = data.nonop_insurance_anual;
+  if (data.nonop_rent_anual !== undefined) nonopUpdates.nonop_rent_anual = data.nonop_rent_anual;
+  if (data.nonop_other_anual !== undefined) nonopUpdates.nonop_other_anual = data.nonop_other_anual;
+
+  if (Object.keys(nonopUpdates).length > 0) {
+    const setClauses = Object.keys(nonopUpdates).map(k => `${k}=?`).join(', ');
+    const values = Object.values(nonopUpdates);
+    await pool.query(
+      `UPDATE nonoperating_assumptions SET ${setClauses} WHERE project_id=?`,
+      [...values, projectId]
+    );
+  }
+
+  res.json({ success: true, project_id: projectId });
 });
 
 export default router;
