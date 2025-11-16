@@ -70,6 +70,7 @@ export function calcUsaliY1Monthly(
 
     return {
       mes: row.mes,
+      rn: row.rn, // Roomnights del mes
       rooms, fb, other_operated: other, misc_income: misc, total_rev,
       dept_rooms, dept_fb, dept_other, dept_total, dept_profit,
       und_ag, und_it, und_sm, und_pom, und_eww, und_total,

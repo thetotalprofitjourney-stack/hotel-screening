@@ -4,6 +4,7 @@ import MonthlyTable from '../components/MonthlyTable';
 import ProjectConfigForm, { ProjectConfig } from '../components/ProjectConfigForm';
 import UsaliEditor from '../components/UsaliEditor';
 import SensitivityAnalysis from '../components/SensitivityAnalysis';
+import AnnualUsaliTable from '../components/AnnualUsaliTable';
 
 export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:()=>void }) {
   const [config, setConfig] = useState<ProjectConfig | null>(null);
@@ -173,7 +174,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         <>
       <section>
         <h3 className="text-lg font-semibold mb-2">Paso 1 — Validación comercial Y1</h3>
-        <MonthlyTable rows={meses} onChange={setMeses} />
+        <MonthlyTable rows={meses} onChange={setMeses} habitaciones={config?.habitaciones || 0} />
         <button className="mt-3 px-3 py-2 bg-black text-white rounded" onClick={accept}>Aceptar Y1 comercial</button>
       </section>
 
@@ -246,37 +247,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
             <button className="px-3 py-2 border rounded" onClick={doValuation}>Valorar & Retornos</button>
           </div>
 
-          {annuals && (
-            <div className="mt-5">
-              <h4 className="font-semibold">USALI Anual (1..N)</h4>
-              <div className="overflow-auto">
-                <table className="w-full text-sm border">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="p-2">Año</th>
-                      <th className="p-2">Ingresos</th>
-                      <th className="p-2">GOP</th>
-                      <th className="p-2">EBITDA</th>
-                      <th className="p-2">EBITDA-FF&E</th>
-                      <th className="p-2">GOP %</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {annuals.map((r:any)=>(
-                      <tr key={r.anio} className="border-t">
-                        <td className="p-2 text-center">{r.anio}</td>
-                        <td className="p-2 text-right">{fmt(r.operating_revenue)}</td>
-                        <td className="p-2 text-right">{fmt(r.gop)}</td>
-                        <td className="p-2 text-right">{fmt(r.ebitda)}</td>
-                        <td className="p-2 text-right">{fmt(r.ebitda_less_ffe)}</td>
-                        <td className="p-2 text-right">{(r.gop_margin*100).toFixed(1)}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          {annuals && <AnnualUsaliTable data={annuals} />}
 
           {debt && (
             <div className="mt-5">
