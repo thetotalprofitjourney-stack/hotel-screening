@@ -16,29 +16,81 @@ interface SensitivityAnalysisProps {
   baseIRR: number | null;
 }
 
+interface Scenario {
+  id: string;
+  name: string;
+  adr_delta_pct: number;  // variación de ADR (ej. 0.02 = +2%)
+  occ_delta_pp: number;   // variación de ocupación en pp (ej. -1.0 = -1pp)
+}
+
 interface SensitivityResult {
+  scenario: Scenario;
   adr_growth_pct: number;
+  occ_delta_pp: number;
   irr_levered: number;
   irr_unlevered: number;
   delta_vs_base: number;
 }
 
+const DEFAULT_SCENARIOS: Scenario[] = [
+  { id: '1', name: 'Pesimista', adr_delta_pct: -0.04, occ_delta_pp: -2.0 },
+  { id: '2', name: 'Conservador', adr_delta_pct: -0.02, occ_delta_pp: -1.0 },
+  { id: '3', name: 'Base', adr_delta_pct: 0, occ_delta_pp: 0 },
+  { id: '4', name: 'Optimista', adr_delta_pct: 0.02, occ_delta_pp: 1.0 },
+  { id: '5', name: 'Agresivo', adr_delta_pct: 0.04, occ_delta_pp: 2.0 },
+];
+
 export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIRR }: SensitivityAnalysisProps) {
   const [results, setResults] = useState<SensitivityResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [scenarios, setScenarios] = useState<Scenario[]>(DEFAULT_SCENARIOS);
+  const [editMode, setEditMode] = useState(false);
+  const [newScenarioName, setNewScenarioName] = useState('');
+  const [newScenarioADR, setNewScenarioADR] = useState(0);
+  const [newScenarioOcc, setNewScenarioOcc] = useState(0);
+
+  const loadDefaultScenarios = () => {
+    setScenarios(DEFAULT_SCENARIOS);
+    setEditMode(false);
+  };
+
+  const addScenario = () => {
+    if (!newScenarioName.trim()) {
+      alert('Debes proporcionar un nombre para el escenario');
+      return;
+    }
+    const newScenario: Scenario = {
+      id: Date.now().toString(),
+      name: newScenarioName.trim(),
+      adr_delta_pct: newScenarioADR / 100,
+      occ_delta_pp: newScenarioOcc,
+    };
+    setScenarios([...scenarios, newScenario]);
+    setNewScenarioName('');
+    setNewScenarioADR(0);
+    setNewScenarioOcc(0);
+  };
+
+  const removeScenario = (id: string) => {
+    setScenarios(scenarios.filter(s => s.id !== id));
+  };
 
   const runSensitivityAnalysis = async () => {
+    if (scenarios.length === 0) {
+      alert('Debes definir al menos un escenario');
+      return;
+    }
+
     setLoading(true);
     try {
-      // Crear un rango de variaciones de ADR growth: -4%, -2%, 0%, +2%, +4%
-      const variations = [-0.04, -0.02, 0, 0.02, 0.04];
       const sensitivityResults: SensitivityResult[] = [];
 
-      for (const delta of variations) {
+      for (const scenario of scenarios) {
         const modifiedAss = {
           ...baseAssumptions,
-          adr_growth_pct: baseAssumptions.adr_growth_pct + delta
+          adr_growth_pct: baseAssumptions.adr_growth_pct + scenario.adr_delta_pct,
+          occ_delta_pp: baseAssumptions.occ_delta_pp + scenario.occ_delta_pp
         };
 
         // Ejecutar proyección con este escenario
@@ -60,7 +112,9 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
         });
 
         sensitivityResults.push({
-          adr_growth_pct: baseAssumptions.adr_growth_pct + delta,
+          scenario,
+          adr_growth_pct: modifiedAss.adr_growth_pct,
+          occ_delta_pp: modifiedAss.occ_delta_pp,
           irr_levered: vr.returns.levered.irr,
           irr_unlevered: vr.returns.unlevered.irr,
           delta_vs_base: baseIRR ? (vr.returns.levered.irr - baseIRR) : 0
@@ -96,16 +150,115 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
       <div className="flex justify-between items-center mb-3">
         <div>
           <h4 className="font-semibold text-lg">Análisis de Sensibilidad</h4>
-          <p className="text-sm text-gray-600">Impacto de variaciones en ADR growth sobre IRR</p>
+          <p className="text-sm text-gray-600">Impacto de variaciones en ADR y Ocupación sobre IRR</p>
         </div>
-        <button
-          className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400"
-          onClick={runSensitivityAnalysis}
-          disabled={loading || !baseIRR}
-        >
-          {loading ? 'Calculando...' : 'Ejecutar análisis'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            className="px-3 py-2 bg-gray-600 text-white rounded text-sm disabled:bg-gray-400"
+            onClick={() => setEditMode(!editMode)}
+            disabled={loading}
+          >
+            {editMode ? 'Ver Escenarios' : 'Editar Escenarios'}
+          </button>
+          <button
+            className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400"
+            onClick={runSensitivityAnalysis}
+            disabled={loading || !baseIRR || scenarios.length === 0}
+          >
+            {loading ? 'Calculando...' : 'Ejecutar análisis'}
+          </button>
+        </div>
       </div>
+
+      {/* Modo de edición de escenarios */}
+      {editMode && (
+        <div className="mb-4 p-4 bg-white border rounded-lg">
+          <div className="flex justify-between items-center mb-3">
+            <h5 className="font-semibold">Configurar Escenarios</h5>
+            <button
+              className="px-3 py-1 bg-indigo-600 text-white text-sm rounded"
+              onClick={loadDefaultScenarios}
+            >
+              Cargar escenarios predeterminados
+            </button>
+          </div>
+
+          {/* Lista de escenarios actuales */}
+          <div className="mb-4">
+            <h6 className="text-sm font-medium mb-2">Escenarios actuales ({scenarios.length}):</h6>
+            <div className="space-y-2">
+              {scenarios.map((scenario) => (
+                <div key={scenario.id} className="flex justify-between items-center p-2 bg-gray-50 rounded border">
+                  <div className="flex-1">
+                    <span className="font-medium">{scenario.name}</span>
+                    <span className="text-sm text-gray-600 ml-3">
+                      ADR: {scenario.adr_delta_pct >= 0 ? '+' : ''}{(scenario.adr_delta_pct * 100).toFixed(1)}%
+                    </span>
+                    <span className="text-sm text-gray-600 ml-2">
+                      Ocupación: {scenario.occ_delta_pp >= 0 ? '+' : ''}{scenario.occ_delta_pp.toFixed(1)}pp
+                    </span>
+                  </div>
+                  <button
+                    className="px-2 py-1 bg-red-500 text-white text-xs rounded"
+                    onClick={() => removeScenario(scenario.id)}
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Formulario para agregar nuevo escenario */}
+          <div className="p-3 bg-blue-50 rounded border border-blue-200">
+            <h6 className="text-sm font-medium mb-3">Agregar nuevo escenario:</h6>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-xs font-medium mb-1">Nombre del escenario</label>
+                <input
+                  type="text"
+                  className="w-full px-2 py-1 border rounded text-sm"
+                  placeholder="Ej: Crisis económica"
+                  value={newScenarioName}
+                  onChange={(e) => setNewScenarioName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1">Variación ADR (%)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  className="w-full px-2 py-1 border rounded text-sm"
+                  placeholder="Ej: 2.0"
+                  value={newScenarioADR}
+                  onChange={(e) => setNewScenarioADR(parseFloat(e.target.value) || 0)}
+                />
+                <p className="text-xs text-gray-500 mt-1">Ej: 2 para +2%, -3 para -3%</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1">Variación Ocupación (pp)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  className="w-full px-2 py-1 border rounded text-sm"
+                  placeholder="Ej: -1.0"
+                  value={newScenarioOcc}
+                  onChange={(e) => setNewScenarioOcc(parseFloat(e.target.value) || 0)}
+                />
+                <p className="text-xs text-gray-500 mt-1">Ej: 1 para +1pp, -2 para -2pp</p>
+              </div>
+              <div className="flex items-end">
+                <button
+                  className="w-full px-3 py-1 bg-green-600 text-white rounded text-sm"
+                  onClick={addScenario}
+                >
+                  Agregar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAnalysis && results.length > 0 && (
         <div className="mt-4">
@@ -115,6 +268,7 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
                 <tr>
                   <th className="p-3 border text-left">Escenario</th>
                   <th className="p-3 border text-center">ADR Growth</th>
+                  <th className="p-3 border text-center">Ocupación Δ</th>
                   <th className="p-3 border text-right">IRR Levered</th>
                   <th className="p-3 border text-right">IRR Unlevered</th>
                   <th className="p-3 border text-right">Δ vs Base</th>
@@ -122,16 +276,20 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
               </thead>
               <tbody>
                 {results.map((r, idx) => {
-                  const isBase = Math.abs(r.adr_growth_pct - baseAssumptions.adr_growth_pct) < 0.001;
+                  const isBase = Math.abs(r.adr_growth_pct - baseAssumptions.adr_growth_pct) < 0.001 &&
+                                 Math.abs(r.occ_delta_pp - baseAssumptions.occ_delta_pp) < 0.001;
                   const rowClass = isBase ? 'bg-blue-50 font-semibold' : '';
 
                   return (
                     <tr key={idx} className={`border-t ${rowClass}`}>
                       <td className="p-3 border">
-                        {isBase ? 'Base' : r.adr_growth_pct > baseAssumptions.adr_growth_pct ? 'Optimista' : 'Pesimista'}
+                        {r.scenario.name}
                       </td>
                       <td className="p-3 border text-center">
                         {(r.adr_growth_pct * 100).toFixed(2)}%
+                      </td>
+                      <td className="p-3 border text-center">
+                        {r.occ_delta_pp >= 0 ? '+' : ''}{r.occ_delta_pp.toFixed(2)}pp
                       </td>
                       <td className="p-3 border text-right">
                         {(r.irr_levered * 100).toFixed(2)}%
@@ -154,13 +312,14 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
             <h5 className="font-medium mb-2">Sensibilidad del IRR Levered</h5>
             <div className="space-y-2">
               {results.map((r, idx) => {
-                const isBase = Math.abs(r.adr_growth_pct - baseAssumptions.adr_growth_pct) < 0.001;
+                const isBase = Math.abs(r.adr_growth_pct - baseAssumptions.adr_growth_pct) < 0.001 &&
+                               Math.abs(r.occ_delta_pp - baseAssumptions.occ_delta_pp) < 0.001;
                 const barWidth = Math.max(5, (r.irr_levered * 100) * 4); // Escala visual
 
                 return (
                   <div key={idx} className="flex items-center gap-3">
-                    <div className="w-24 text-xs text-right">
-                      {(r.adr_growth_pct * 100).toFixed(1)}%
+                    <div className="w-32 text-xs text-right truncate" title={r.scenario.name}>
+                      {r.scenario.name}
                     </div>
                     <div className="flex-1 bg-gray-200 rounded-full h-6 relative">
                       <div
@@ -186,7 +345,10 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
                 Rango de IRR levered: {(Math.min(...results.map(r => r.irr_levered)) * 100).toFixed(2)}% - {(Math.max(...results.map(r => r.irr_levered)) * 100).toFixed(2)}%
               </li>
               <li>
-                Volatilidad del IRR: ±{(Math.max(...results.map(r => Math.abs(r.delta_vs_base))) * 100).toFixed(2)}pp por cada ±2% de ADR growth
+                Volatilidad máxima del IRR: ±{(Math.max(...results.map(r => Math.abs(r.delta_vs_base))) * 100).toFixed(2)}pp
+              </li>
+              <li>
+                Escenarios analizados: {results.length} (combinando variaciones de ADR y Ocupación)
               </li>
             </ul>
           </div>
