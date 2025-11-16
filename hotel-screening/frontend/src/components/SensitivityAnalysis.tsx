@@ -19,20 +19,23 @@ interface SensitivityAnalysisProps {
 interface Scenario {
   id: string;
   name: string;
-  adr_delta_pct: number;  // variación de ADR (ej. 0.02 = +2%)
-  occ_delta_pp: number;   // variación de ocupación en pp (ej. -1.0 = -1pp)
+  adr_delta_pct: number;
+  occ_delta_pp: number;
 }
 
 interface SensitivityResult {
   scenario: Scenario;
   adr_growth_pct: number;
   occ_delta_pp: number;
+  total_revenue: number;
+  gop: number;
+  ebitda: number;
   irr_levered: number;
   irr_unlevered: number;
   delta_vs_base: number;
 }
 
-const DEFAULT_SCENARIOS: Scenario[] = [
+const SCENARIOS: Scenario[] = [
   { id: '1', name: 'Pesimista', adr_delta_pct: -0.04, occ_delta_pp: -2.0 },
   { id: '2', name: 'Conservador', adr_delta_pct: -0.02, occ_delta_pp: -1.0 },
   { id: '3', name: 'Base', adr_delta_pct: 0, occ_delta_pp: 0 },
@@ -50,7 +53,7 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
     try {
       const sensitivityResults: SensitivityResult[] = [];
 
-      for (const scenario of DEFAULT_SCENARIOS) {
+      for (const scenario of SCENARIOS) {
         const modifiedAss = {
           ...baseAssumptions,
           adr_growth_pct: baseAssumptions.adr_growth_pct + scenario.adr_delta_pct,
@@ -58,7 +61,7 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
         };
 
         // Ejecutar proyección con este escenario
-        await api(`/v1/projects/${projectId}/projection`, {
+        const projectionResult = await api(`/v1/projects/${projectId}/projection`, {
           method: 'POST',
           body: JSON.stringify(modifiedAss)
         });
@@ -75,10 +78,17 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
           body: JSON.stringify({})
         });
 
+        // Obtener datos del último año proyectado
+        const annuals = projectionResult.annuals || [];
+        const lastYear = annuals[annuals.length - 1] || {};
+
         sensitivityResults.push({
           scenario,
           adr_growth_pct: modifiedAss.adr_growth_pct,
           occ_delta_pp: modifiedAss.occ_delta_pp,
+          total_revenue: lastYear.operating_revenue || 0,
+          gop: lastYear.gop || 0,
+          ebitda: lastYear.ebitda || 0,
           irr_levered: vr.returns.levered.irr,
           irr_unlevered: vr.returns.unlevered.irr,
           delta_vs_base: baseIRR ? (vr.returns.levered.irr - baseIRR) : 0
@@ -114,115 +124,18 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
       <div className="flex justify-between items-center mb-3">
         <div>
           <h4 className="font-semibold text-lg">Análisis de Sensibilidad</h4>
-          <p className="text-sm text-gray-600">Impacto de variaciones en ADR y Ocupación sobre IRR</p>
+          <p className="text-sm text-gray-600">
+            Evaluación automática de 5 escenarios combinando variaciones de ADR y Ocupación
+          </p>
         </div>
-        <div className="flex gap-2">
-          <button
-            className="px-3 py-2 bg-gray-600 text-white rounded text-sm disabled:bg-gray-400"
-            onClick={() => setEditMode(!editMode)}
-            disabled={loading}
-          >
-            {editMode ? 'Ver Escenarios' : 'Editar Escenarios'}
-          </button>
-          <button
-            className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400"
-            onClick={runSensitivityAnalysis}
-            disabled={loading || !baseIRR || scenarios.length === 0}
-          >
-            {loading ? 'Calculando...' : 'Ejecutar análisis'}
-          </button>
-        </div>
+        <button
+          className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400"
+          onClick={runSensitivityAnalysis}
+          disabled={loading || !baseIRR}
+        >
+          {loading ? 'Calculando...' : 'Ejecutar análisis'}
+        </button>
       </div>
-
-      {/* Modo de edición de escenarios */}
-      {editMode && (
-        <div className="mb-4 p-4 bg-white border rounded-lg">
-          <div className="flex justify-between items-center mb-3">
-            <h5 className="font-semibold">Configurar Escenarios</h5>
-            <button
-              className="px-3 py-1 bg-indigo-600 text-white text-sm rounded"
-              onClick={loadDefaultScenarios}
-            >
-              Cargar escenarios predeterminados
-            </button>
-          </div>
-
-          {/* Lista de escenarios actuales */}
-          <div className="mb-4">
-            <h6 className="text-sm font-medium mb-2">Escenarios actuales ({scenarios.length}):</h6>
-            <div className="space-y-2">
-              {scenarios.map((scenario) => (
-                <div key={scenario.id} className="flex justify-between items-center p-2 bg-gray-50 rounded border">
-                  <div className="flex-1">
-                    <span className="font-medium">{scenario.name}</span>
-                    <span className="text-sm text-gray-600 ml-3">
-                      ADR: {scenario.adr_delta_pct >= 0 ? '+' : ''}{(scenario.adr_delta_pct * 100).toFixed(1)}%
-                    </span>
-                    <span className="text-sm text-gray-600 ml-2">
-                      Ocupación: {scenario.occ_delta_pp >= 0 ? '+' : ''}{scenario.occ_delta_pp.toFixed(1)}pp
-                    </span>
-                  </div>
-                  <button
-                    className="px-2 py-1 bg-red-500 text-white text-xs rounded"
-                    onClick={() => removeScenario(scenario.id)}
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Formulario para agregar nuevo escenario */}
-          <div className="p-3 bg-blue-50 rounded border border-blue-200">
-            <h6 className="text-sm font-medium mb-3">Agregar nuevo escenario:</h6>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <div>
-                <label className="block text-xs font-medium mb-1">Nombre del escenario</label>
-                <input
-                  type="text"
-                  className="w-full px-2 py-1 border rounded text-sm"
-                  placeholder="Ej: Crisis económica"
-                  value={newScenarioName}
-                  onChange={(e) => setNewScenarioName(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1">Variación ADR (%)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  className="w-full px-2 py-1 border rounded text-sm"
-                  placeholder="Ej: 2.0"
-                  value={newScenarioADR}
-                  onChange={(e) => setNewScenarioADR(parseFloat(e.target.value) || 0)}
-                />
-                <p className="text-xs text-gray-500 mt-1">Ej: 2 para +2%, -3 para -3%</p>
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1">Variación Ocupación (pp)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  className="w-full px-2 py-1 border rounded text-sm"
-                  placeholder="Ej: -1.0"
-                  value={newScenarioOcc}
-                  onChange={(e) => setNewScenarioOcc(parseFloat(e.target.value) || 0)}
-                />
-                <p className="text-xs text-gray-500 mt-1">Ej: 1 para +1pp, -2 para -2pp</p>
-              </div>
-              <div className="flex items-end">
-                <button
-                  className="w-full px-3 py-1 bg-green-600 text-white rounded text-sm"
-                  onClick={addScenario}
-                >
-                  Agregar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showAnalysis && results.length > 0 && (
         <div className="mt-4">
@@ -233,6 +146,9 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
                   <th className="p-3 border text-left">Escenario</th>
                   <th className="p-3 border text-center">ADR Growth</th>
                   <th className="p-3 border text-center">Ocupación Δ</th>
+                  <th className="p-3 border text-right">Total Revenue (Año N)</th>
+                  <th className="p-3 border text-right">GOP (Año N)</th>
+                  <th className="p-3 border text-right">EBITDA (Año N)</th>
                   <th className="p-3 border text-right">IRR Levered</th>
                   <th className="p-3 border text-right">IRR Unlevered</th>
                   <th className="p-3 border text-right">Δ vs Base</th>
@@ -254,6 +170,15 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
                       </td>
                       <td className="p-3 border text-center">
                         {r.occ_delta_pp >= 0 ? '+' : ''}{r.occ_delta_pp.toFixed(2)}pp
+                      </td>
+                      <td className="p-3 border text-right">
+                        {r.total_revenue.toLocaleString('es-ES', { maximumFractionDigits: 0 })} €
+                      </td>
+                      <td className="p-3 border text-right">
+                        {r.gop.toLocaleString('es-ES', { maximumFractionDigits: 0 })} €
+                      </td>
+                      <td className="p-3 border text-right">
+                        {r.ebitda.toLocaleString('es-ES', { maximumFractionDigits: 0 })} €
                       </td>
                       <td className="p-3 border text-right">
                         {(r.irr_levered * 100).toFixed(2)}%
@@ -312,7 +237,7 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
                 Volatilidad máxima del IRR: ±{(Math.max(...results.map(r => Math.abs(r.delta_vs_base))) * 100).toFixed(2)}pp
               </li>
               <li>
-                Escenarios analizados: {results.length} (combinando variaciones de ADR y Ocupación)
+                Rango de EBITDA (Año N): {Math.min(...results.map(r => r.ebitda)).toLocaleString('es-ES', { maximumFractionDigits: 0 })} € - {Math.max(...results.map(r => r.ebitda)).toLocaleString('es-ES', { maximumFractionDigits: 0 })} €
               </li>
             </ul>
           </div>
