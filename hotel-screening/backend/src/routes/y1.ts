@@ -164,4 +164,103 @@ router.post('/v1/projects/:id/y1/calc', async (req, res) => {
   });
 });
 
+// Guardar USALI Y1 editado manualmente
+router.put('/v1/projects/:id/y1/usali', async (req, res) => {
+  const projectId = req.params.id;
+
+  const schema = z.object({
+    monthly: z.array(z.object({
+      mes: z.number().int().min(1).max(12),
+      rooms: z.number(),
+      fb: z.number(),
+      other_operated: z.number(),
+      misc_income: z.number(),
+      total_rev: z.number(),
+      dept_rooms: z.number(),
+      dept_fb: z.number(),
+      dept_other: z.number(),
+      dept_total: z.number(),
+      dept_profit: z.number(),
+      und_ag: z.number(),
+      und_it: z.number(),
+      und_sm: z.number(),
+      und_pom: z.number(),
+      und_eww: z.number(),
+      und_total: z.number(),
+      gop: z.number(),
+      fees_base: z.number(),
+      fees_variable: z.number(),
+      fees_incentive: z.number(),
+      fees_total: z.number(),
+      income_before_nonop: z.number(),
+      nonop_total: z.number(),
+      ebitda: z.number(),
+      ffe_amount: z.number(),
+      ebitda_less_ffe: z.number()
+    })).length(12)
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error);
+
+  const monthly = parsed.data.monthly;
+
+  // Eliminar datos anteriores
+  await pool.query(`DELETE FROM usali_y1_monthly WHERE project_id=?`, [projectId]);
+
+  // Insertar datos editados
+  const placeholders = monthly.map(()=>'(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').join(',');
+  const vals: any[] = [];
+  monthly.forEach(m => {
+    vals.push(
+      projectId, m.mes,
+      m.rooms, m.fb, m.other_operated, m.misc_income, m.total_rev,
+      m.dept_rooms, m.dept_fb, m.dept_other, m.dept_total, m.dept_profit,
+      m.und_ag, m.und_it, m.und_sm, m.und_pom, m.und_eww, m.und_total,
+      m.gop, m.fees_base, m.fees_variable, m.fees_incentive, m.fees_total,
+      m.income_before_nonop, m.nonop_total, m.ebitda, m.ffe_amount, m.ebitda_less_ffe
+    );
+  });
+
+  await pool.query(
+    `INSERT INTO usali_y1_monthly
+     (project_id,mes,rooms,fb,other_operated,misc_income,total_rev,
+      dept_rooms,dept_fb,dept_other,dept_total,dept_profit,
+      und_ag,und_it,und_sm,und_pom,und_eww,und_total,
+      gop,fees_base,fees_variable,fees_incentive,fees_total,
+      income_before_nonop,nonop_total,ebitda,ffe_amount,ebitda_less_ffe)
+     VALUES ${placeholders}`,
+    vals
+  );
+
+  // Calcular y guardar totales anuales
+  const sum = (field: string) => monthly.reduce((acc: number, m: any) => acc + Number(m[field] || 0), 0);
+
+  const y1_anual = {
+    operating_revenue: sum('total_rev'),
+    gop: sum('gop'),
+    fees: sum('fees_total'),
+    nonop: sum('nonop_total'),
+    ebitda: sum('ebitda'),
+    ffe: sum('ffe_amount'),
+    ebitda_less_ffe: sum('ebitda_less_ffe'),
+    gop_margin: sum('gop') / Math.max(1, sum('total_rev')),
+    ebitda_margin: sum('ebitda') / Math.max(1, sum('total_rev')),
+    ebitda_less_ffe_margin: sum('ebitda_less_ffe') / Math.max(1, sum('total_rev'))
+  };
+
+  await pool.query(
+    `REPLACE INTO usali_annual
+     (project_id, anio, operating_revenue, gop, fees, nonop, ebitda, ffe, ebitda_less_ffe, gop_margin, ebitda_margin, ebitda_less_ffe_margin)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [
+      projectId, 1,
+      y1_anual.operating_revenue, y1_anual.gop, y1_anual.fees, y1_anual.nonop, y1_anual.ebitda,
+      y1_anual.ffe, y1_anual.ebitda_less_ffe, y1_anual.gop_margin, y1_anual.ebitda_margin, y1_anual.ebitda_less_ffe_margin
+    ]
+  );
+
+  res.json({ ok: true, y1_anual });
+});
+
 export default router;
