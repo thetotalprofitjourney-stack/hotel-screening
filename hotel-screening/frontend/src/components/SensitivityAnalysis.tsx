@@ -44,49 +44,13 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
   const [results, setResults] = useState<SensitivityResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
-  const [scenarios, setScenarios] = useState<Scenario[]>(DEFAULT_SCENARIOS);
-  const [editMode, setEditMode] = useState(false);
-  const [newScenarioName, setNewScenarioName] = useState('');
-  const [newScenarioADR, setNewScenarioADR] = useState(0);
-  const [newScenarioOcc, setNewScenarioOcc] = useState(0);
-
-  const loadDefaultScenarios = () => {
-    setScenarios(DEFAULT_SCENARIOS);
-    setEditMode(false);
-  };
-
-  const addScenario = () => {
-    if (!newScenarioName.trim()) {
-      alert('Debes proporcionar un nombre para el escenario');
-      return;
-    }
-    const newScenario: Scenario = {
-      id: Date.now().toString(),
-      name: newScenarioName.trim(),
-      adr_delta_pct: newScenarioADR / 100,
-      occ_delta_pp: newScenarioOcc,
-    };
-    setScenarios([...scenarios, newScenario]);
-    setNewScenarioName('');
-    setNewScenarioADR(0);
-    setNewScenarioOcc(0);
-  };
-
-  const removeScenario = (id: string) => {
-    setScenarios(scenarios.filter(s => s.id !== id));
-  };
 
   const runSensitivityAnalysis = async () => {
-    if (scenarios.length === 0) {
-      alert('Debes definir al menos un escenario');
-      return;
-    }
-
     setLoading(true);
     try {
       const sensitivityResults: SensitivityResult[] = [];
 
-      for (const scenario of scenarios) {
+      for (const scenario of DEFAULT_SCENARIOS) {
         const modifiedAss = {
           ...baseAssumptions,
           adr_growth_pct: baseAssumptions.adr_growth_pct + scenario.adr_delta_pct,
