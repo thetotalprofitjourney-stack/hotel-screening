@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../api';
 import MonthlyTable from '../components/MonthlyTable';
 import ProjectConfigForm, { ProjectConfig } from '../components/ProjectConfigForm';
+import UsaliEditor from '../components/UsaliEditor';
+import SensitivityAnalysis from '../components/SensitivityAnalysis';
 
 export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:()=>void }) {
   const [config, setConfig] = useState<ProjectConfig | null>(null);
@@ -82,6 +84,15 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   async function calcY1() {
     const r = await api(`/v1/projects/${projectId}/y1/calc`, { method:'POST', body: JSON.stringify({}) });
     setCalc(r);
+  }
+
+  async function saveUsali(editedData: any[]) {
+    await api(`/v1/projects/${projectId}/y1/usali`, {
+      method: 'PUT',
+      body: JSON.stringify({ monthly: editedData })
+    });
+    // Recargar los datos después de guardar
+    await calcY1();
   }
 
   async function doProjection() {
@@ -169,41 +180,12 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       {accepted && (
         <section>
           <h3 className="text-lg font-semibold mb-2">Paso 2 — Cálculo USALI Y1</h3>
-          <button className="px-3 py-2 bg-black text-white rounded" onClick={calcY1}>Calcular USALI</button>
-          {calc && (
-            <div className="mt-4">
-              <h4 className="font-semibold">Resumen anual</h4>
-              <div className="grid grid-cols-3 gap-3 mt-2">
-                <Stat label="Ingresos" value={calc.y1_anual.operating_revenue} />
-                <Stat label="GOP" value={calc.y1_anual.gop} />
-                <Stat label="EBITDA" value={calc.y1_anual.ebitda} />
-              </div>
-              <h4 className="font-semibold mt-4">Mensual (USALI)</h4>
-              <div className="overflow-auto">
-                <table className="w-full text-sm border">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="p-2">Mes</th>
-                      <th className="p-2">Total Rev</th>
-                      <th className="p-2">GOP</th>
-                      <th className="p-2">EBITDA</th>
-                      <th className="p-2">FF&E</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {calc.y1_mensual.map((m:any)=>(
-                      <tr key={m.mes} className="border-t">
-                        <td className="p-2 text-center">{m.mes}</td>
-                        <td className="p-2 text-right">{m.total_rev.toFixed(0)}</td>
-                        <td className="p-2 text-right">{m.gop.toFixed(0)}</td>
-                        <td className="p-2 text-right">{m.ebitda.toFixed(0)}</td>
-                        <td className="p-2 text-right">{m.ffe_amount.toFixed(0)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          {!calc ? (
+            <button className="px-3 py-2 bg-black text-white rounded" onClick={calcY1}>
+              Calcular USALI con ratios de mercado
+            </button>
+          ) : (
+            <UsaliEditor calculatedData={calc.y1_mensual} onSave={saveUsali} />
           )}
         </section>
       )}
@@ -328,26 +310,34 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
           )}
 
           {vr && (
-            <div className="mt-5">
-              <h4 className="font-semibold">Valoración & Retornos</h4>
-              <div className="grid grid-cols-3 gap-3">
-                <Stat label="Valor salida bruto" value={vr.valuation.valor_salida_bruto}/>
-                <Stat label="Valor salida neto" value={vr.valuation.valor_salida_neto}/>
-                <Stat label="Equity inicial" value={vr.returns.levered.equity0}/>
-              </div>
-              <div className="grid grid-cols-2 gap-3 mt-3">
-                <div className="p-3 border rounded">
-                  <div className="font-semibold mb-1">Unlevered</div>
-                  <div>IRR: {(vr.returns.unlevered.irr*100).toFixed(2)}%</div>
-                  <div>MOIC: {vr.returns.unlevered.moic.toFixed(2)}x</div>
+            <>
+              <div className="mt-5">
+                <h4 className="font-semibold">Valoración & Retornos</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <Stat label="Valor salida bruto" value={vr.valuation.valor_salida_bruto}/>
+                  <Stat label="Valor salida neto" value={vr.valuation.valor_salida_neto}/>
+                  <Stat label="Equity inicial" value={vr.returns.levered.equity0}/>
                 </div>
-                <div className="p-3 border rounded">
-                  <div className="font-semibold mb-1">Levered</div>
-                  <div>IRR: {(vr.returns.levered.irr*100).toFixed(2)}%</div>
-                  <div>MOIC: {vr.returns.levered.moic.toFixed(2)}x</div>
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div className="p-3 border rounded">
+                    <div className="font-semibold mb-1">Unlevered</div>
+                    <div>IRR: {(vr.returns.unlevered.irr*100).toFixed(2)}%</div>
+                    <div>MOIC: {vr.returns.unlevered.moic.toFixed(2)}x</div>
+                  </div>
+                  <div className="p-3 border rounded">
+                    <div className="font-semibold mb-1">Levered</div>
+                    <div>IRR: {(vr.returns.levered.irr*100).toFixed(2)}%</div>
+                    <div>MOIC: {vr.returns.levered.moic.toFixed(2)}x</div>
+                  </div>
                 </div>
               </div>
-            </div>
+
+              <SensitivityAnalysis
+                projectId={projectId}
+                baseAssumptions={ass}
+                baseIRR={vr.returns.levered.irr}
+              />
+            </>
           )}
         </section>
       )}
