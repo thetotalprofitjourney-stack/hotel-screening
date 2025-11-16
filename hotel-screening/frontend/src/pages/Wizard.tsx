@@ -7,11 +7,6 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   const [meses, setMeses] = useState<any[]>([]);
   const [accepted, setAccepted] = useState(false);
   const [calc, setCalc] = useState<any|null>(null);
-  // anio, meses, accepted, calc
-  const [anio, setAnio] = useState<number>(new Date().getFullYear());
-  const [meses, setMeses] = useState<any[]>([]);
-  const [accepted, setAccepted] = useState(false);
-  const [calc, setCalc] = useState<any|null>(null);
   // nuevos estados
   const [ass, setAss] = useState({
     years: 7,
@@ -32,7 +27,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     setMeses(data.meses.map((m:any)=>({ ...m, ocupacion:m.occ, adr:m.adr })));
   }
 
-  useEffect(()=>{ loadBenchmark().catch(console.error); },[anio]);
+  useEffect(()=>{ loadBenchmark().catch(console.error); },[anio, projectId]);
 
   async function accept() {
     await api(`/v1/projects/${projectId}/y1/benchmark/accept`, {
@@ -272,21 +267,6 @@ function Stat({label, value}:{label:string; value:number}) {
     <div className="p-3 border rounded">
       <div className="text-xs text-gray-500">{label}</div>
       <div className="text-lg font-semibold">{fmt(value ?? 0)}</div>
-    </div>
-  );
-}
-	  
-	  
-	  
-    </div>
-  );
-}
-
-function Stat({label, value}:{label:string; value:number}) {
-  return (
-    <div className="p-3 border rounded">
-      <div className="text-xs text-gray-500">{label}</div>
-      <div className="text-lg font-semibold">{Intl.NumberFormat('es-ES', { style:'currency', currency:'EUR' }).format(value ?? 0)}</div>
     </div>
   );
 }
