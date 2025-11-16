@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 interface UsaliMonthData {
   mes: number;
+  rn: number; // Roomnights
   // Ingresos
   rooms: number;
   fb: number;
@@ -98,6 +99,7 @@ export default function UsaliEditor({ calculatedData, onSave }: UsaliEditorProps
 
     return {
       operating_revenue: sum('total_rev'),
+      dept_profit: sum('dept_profit'),
       gop: sum('gop'),
       ebitda: sum('ebitda'),
       ffe: sum('ffe_amount'),
@@ -136,8 +138,9 @@ export default function UsaliEditor({ calculatedData, onSave }: UsaliEditorProps
       </div>
 
       {/* Resumen Anual */}
-      <div className="grid grid-cols-5 gap-3 p-4 bg-gray-50 rounded-lg">
-        <Stat label="Ingresos Totales" value={annual.operating_revenue} />
+      <div className="grid grid-cols-6 gap-3 p-4 bg-gray-50 rounded-lg">
+        <Stat label="Total Rev" value={annual.operating_revenue} />
+        <Stat label="Dept Profit" value={annual.dept_profit} />
         <Stat label="GOP" value={annual.gop} />
         <Stat label="EBITDA" value={annual.ebitda} />
         <Stat label="FF&E" value={annual.ffe} />
@@ -146,65 +149,173 @@ export default function UsaliEditor({ calculatedData, onSave }: UsaliEditorProps
 
       {/* Tabla mensual detallada */}
       {showDetailed ? (
-        <div className="overflow-auto border rounded-lg">
-          <table className="w-full text-xs border-collapse">
-            <thead className="bg-gray-100 sticky top-0">
-              <tr>
-                <th className="p-2 border text-left">Mes</th>
-                <th className="p-2 border text-right">Rooms Rev</th>
-                <th className="p-2 border text-right">F&B Rev</th>
-                <th className="p-2 border text-right">Other Op</th>
-                <th className="p-2 border text-right">Misc</th>
-                <th className="p-2 border text-right bg-blue-50">Total Rev</th>
-                <th className="p-2 border text-right">Dept Rooms</th>
-                <th className="p-2 border text-right">Dept F&B</th>
-                <th className="p-2 border text-right">Dept Other</th>
-                <th className="p-2 border text-right bg-yellow-50">Dept Profit</th>
-                <th className="p-2 border text-right">Und AG</th>
-                <th className="p-2 border text-right">Und IT</th>
-                <th className="p-2 border text-right">Und SM</th>
-                <th className="p-2 border text-right">Und POM</th>
-                <th className="p-2 border text-right">Und EWW</th>
-                <th className="p-2 border text-right bg-green-50">GOP</th>
-                <th className="p-2 border text-right">Fees Base</th>
-                <th className="p-2 border text-right">Fees Var</th>
-                <th className="p-2 border text-right">Fees Inc</th>
-                <th className="p-2 border text-right">Non-op</th>
-                <th className="p-2 border text-right bg-purple-50">EBITDA</th>
-                <th className="p-2 border text-right">FF&E</th>
-                <th className="p-2 border text-right bg-orange-50">EBITDA-FF&E</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((m, idx) => (
-                <tr key={m.mes} className="hover:bg-gray-50">
-                  <td className="p-2 border text-center font-medium">{m.mes}</td>
-                  <td className="p-1 border"><EditCell value={m.rooms} onChange={(v) => updateField(idx, 'rooms', v)} /></td>
-                  <td className="p-1 border"><EditCell value={m.fb} onChange={(v) => updateField(idx, 'fb', v)} /></td>
-                  <td className="p-1 border"><EditCell value={m.other_operated} onChange={(v) => updateField(idx, 'other_operated', v)} /></td>
-                  <td className="p-1 border"><EditCell value={m.misc_income} onChange={(v) => updateField(idx, 'misc_income', v)} /></td>
-                  <td className="p-2 border text-right bg-blue-50 font-semibold">{fmt(m.total_rev)}</td>
-                  <td className="p-1 border"><EditCell value={m.dept_rooms} onChange={(v) => updateField(idx, 'dept_rooms', v)} /></td>
-                  <td className="p-1 border"><EditCell value={m.dept_fb} onChange={(v) => updateField(idx, 'dept_fb', v)} /></td>
-                  <td className="p-1 border"><EditCell value={m.dept_other} onChange={(v) => updateField(idx, 'dept_other', v)} /></td>
-                  <td className="p-2 border text-right bg-yellow-50 font-semibold">{fmt(m.dept_profit)}</td>
-                  <td className="p-1 border"><EditCell value={m.und_ag} onChange={(v) => updateField(idx, 'und_ag', v)} /></td>
-                  <td className="p-1 border"><EditCell value={m.und_it} onChange={(v) => updateField(idx, 'und_it', v)} /></td>
-                  <td className="p-1 border"><EditCell value={m.und_sm} onChange={(v) => updateField(idx, 'und_sm', v)} /></td>
-                  <td className="p-1 border"><EditCell value={m.und_pom} onChange={(v) => updateField(idx, 'und_pom', v)} /></td>
-                  <td className="p-1 border"><EditCell value={m.und_eww} onChange={(v) => updateField(idx, 'und_eww', v)} /></td>
-                  <td className="p-2 border text-right bg-green-50 font-semibold">{fmt(m.gop)}</td>
-                  <td className="p-1 border"><EditCell value={m.fees_base} onChange={(v) => updateField(idx, 'fees_base', v)} /></td>
-                  <td className="p-1 border"><EditCell value={m.fees_variable} onChange={(v) => updateField(idx, 'fees_variable', v)} /></td>
-                  <td className="p-1 border"><EditCell value={m.fees_incentive} onChange={(v) => updateField(idx, 'fees_incentive', v)} /></td>
-                  <td className="p-1 border"><EditCell value={m.nonop_total} onChange={(v) => updateField(idx, 'nonop_total', v)} /></td>
-                  <td className="p-2 border text-right bg-purple-50 font-semibold">{fmt(m.ebitda)}</td>
-                  <td className="p-1 border"><EditCell value={m.ffe_amount} onChange={(v) => updateField(idx, 'ffe_amount', v)} /></td>
-                  <td className="p-2 border text-right bg-orange-50 font-semibold">{fmt(m.ebitda_less_ffe)}</td>
+        <div className="space-y-4">
+          {/* Tabla de valores absolutos (editables) */}
+          <div className="overflow-auto border rounded-lg">
+            <h5 className="font-semibold p-3 bg-gray-100 border-b">Valores Absolutos (€)</h5>
+            <table className="w-full text-xs border-collapse">
+              <thead className="bg-gray-100 sticky top-0">
+                <tr>
+                  <th className="p-2 border text-left">Mes</th>
+                  <th className="p-2 border text-right">Rooms Rev</th>
+                  <th className="p-2 border text-right">F&B Rev</th>
+                  <th className="p-2 border text-right">Other Op</th>
+                  <th className="p-2 border text-right">Misc</th>
+                  <th className="p-2 border text-right bg-blue-50">Total Rev</th>
+                  <th className="p-2 border text-right">Dept Rooms</th>
+                  <th className="p-2 border text-right">Dept F&B</th>
+                  <th className="p-2 border text-right">Dept Other</th>
+                  <th className="p-2 border text-right bg-yellow-50">Dept Profit</th>
+                  <th className="p-2 border text-right">Und AG</th>
+                  <th className="p-2 border text-right">Und IT</th>
+                  <th className="p-2 border text-right">Und SM</th>
+                  <th className="p-2 border text-right">Und POM</th>
+                  <th className="p-2 border text-right">Und EWW</th>
+                  <th className="p-2 border text-right bg-green-50">GOP</th>
+                  <th className="p-2 border text-right">Fees Base</th>
+                  <th className="p-2 border text-right">Fees Var</th>
+                  <th className="p-2 border text-right">Fees Inc</th>
+                  <th className="p-2 border text-right">Non-op</th>
+                  <th className="p-2 border text-right bg-purple-50">EBITDA</th>
+                  <th className="p-2 border text-right">FF&E</th>
+                  <th className="p-2 border text-right bg-orange-50">EBITDA-FF&E</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data.map((m, idx) => (
+                  <tr key={m.mes} className="hover:bg-gray-50">
+                    <td className="p-2 border text-center font-medium">{m.mes}</td>
+                    <td className="p-1 border"><EditCell value={m.rooms} onChange={(v) => updateField(idx, 'rooms', v)} /></td>
+                    <td className="p-1 border"><EditCell value={m.fb} onChange={(v) => updateField(idx, 'fb', v)} /></td>
+                    <td className="p-1 border"><EditCell value={m.other_operated} onChange={(v) => updateField(idx, 'other_operated', v)} /></td>
+                    <td className="p-1 border"><EditCell value={m.misc_income} onChange={(v) => updateField(idx, 'misc_income', v)} /></td>
+                    <td className="p-2 border text-right bg-blue-50 font-semibold">{fmt(m.total_rev)}</td>
+                    <td className="p-1 border"><EditCell value={m.dept_rooms} onChange={(v) => updateField(idx, 'dept_rooms', v)} /></td>
+                    <td className="p-1 border"><EditCell value={m.dept_fb} onChange={(v) => updateField(idx, 'dept_fb', v)} /></td>
+                    <td className="p-1 border"><EditCell value={m.dept_other} onChange={(v) => updateField(idx, 'dept_other', v)} /></td>
+                    <td className="p-2 border text-right bg-yellow-50 font-semibold">{fmt(m.dept_profit)}</td>
+                    <td className="p-1 border"><EditCell value={m.und_ag} onChange={(v) => updateField(idx, 'und_ag', v)} /></td>
+                    <td className="p-1 border"><EditCell value={m.und_it} onChange={(v) => updateField(idx, 'und_it', v)} /></td>
+                    <td className="p-1 border"><EditCell value={m.und_sm} onChange={(v) => updateField(idx, 'und_sm', v)} /></td>
+                    <td className="p-1 border"><EditCell value={m.und_pom} onChange={(v) => updateField(idx, 'und_pom', v)} /></td>
+                    <td className="p-1 border"><EditCell value={m.und_eww} onChange={(v) => updateField(idx, 'und_eww', v)} /></td>
+                    <td className="p-2 border text-right bg-green-50 font-semibold">{fmt(m.gop)}</td>
+                    <td className="p-1 border"><EditCell value={m.fees_base} onChange={(v) => updateField(idx, 'fees_base', v)} /></td>
+                    <td className="p-1 border"><EditCell value={m.fees_variable} onChange={(v) => updateField(idx, 'fees_variable', v)} /></td>
+                    <td className="p-1 border"><EditCell value={m.fees_incentive} onChange={(v) => updateField(idx, 'fees_incentive', v)} /></td>
+                    <td className="p-1 border"><EditCell value={m.nonop_total} onChange={(v) => updateField(idx, 'nonop_total', v)} /></td>
+                    <td className="p-2 border text-right bg-purple-50 font-semibold">{fmt(m.ebitda)}</td>
+                    <td className="p-1 border"><EditCell value={m.ffe_amount} onChange={(v) => updateField(idx, 'ffe_amount', v)} /></td>
+                    <td className="p-2 border text-right bg-orange-50 font-semibold">{fmt(m.ebitda_less_ffe)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Tabla de % sobre Total Rev (no editable) */}
+          <div className="overflow-auto border rounded-lg">
+            <h5 className="font-semibold p-3 bg-gray-100 border-b">% sobre Total Revenue</h5>
+            <table className="w-full text-xs border-collapse">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="p-2 border text-left">Mes</th>
+                  <th className="p-2 border text-right">Rooms %</th>
+                  <th className="p-2 border text-right">F&B %</th>
+                  <th className="p-2 border text-right">Other %</th>
+                  <th className="p-2 border text-right">Misc %</th>
+                  <th className="p-2 border text-right">Dept Rooms %</th>
+                  <th className="p-2 border text-right">Dept F&B %</th>
+                  <th className="p-2 border text-right">Dept Other %</th>
+                  <th className="p-2 border text-right bg-yellow-50">Dept Profit %</th>
+                  <th className="p-2 border text-right">Und Total %</th>
+                  <th className="p-2 border text-right bg-green-50">GOP %</th>
+                  <th className="p-2 border text-right">Fees %</th>
+                  <th className="p-2 border text-right">Non-op %</th>
+                  <th className="p-2 border text-right bg-purple-50">EBITDA %</th>
+                  <th className="p-2 border text-right">FF&E %</th>
+                  <th className="p-2 border text-right bg-orange-50">EBITDA-FF&E %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((m) => {
+                  const pct = (val: number) => ((val / m.total_rev) * 100).toFixed(1) + '%';
+                  return (
+                    <tr key={m.mes} className="hover:bg-gray-50">
+                      <td className="p-2 border text-center font-medium">{m.mes}</td>
+                      <td className="p-2 border text-right">{pct(m.rooms)}</td>
+                      <td className="p-2 border text-right">{pct(m.fb)}</td>
+                      <td className="p-2 border text-right">{pct(m.other_operated)}</td>
+                      <td className="p-2 border text-right">{pct(m.misc_income)}</td>
+                      <td className="p-2 border text-right">{pct(m.dept_rooms)}</td>
+                      <td className="p-2 border text-right">{pct(m.dept_fb)}</td>
+                      <td className="p-2 border text-right">{pct(m.dept_other)}</td>
+                      <td className="p-2 border text-right bg-yellow-50 font-semibold">{pct(m.dept_profit)}</td>
+                      <td className="p-2 border text-right">{pct(m.und_total)}</td>
+                      <td className="p-2 border text-right bg-green-50 font-semibold">{pct(m.gop)}</td>
+                      <td className="p-2 border text-right">{pct(m.fees_total)}</td>
+                      <td className="p-2 border text-right">{pct(m.nonop_total)}</td>
+                      <td className="p-2 border text-right bg-purple-50 font-semibold">{pct(m.ebitda)}</td>
+                      <td className="p-2 border text-right">{pct(m.ffe_amount)}</td>
+                      <td className="p-2 border text-right bg-orange-50 font-semibold">{pct(m.ebitda_less_ffe)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Tabla de € por Roomnight (no editable) */}
+          <div className="overflow-auto border rounded-lg">
+            <h5 className="font-semibold p-3 bg-gray-100 border-b">€ por Roomnight</h5>
+            <table className="w-full text-xs border-collapse">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="p-2 border text-left">Mes</th>
+                  <th className="p-2 border text-right">Roomnights</th>
+                  <th className="p-2 border text-right">Rooms €/RN</th>
+                  <th className="p-2 border text-right">F&B €/RN</th>
+                  <th className="p-2 border text-right">Other €/RN</th>
+                  <th className="p-2 border text-right">Misc €/RN</th>
+                  <th className="p-2 border text-right bg-blue-50">Total Rev €/RN</th>
+                  <th className="p-2 border text-right">Dept Rooms €/RN</th>
+                  <th className="p-2 border text-right bg-yellow-50">Dept Profit €/RN</th>
+                  <th className="p-2 border text-right">Und €/RN</th>
+                  <th className="p-2 border text-right bg-green-50">GOP €/RN</th>
+                  <th className="p-2 border text-right">Fees €/RN</th>
+                  <th className="p-2 border text-right">Non-op €/RN</th>
+                  <th className="p-2 border text-right bg-purple-50">EBITDA €/RN</th>
+                  <th className="p-2 border text-right">FF&E €/RN</th>
+                  <th className="p-2 border text-right bg-orange-50">EBITDA-FF&E €/RN</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((m) => {
+                  const perRN = (val: number) => (val / Math.max(1, m.rn)).toFixed(2);
+                  return (
+                    <tr key={m.mes} className="hover:bg-gray-50">
+                      <td className="p-2 border text-center font-medium">{m.mes}</td>
+                      <td className="p-2 border text-right font-semibold">{m.rn.toLocaleString('es-ES')}</td>
+                      <td className="p-2 border text-right">{perRN(m.rooms)}</td>
+                      <td className="p-2 border text-right">{perRN(m.fb)}</td>
+                      <td className="p-2 border text-right">{perRN(m.other_operated)}</td>
+                      <td className="p-2 border text-right">{perRN(m.misc_income)}</td>
+                      <td className="p-2 border text-right bg-blue-50 font-semibold">{perRN(m.total_rev)}</td>
+                      <td className="p-2 border text-right">{perRN(m.dept_rooms)}</td>
+                      <td className="p-2 border text-right bg-yellow-50 font-semibold">{perRN(m.dept_profit)}</td>
+                      <td className="p-2 border text-right">{perRN(m.und_total)}</td>
+                      <td className="p-2 border text-right bg-green-50 font-semibold">{perRN(m.gop)}</td>
+                      <td className="p-2 border text-right">{perRN(m.fees_total)}</td>
+                      <td className="p-2 border text-right">{perRN(m.nonop_total)}</td>
+                      <td className="p-2 border text-right bg-purple-50 font-semibold">{perRN(m.ebitda)}</td>
+                      <td className="p-2 border text-right">{perRN(m.ffe_amount)}</td>
+                      <td className="p-2 border text-right bg-orange-50 font-semibold">{perRN(m.ebitda_less_ffe)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <div className="overflow-auto border rounded-lg">
@@ -212,11 +323,8 @@ export default function UsaliEditor({ calculatedData, onSave }: UsaliEditorProps
             <thead className="bg-gray-100">
               <tr>
                 <th className="p-2 border">Mes</th>
-                <th className="p-2 border">Rooms Rev</th>
-                <th className="p-2 border">F&B Rev</th>
-                <th className="p-2 border">Other Op</th>
-                <th className="p-2 border">Misc</th>
                 <th className="p-2 border bg-blue-50">Total Rev</th>
+                <th className="p-2 border bg-yellow-50">Dept Profit</th>
                 <th className="p-2 border bg-green-50">GOP</th>
                 <th className="p-2 border bg-purple-50">EBITDA</th>
                 <th className="p-2 border">FF&E</th>
@@ -227,14 +335,11 @@ export default function UsaliEditor({ calculatedData, onSave }: UsaliEditorProps
               {data.map((m, idx) => (
                 <tr key={m.mes} className="hover:bg-gray-50">
                   <td className="p-2 border text-center font-medium">{m.mes}</td>
-                  <td className="p-1 border"><EditCell value={m.rooms} onChange={(v) => updateField(idx, 'rooms', v)} /></td>
-                  <td className="p-1 border"><EditCell value={m.fb} onChange={(v) => updateField(idx, 'fb', v)} /></td>
-                  <td className="p-1 border"><EditCell value={m.other_operated} onChange={(v) => updateField(idx, 'other_operated', v)} /></td>
-                  <td className="p-1 border"><EditCell value={m.misc_income} onChange={(v) => updateField(idx, 'misc_income', v)} /></td>
                   <td className="p-2 border text-right bg-blue-50 font-semibold">{fmt(m.total_rev)}</td>
+                  <td className="p-2 border text-right bg-yellow-50 font-semibold">{fmt(m.dept_profit)}</td>
                   <td className="p-2 border text-right bg-green-50 font-semibold">{fmt(m.gop)}</td>
                   <td className="p-2 border text-right bg-purple-50 font-semibold">{fmt(m.ebitda)}</td>
-                  <td className="p-1 border"><EditCell value={m.ffe_amount} onChange={(v) => updateField(idx, 'ffe_amount', v)} /></td>
+                  <td className="p-2 border text-right font-semibold">{fmt(m.ffe_amount)}</td>
                   <td className="p-2 border text-right bg-orange-50 font-semibold">{fmt(m.ebitda_less_ffe)}</td>
                 </tr>
               ))}

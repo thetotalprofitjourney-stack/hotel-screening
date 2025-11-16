@@ -27,6 +27,10 @@ interface SensitivityResult {
   scenario: Scenario;
   adr_growth_pct: number;
   occ_delta_pp: number;
+  total_rev: number; // Suma de ingresos de todos los años
+  dept_profit: number; // Suma de dept profit de todos los años
+  gop: number; // Suma de GOP de todos los años
+  ebitda: number; // Suma de EBITDA de todos los años
   irr_levered: number;
   irr_unlevered: number;
   delta_vs_base: number;
@@ -94,10 +98,17 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
         };
 
         // Ejecutar proyección con este escenario
-        await api(`/v1/projects/${projectId}/projection`, {
+        const projectionResult = await api(`/v1/projects/${projectId}/projection`, {
           method: 'POST',
           body: JSON.stringify(modifiedAss)
         });
+
+        // Calcular totales de KPIs sumando todos los años
+        const annuals = projectionResult.annuals || [];
+        const total_rev = annuals.reduce((sum: number, a: any) => sum + (a.operating_revenue || 0), 0);
+        const dept_profit = annuals.reduce((sum: number, a: any) => sum + (a.dept_profit || 0), 0);
+        const gop = annuals.reduce((sum: number, a: any) => sum + (a.gop || 0), 0);
+        const ebitda = annuals.reduce((sum: number, a: any) => sum + (a.ebitda || 0), 0);
 
         // Recalcular deuda
         await api(`/v1/projects/${projectId}/debt`, {
@@ -115,6 +126,10 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
           scenario,
           adr_growth_pct: modifiedAss.adr_growth_pct,
           occ_delta_pp: modifiedAss.occ_delta_pp,
+          total_rev,
+          dept_profit,
+          gop,
+          ebitda,
           irr_levered: vr.returns.levered.irr,
           irr_unlevered: vr.returns.unlevered.irr,
           delta_vs_base: baseIRR ? (vr.returns.levered.irr - baseIRR) : 0
@@ -267,6 +282,10 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
               <thead className="bg-gray-100">
                 <tr>
                   <th className="p-3 border text-left">Escenario</th>
+                  <th className="p-3 border text-right bg-blue-50">Total Rev</th>
+                  <th className="p-3 border text-right bg-yellow-50">Dept Profit</th>
+                  <th className="p-3 border text-right bg-green-50">GOP</th>
+                  <th className="p-3 border text-right bg-purple-50">EBITDA</th>
                   <th className="p-3 border text-center">ADR Growth</th>
                   <th className="p-3 border text-center">Ocupación Δ</th>
                   <th className="p-3 border text-right">IRR Levered</th>
@@ -284,6 +303,18 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
                     <tr key={idx} className={`border-t ${rowClass}`}>
                       <td className="p-3 border">
                         {r.scenario.name}
+                      </td>
+                      <td className="p-3 border text-right bg-blue-50">
+                        {fmt(r.total_rev)}
+                      </td>
+                      <td className="p-3 border text-right bg-yellow-50">
+                        {fmt(r.dept_profit)}
+                      </td>
+                      <td className="p-3 border text-right bg-green-50">
+                        {fmt(r.gop)}
+                      </td>
+                      <td className="p-3 border text-right bg-purple-50">
+                        {fmt(r.ebitda)}
                       </td>
                       <td className="p-3 border text-center">
                         {(r.adr_growth_pct * 100).toFixed(2)}%
@@ -368,4 +399,8 @@ function getDeltaColorClass(delta: number): string {
   if (delta > 0.01) return 'text-green-700 font-semibold';
   if (delta < -0.01) return 'text-red-700 font-semibold';
   return 'text-gray-700';
+}
+
+function fmt(n: number) {
+  return Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n ?? 0);
 }

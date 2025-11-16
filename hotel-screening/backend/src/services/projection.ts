@@ -165,8 +165,10 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
       anio: y,
       occupancy: occ,
       adr,
+      rn, // Roomnights anuales
       rooms_rev, fb, other_operated: other, misc_income: misc,
       operating_revenue: total_rev,
+      dept_profit, // Dept Profit
       gop, fees: fees_total, nonop: nonop_total,
       ebitda, ffe: ffe_amount, ebitda_less_ffe,
       gop_margin: total_rev ? gop/total_rev : 0,
