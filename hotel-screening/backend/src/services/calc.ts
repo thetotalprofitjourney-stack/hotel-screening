@@ -132,9 +132,9 @@ export function calcUsaliY1Monthly(
     ebitda: sum('ebitda'),
     ffe: sum('ffe_amount'),
     ebitda_less_ffe: sum('ebitda_less_ffe'),
-    gop_margin:         sum('gop') / Math.max(1, sum('total_rev')),
-    ebitda_margin:      sum('ebitda') / Math.max(1, sum('total_rev')),
-    ebitda_less_ffe_margin: sum('ebitda_less_ffe') / Math.max(1, sum('total_rev')),
+    gop_margin:         sum('total_rev') > 0 ? sum('gop') / sum('total_rev') : 0,
+    ebitda_margin:      sum('total_rev') > 0 ? sum('ebitda') / sum('total_rev') : 0,
+    ebitda_less_ffe_margin: sum('total_rev') > 0 ? sum('ebitda_less_ffe') / sum('total_rev') : 0,
   };
 
   return { monthly, y1_anual };

@@ -31,7 +31,7 @@ router.post('/v1/projects/:id/y1/benchmark/accept', async (req, res) => {
     anio_base: z.number().int().min(1900).max(2100),
     meses: z.array(z.object({
       mes: z.number().int().min(1).max(12),
-      ocupacion: z.number().min(0).max(1),
+      occ: z.number().min(0).max(1),
       adr: z.number().min(0)
     })).length(12)
   });
@@ -51,9 +51,9 @@ router.post('/v1/projects/:id/y1/benchmark/accept', async (req, res) => {
 
   const values: any[] = [];
   for (const m of parsed.data.meses) {
-    const rn = Math.round(m.ocupacion * prj.habitaciones * days[m.mes-1]);
+    const rn = Math.round(m.occ * prj.habitaciones * days[m.mes-1]);
     const rooms_rev = rn * m.adr;
-    values.push(projectId, m.mes, m.ocupacion, m.adr, rn, rooms_rev, 1);
+    values.push(projectId, m.mes, m.occ, m.adr, rn, rooms_rev, 1);
   }
 
   const placeholders = parsed.data.meses.map(()=>'(?,?,?,?,?,?,?)').join(',');

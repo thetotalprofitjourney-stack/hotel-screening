@@ -40,6 +40,10 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       const data = await api(`/v1/projects/${projectId}/config`);
       setConfig(data);
       setConfigLoaded(true);
+      // Sincronizar years con horizonte del proyecto
+      if (data.horizonte) {
+        setAss(prev => ({ ...prev, years: data.horizonte }));
+      }
       // Verificar si la configuración está completa (al menos nombre y precio_compra)
       if (!data.nombre || data.precio_compra === null || data.precio_compra === undefined) {
         setShowConfigForm(true);
@@ -66,7 +70,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
   async function loadBenchmark() {
     const data = await api(`/v1/projects/${projectId}/y1/benchmark?anio_base=${anio}`);
-    setMeses(data.meses.map((m:any)=>({ ...m, ocupacion:m.occ, adr:m.adr })));
+    setMeses(data.meses);
   }
 
   useEffect(() => {
@@ -82,7 +86,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   async function accept() {
     await api(`/v1/projects/${projectId}/y1/benchmark/accept`, {
       method:'POST',
-      body: JSON.stringify({ anio_base: anio, meses: meses.map((m:any)=>({ mes:m.mes, ocupacion:m.ocupacion, adr:m.adr })) })
+      body: JSON.stringify({ anio_base: anio, meses: meses.map((m:any)=>({ mes:m.mes, occ:m.occ, adr:m.adr })) })
     });
     setAccepted(true);
   }

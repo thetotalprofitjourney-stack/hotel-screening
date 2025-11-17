@@ -208,7 +208,9 @@ CREATE TABLE usali_y1_monthly (
 CREATE TABLE usali_annual (
   project_id         CHAR(36) NOT NULL,
   anio               INT NOT NULL,
+  rn                 INT NOT NULL DEFAULT 0,
   operating_revenue  DECIMAL(16,2) NOT NULL,
+  dept_profit        DECIMAL(16,2) NOT NULL DEFAULT 0,
   gop                DECIMAL(16,2) NOT NULL,
   fees               DECIMAL(16,2) NOT NULL,
   nonop              DECIMAL(16,2) NOT NULL,

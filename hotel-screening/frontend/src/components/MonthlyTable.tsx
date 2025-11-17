@@ -8,8 +8,8 @@ const getDaysInMonth = (month: number, year: number = new Date().getFullYear()):
 
 export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any[]; onChange:(r:any[])=>void; habitaciones:number }) {
   const currentYear = new Date().getFullYear();
-  
-  function upd(i:number, key:'ocupacion'|'adr', val:number) {
+
+  function upd(i:number, key:'occ'|'adr', val:number) {
     const next = rows.slice();
     (next[i] as any)[key] = val;
     onChange(next);
@@ -41,7 +41,7 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
         </thead>
         <tbody>
           {rows.map((r,i)=>{
-            const ocupacion = r.ocupacion ?? r.occ;
+            const ocupacion = r.occ;
             const month = i + 1;
             const days = getDaysInMonth(month, currentYear);
             const roomnights = calcRoomnights(i, ocupacion);
@@ -55,7 +55,7 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
                   <input className="w-24 border px-2 py-1 rounded text-right"
                     type="number" min={0} max={1} step={0.01}
                     value={ocupacion}
-                    onChange={e=>upd(i,'ocupacion', Number(e.target.value))}
+                    onChange={e=>upd(i,'occ', Number(e.target.value))}
                   />
                 </td>
                 <td className="p-2 text-center">
