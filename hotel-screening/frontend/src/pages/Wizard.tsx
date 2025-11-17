@@ -185,7 +185,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                 <span className="font-medium">Proyecto:</span> {config.nombre}
               </div>
               <div>
-                <span className="font-medium">Ubicación:</span> {config.ubicacion}
+                <span className="font-medium">Ubicación:</span> {config.comunidad_autonoma} - {config.provincia} - {config.zona}
               </div>
               <div>
                 <span className="font-medium">Habitaciones:</span> {config.habitaciones}

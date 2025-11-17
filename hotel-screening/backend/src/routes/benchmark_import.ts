@@ -6,8 +6,9 @@ const router = Router();
 
 const rowSchema = z.object({
   categoria: z.string().min(2),
-  mercado: z.string().min(2),
-  anio_base: z.number().int(),
+  comunidad_autonoma: z.string().min(2),
+  provincia: z.string().min(2),
+  zona: z.string().min(2),
   mes: z.number().int().min(1).max(12),
   occ: z.number().min(0).max(1),
   adr: z.number().min(0),
@@ -20,15 +21,19 @@ router.post('/v1/benchmark/import', async (req,res)=>{
   if (!parsed.success) return res.status(400).json(parsed.error);
 
   const rows = parsed.data.rows;
-  const placeholders = rows.map(()=> '(?,?,?,?,?,?,?,?)').join(',');
+  const placeholders = rows.map(()=> '(?,?,?,?,?,?,?,?,?)').join(',');
   const vals:any[] = [];
   for (const r of rows) {
-    const benchmark_id = `${r.categoria.toUpperCase().replaceAll('_','')}_${r.mercado}_${r.anio_base}`;
-    vals.push(benchmark_id, r.categoria, r.mercado, r.anio_base, r.mes, r.occ, r.adr, r.fuente ?? null);
+    // Normalizar para generar ID: Andalucía-Málaga-CostadelSol-3
+    const caClean = r.comunidad_autonoma.trim();
+    const provClean = r.provincia.trim();
+    const zonaClean = r.zona.trim().replace(/\s+/g, '');
+    const benchmark_id = `${caClean}-${provClean}-${zonaClean}-${r.mes}`;
+    vals.push(benchmark_id, r.categoria, r.comunidad_autonoma, r.provincia, r.zona, r.mes, r.occ, r.adr, r.fuente ?? null);
   }
   await pool.query(
     `INSERT INTO occ_adr_benchmark_catalog
-     (benchmark_id, categoria, mercado, anio_base, mes, occ, adr, fuente)
+     (benchmark_id, categoria, comunidad_autonoma, provincia, zona, mes, occ, adr, fuente)
      VALUES ${placeholders}
      ON DUPLICATE KEY UPDATE occ=VALUES(occ), adr=VALUES(adr), fuente=VALUES(fuente), last_updated_at=NOW(3)`,
     vals

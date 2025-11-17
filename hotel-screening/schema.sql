@@ -36,25 +36,27 @@ CREATE TABLE users (
 ) ENGINE=InnoDB;
 
 CREATE TABLE projects (
-  project_id      CHAR(36) PRIMARY KEY,            -- UUID
-  owner_email     VARCHAR(320) NOT NULL,           -- un email → N proyectos; un proyecto → 1 email
-  rol             ENUM('inversor','operador','banco') NOT NULL,
-  nombre          VARCHAR(200) NOT NULL,
-  ubicacion       VARCHAR(120) NOT NULL,           -- mercado/ciudad normalizada (p.ej. PALMA_ES)
-  segmento        ENUM('urbano','vacacional') NOT NULL,
-  categoria       VARCHAR(32) NOT NULL,            -- FK a category_catalog.category_code
-  habitaciones    INT NOT NULL,
-  horizonte       INT NOT NULL DEFAULT 7,          -- 5/7/10
-  moneda          CHAR(3) NOT NULL DEFAULT 'EUR',
-  estado          ENUM('draft','y1_validated','projected','exported') NOT NULL DEFAULT 'draft',
-  created_at      DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  updated_at      DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  project_id         CHAR(36) PRIMARY KEY,            -- UUID
+  owner_email        VARCHAR(320) NOT NULL,           -- un email → N proyectos; un proyecto → 1 email
+  rol                ENUM('inversor','operador','banco') NOT NULL,
+  nombre             VARCHAR(200) NOT NULL,
+  comunidad_autonoma VARCHAR(100) NOT NULL,           -- Ej: Andalucía, Cataluña, Madrid
+  provincia          VARCHAR(100) NOT NULL,           -- Ej: Málaga, Barcelona, Madrid
+  zona               VARCHAR(100) NOT NULL,           -- Ej: Costa del Sol, Barcelona Centro
+  segmento           ENUM('urbano','vacacional') NOT NULL,
+  categoria          VARCHAR(32) NOT NULL,            -- FK a category_catalog.category_code
+  habitaciones       INT NOT NULL,
+  horizonte          INT NOT NULL DEFAULT 7,          -- 5/7/10
+  moneda             CHAR(3) NOT NULL DEFAULT 'EUR',
+  estado             ENUM('draft','y1_validated','projected','exported') NOT NULL DEFAULT 'draft',
+  created_at         DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at         DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   CONSTRAINT fk_projects_user FOREIGN KEY (owner_email) REFERENCES users(email) ON DELETE CASCADE,
   CONSTRAINT fk_projects_category FOREIGN KEY (categoria) REFERENCES category_catalog(category_code) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
 CREATE INDEX idx_projects_owner ON projects(owner_email);
-CREATE INDEX idx_projects_lookup ON projects(rol, ubicacion, segmento, categoria);
+CREATE INDEX idx_projects_lookup ON projects(rol, comunidad_autonoma, provincia, zona, segmento, categoria);
 CREATE INDEX idx_projects_estado ON projects(estado, updated_at);
 
 -- SETTINGS / SUPUESTOS DEL PROYECTO
@@ -142,20 +144,22 @@ CREATE TABLE usali_ratios_matrix (
 CREATE INDEX idx_urm_resolve ON usali_ratios_matrix(segmento, categoria, tamano_bucket_id);
 
 -- BENCHMARK OCC/ADR (estructura SIN datos)
+-- Ahora basado en Comunidad Autónoma-Provincia-Zona-Mes (sin año, solo 12 meses año 1)
 CREATE TABLE occ_adr_benchmark_catalog (
-  benchmark_id      VARCHAR(80) PRIMARY KEY,  -- p.ej. UPSCALE_PALMA_2024
-  categoria         VARCHAR(32) NOT NULL,     -- FK a category_catalog
-  mercado           VARCHAR(120) NOT NULL,
-  anio_base         INT NOT NULL,
-  mes               TINYINT NOT NULL,         -- 1..12
-  occ               DECIMAL(6,4) NOT NULL,    -- 0..1
-  adr               DECIMAL(12,2) NOT NULL,   -- €
-  fuente            VARCHAR(160) NULL,
-  last_updated_at   DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-  CONSTRAINT ux_benchmark UNIQUE (categoria, mercado, anio_base, mes),
+  benchmark_id       VARCHAR(120) PRIMARY KEY,  -- p.ej. Andalucía-Málaga-CostadelSol-3
+  categoria          VARCHAR(32) NOT NULL,      -- FK a category_catalog
+  comunidad_autonoma VARCHAR(100) NOT NULL,     -- Ej: Andalucía, Cataluña
+  provincia          VARCHAR(100) NOT NULL,     -- Ej: Málaga, Barcelona
+  zona               VARCHAR(100) NOT NULL,     -- Ej: Costa del Sol, Barcelona Centro
+  mes                TINYINT NOT NULL,          -- 1..12 (año 1 proyectado)
+  occ                DECIMAL(6,4) NOT NULL,     -- 0..1
+  adr                DECIMAL(12,2) NOT NULL,    -- €
+  fuente             VARCHAR(160) NULL,
+  last_updated_at    DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  CONSTRAINT ux_benchmark UNIQUE (categoria, comunidad_autonoma, provincia, zona, mes),
   CONSTRAINT fk_bench_cat FOREIGN KEY (categoria) REFERENCES category_catalog(category_code) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
-CREATE INDEX idx_benchmark_lookup ON occ_adr_benchmark_catalog(categoria, mercado, anio_base);
+CREATE INDEX idx_benchmark_lookup ON occ_adr_benchmark_catalog(categoria, comunidad_autonoma, provincia, zona);
 
 -- Y1 COMERCIAL (validado)
 CREATE TABLE y1_commercial (

@@ -30,7 +30,7 @@ export default function ProjectList({ onNew, onOpen, onSelector }:{ onNew:()=>vo
             <tr key={r.project_id} className="border-t">
               <td className="p-2 text-left">{r.nombre}</td>
               <td className="p-2 text-center">{r.rol}</td>
-              <td className="p-2 text-center">{r.ubicacion}</td>
+              <td className="p-2 text-center text-xs">{r.comunidad_autonoma} - {r.provincia} - {r.zona}</td>
               <td className="p-2 text-center">{r.segmento}</td>
               <td className="p-2 text-center">{r.categoria}</td>
               <td className="p-2 text-center">{r.estado}</td>
