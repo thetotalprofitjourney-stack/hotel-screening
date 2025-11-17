@@ -1,4 +1,4 @@
--- schema.sql
+-- schema.sql (VERSIÓN MEJORADA CON ÍNDICES OPTIMIZADOS)
 CREATE DATABASE IF NOT EXISTS hotel_screening
   CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 USE hotel_screening;
@@ -55,6 +55,7 @@ CREATE TABLE projects (
 
 CREATE INDEX idx_projects_owner ON projects(owner_email);
 CREATE INDEX idx_projects_lookup ON projects(rol, ubicacion, segmento, categoria);
+CREATE INDEX idx_projects_estado ON projects(estado, updated_at);
 
 -- SETTINGS / SUPUESTOS DEL PROYECTO
 CREATE TABLE project_settings (
@@ -203,7 +204,7 @@ CREATE TABLE usali_y1_monthly (
   CONSTRAINT fk_usali_y1m_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- USALI ANUAL (1..horizonte)
+-- USALI ANUAL (1..horizonte) - ⭐ MEJORADO CON ÍNDICES
 CREATE TABLE usali_annual (
   project_id         CHAR(36) NOT NULL,
   anio               INT NOT NULL,
@@ -221,6 +222,9 @@ CREATE TABLE usali_annual (
   CONSTRAINT fk_usali_annual_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- ⭐ NUEVO ÍNDICE para consultas de valoración
+CREATE INDEX idx_usali_annual_lookup ON usali_annual(project_id, anio);
+
 -- DEUDA / VALORACION / RETORNOS / NON-OP / AUDIT
 CREATE TABLE debt_schedule_annual (
   project_id         CHAR(36) NOT NULL,
@@ -232,6 +236,9 @@ CREATE TABLE debt_schedule_annual (
   PRIMARY KEY (project_id, anio),
   CONSTRAINT fk_debt_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- ⭐ NUEVO ÍNDICE
+CREATE INDEX idx_debt_schedule_lookup ON debt_schedule_annual(project_id, anio);
 
 CREATE TABLE valuations (
   project_id         CHAR(36) PRIMARY KEY,
@@ -277,3 +284,7 @@ CREATE TABLE audit_logs (
   created_at        DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   CONSTRAINT fk_audit_project FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- ⭐ NUEVO ÍNDICE para auditoría
+CREATE INDEX idx_audit_project_date ON audit_logs(project_id, created_at);
+CREATE INDEX idx_audit_user_date ON audit_logs(user_email, created_at);
