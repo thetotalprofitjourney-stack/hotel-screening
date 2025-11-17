@@ -5,6 +5,9 @@ import ProjectConfigForm, { ProjectConfig } from '../components/ProjectConfigFor
 import UsaliEditor from '../components/UsaliEditor';
 import SensitivityAnalysis from '../components/SensitivityAnalysis';
 
+// Días por mes (febrero con 28 días siempre)
+const DIAS_MES = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
 export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:()=>void }) {
   const [config, setConfig] = useState<ProjectConfig | null>(null);
   const [configLoaded, setConfigLoaded] = useState(false);
@@ -14,6 +17,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   const [meses, setMeses] = useState<any[]>([]);
   const [accepted, setAccepted] = useState(false);
   const [calc, setCalc] = useState<any|null>(null);
+  const [showAnnualDetailed, setShowAnnualDetailed] = useState(false);
   // nuevos estados
   const [ass, setAss] = useState({
     years: 7,
@@ -173,7 +177,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         <>
       <section>
         <h3 className="text-lg font-semibold mb-2">Paso 1 — Validación comercial Y1</h3>
-        <MonthlyTable rows={meses} onChange={setMeses} />
+        <MonthlyTable rows={meses} onChange={setMeses} habitaciones={config.habitaciones || 0} />
         <button className="mt-3 px-3 py-2 bg-black text-white rounded" onClick={accept}>Aceptar Y1 comercial</button>
       </section>
 
@@ -185,7 +189,12 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               Calcular USALI con ratios de mercado
             </button>
           ) : (
-            <UsaliEditor calculatedData={calc.y1_mensual} onSave={saveUsali} />
+            <UsaliEditor
+              calculatedData={calc.y1_mensual}
+              onSave={saveUsali}
+              habitaciones={config.habitaciones || 0}
+              meses={meses}
+            />
           )}
         </section>
       )}
@@ -248,33 +257,112 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
           {annuals && (
             <div className="mt-5">
-              <h4 className="font-semibold">USALI Anual (1..N)</h4>
-              <div className="overflow-auto">
-                <table className="w-full text-sm border">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="p-2">Año</th>
-                      <th className="p-2">Ingresos</th>
-                      <th className="p-2">GOP</th>
-                      <th className="p-2">EBITDA</th>
-                      <th className="p-2">EBITDA-FF&E</th>
-                      <th className="p-2">GOP %</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {annuals.map((r:any)=>(
-                      <tr key={r.anio} className="border-t">
-                        <td className="p-2 text-center">{r.anio}</td>
-                        <td className="p-2 text-right">{fmt(r.operating_revenue)}</td>
-                        <td className="p-2 text-right">{fmt(r.gop)}</td>
-                        <td className="p-2 text-right">{fmt(r.ebitda)}</td>
-                        <td className="p-2 text-right">{fmt(r.ebitda_less_ffe)}</td>
-                        <td className="p-2 text-right">{(r.gop_margin*100).toFixed(1)}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="font-semibold">USALI Anual (Año 1..N)</h4>
+                <button
+                  className="px-3 py-2 border rounded text-sm"
+                  onClick={() => setShowAnnualDetailed(!showAnnualDetailed)}
+                >
+                  {showAnnualDetailed ? 'Vista resumida' : 'Vista detallada'}
+                </button>
               </div>
+
+              {showAnnualDetailed ? (
+                <div className="overflow-auto border rounded-lg">
+                  <table className="w-full text-xs border-collapse">
+                    <thead className="bg-gray-100 sticky top-0">
+                      <tr>
+                        <th className="p-2 border text-left">Año</th>
+                        <th className="p-2 border text-center bg-blue-50" colSpan={3}>Total Rev</th>
+                        <th className="p-2 border text-center bg-yellow-50" colSpan={3}>Dept Profit</th>
+                        <th className="p-2 border text-center bg-green-50" colSpan={3}>GOP</th>
+                        <th className="p-2 border text-center bg-purple-50" colSpan={3}>EBITDA</th>
+                        <th className="p-2 border text-center bg-orange-50" colSpan={3}>EBITDA-FF&E</th>
+                      </tr>
+                      <tr>
+                        <th className="p-1 border text-xs"></th>
+                        <th className="p-1 border text-xs bg-blue-50">€</th>
+                        <th className="p-1 border text-xs bg-blue-50">%</th>
+                        <th className="p-1 border text-xs bg-blue-50">€/RN</th>
+                        <th className="p-1 border text-xs bg-yellow-50">€</th>
+                        <th className="p-1 border text-xs bg-yellow-50">%</th>
+                        <th className="p-1 border text-xs bg-yellow-50">€/RN</th>
+                        <th className="p-1 border text-xs bg-green-50">€</th>
+                        <th className="p-1 border text-xs bg-green-50">%</th>
+                        <th className="p-1 border text-xs bg-green-50">€/RN</th>
+                        <th className="p-1 border text-xs bg-purple-50">€</th>
+                        <th className="p-1 border text-xs bg-purple-50">%</th>
+                        <th className="p-1 border text-xs bg-purple-50">€/RN</th>
+                        <th className="p-1 border text-xs bg-orange-50">€</th>
+                        <th className="p-1 border text-xs bg-orange-50">%</th>
+                        <th className="p-1 border text-xs bg-orange-50">€/RN</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {annuals.map((r:any, idx:number)=>{
+                        // Calcular roomnights anuales estimados
+                        const habitaciones = config?.habitaciones || 0;
+                        const diasAnio = DIAS_MES.reduce((a,b) => a+b, 0);
+                        const ocupacionAnual = r.avg_occ ?? (meses.reduce((a:number,m:any) => a + (m.ocupacion ?? m.occ ?? 0), 0) / 12 + idx * (ass.occ_delta_pp / 100));
+                        const roomnights = habitaciones * diasAnio * Math.min(ocupacionAnual, ass.occ_cap);
+
+                        const pctTotalRev = (val: number) => r.operating_revenue > 0 ? (val / r.operating_revenue * 100) : 0;
+                        const perRN = (val: number) => roomnights > 0 ? (val / roomnights) : 0;
+
+                        return (
+                          <tr key={r.anio} className="hover:bg-gray-50">
+                            <td className="p-2 border text-center font-medium">Año {r.anio}</td>
+                            <td className="p-2 border text-right bg-blue-50 font-semibold">{fmt(r.operating_revenue)}</td>
+                            <td className="p-2 border text-right bg-blue-50 text-xs">100%</td>
+                            <td className="p-2 border text-right bg-blue-50 text-xs">{perRN(r.operating_revenue).toFixed(2)}</td>
+                            <td className="p-2 border text-right bg-yellow-50 font-semibold">{fmt(r.dept_profit ?? 0)}</td>
+                            <td className="p-2 border text-right bg-yellow-50 text-xs">{pctTotalRev(r.dept_profit ?? 0).toFixed(1)}%</td>
+                            <td className="p-2 border text-right bg-yellow-50 text-xs">{perRN(r.dept_profit ?? 0).toFixed(2)}</td>
+                            <td className="p-2 border text-right bg-green-50 font-semibold">{fmt(r.gop)}</td>
+                            <td className="p-2 border text-right bg-green-50 text-xs">{pctTotalRev(r.gop).toFixed(1)}%</td>
+                            <td className="p-2 border text-right bg-green-50 text-xs">{perRN(r.gop).toFixed(2)}</td>
+                            <td className="p-2 border text-right bg-purple-50 font-semibold">{fmt(r.ebitda)}</td>
+                            <td className="p-2 border text-right bg-purple-50 text-xs">{pctTotalRev(r.ebitda).toFixed(1)}%</td>
+                            <td className="p-2 border text-right bg-purple-50 text-xs">{perRN(r.ebitda).toFixed(2)}</td>
+                            <td className="p-2 border text-right bg-orange-50 font-semibold">{fmt(r.ebitda_less_ffe)}</td>
+                            <td className="p-2 border text-right bg-orange-50 text-xs">{pctTotalRev(r.ebitda_less_ffe).toFixed(1)}%</td>
+                            <td className="p-2 border text-right bg-orange-50 text-xs">{perRN(r.ebitda_less_ffe).toFixed(2)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="overflow-auto border rounded-lg">
+                  <table className="w-full text-sm border-collapse">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="p-2 border">Año</th>
+                        <th className="p-2 border bg-blue-50">Total Rev</th>
+                        <th className="p-2 border bg-yellow-50">Dept Profit</th>
+                        <th className="p-2 border bg-green-50">GOP</th>
+                        <th className="p-2 border bg-purple-50">EBITDA</th>
+                        <th className="p-2 border">FF&E</th>
+                        <th className="p-2 border bg-orange-50">EBITDA-FF&E</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {annuals.map((r:any)=>(
+                        <tr key={r.anio} className="border-t hover:bg-gray-50">
+                          <td className="p-2 border text-center font-medium">Año {r.anio}</td>
+                          <td className="p-2 border text-right bg-blue-50 font-semibold">{fmt(r.operating_revenue)}</td>
+                          <td className="p-2 border text-right bg-yellow-50 font-semibold">{fmt(r.dept_profit ?? 0)}</td>
+                          <td className="p-2 border text-right bg-green-50 font-semibold">{fmt(r.gop)}</td>
+                          <td className="p-2 border text-right bg-purple-50 font-semibold">{fmt(r.ebitda)}</td>
+                          <td className="p-2 border text-right">{fmt(r.ffe ?? 0)}</td>
+                          <td className="p-2 border text-right bg-orange-50 font-semibold">{fmt(r.ebitda_less_ffe)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 

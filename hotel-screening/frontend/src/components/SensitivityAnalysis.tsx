@@ -27,6 +27,11 @@ interface SensitivityResult {
   scenario: Scenario;
   adr_growth_pct: number;
   occ_delta_pp: number;
+  total_rev: number;
+  dept_profit: number;
+  gop: number;
+  ebitda: number;
+  ebitda_less_ffe: number;
   irr_levered: number;
   irr_unlevered: number;
   delta_vs_base: number;
@@ -94,7 +99,7 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
         };
 
         // Ejecutar proyección con este escenario
-        await api(`/v1/projects/${projectId}/projection`, {
+        const projection = await api(`/v1/projects/${projectId}/projection`, {
           method: 'POST',
           body: JSON.stringify(modifiedAss)
         });
@@ -111,10 +116,23 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
           body: JSON.stringify({})
         });
 
+        // Calcular totales de la proyección
+        const annuals = projection.annuals || [];
+        const totalRev = annuals.reduce((sum: number, a: any) => sum + (a.operating_revenue || 0), 0);
+        const totalDeptProfit = annuals.reduce((sum: number, a: any) => sum + (a.dept_profit || 0), 0);
+        const totalGop = annuals.reduce((sum: number, a: any) => sum + (a.gop || 0), 0);
+        const totalEbitda = annuals.reduce((sum: number, a: any) => sum + (a.ebitda || 0), 0);
+        const totalEbitdaLessFfe = annuals.reduce((sum: number, a: any) => sum + (a.ebitda_less_ffe || 0), 0);
+
         sensitivityResults.push({
           scenario,
           adr_growth_pct: modifiedAss.adr_growth_pct,
           occ_delta_pp: modifiedAss.occ_delta_pp,
+          total_rev: totalRev,
+          dept_profit: totalDeptProfit,
+          gop: totalGop,
+          ebitda: totalEbitda,
+          ebitda_less_ffe: totalEbitdaLessFfe,
           irr_levered: vr.returns.levered.irr,
           irr_unlevered: vr.returns.unlevered.irr,
           delta_vs_base: baseIRR ? (vr.returns.levered.irr - baseIRR) : 0
@@ -269,6 +287,11 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
                   <th className="p-3 border text-left">Escenario</th>
                   <th className="p-3 border text-center">ADR Growth</th>
                   <th className="p-3 border text-center">Ocupación Δ</th>
+                  <th className="p-3 border text-right bg-blue-50">Total Rev</th>
+                  <th className="p-3 border text-right bg-yellow-50">Dept Profit</th>
+                  <th className="p-3 border text-right bg-green-50">GOP</th>
+                  <th className="p-3 border text-right bg-purple-50">EBITDA</th>
+                  <th className="p-3 border text-right bg-orange-50">EBITDA-FF&E</th>
                   <th className="p-3 border text-right">IRR Levered</th>
                   <th className="p-3 border text-right">IRR Unlevered</th>
                   <th className="p-3 border text-right">Δ vs Base</th>
@@ -290,6 +313,21 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
                       </td>
                       <td className="p-3 border text-center">
                         {r.occ_delta_pp >= 0 ? '+' : ''}{r.occ_delta_pp.toFixed(2)}pp
+                      </td>
+                      <td className="p-3 border text-right bg-blue-50">
+                        {fmt(r.total_rev)}
+                      </td>
+                      <td className="p-3 border text-right bg-yellow-50">
+                        {fmt(r.dept_profit)}
+                      </td>
+                      <td className="p-3 border text-right bg-green-50">
+                        {fmt(r.gop)}
+                      </td>
+                      <td className="p-3 border text-right bg-purple-50">
+                        {fmt(r.ebitda)}
+                      </td>
+                      <td className="p-3 border text-right bg-orange-50">
+                        {fmt(r.ebitda_less_ffe)}
                       </td>
                       <td className="p-3 border text-right">
                         {(r.irr_levered * 100).toFixed(2)}%
@@ -368,4 +406,8 @@ function getDeltaColorClass(delta: number): string {
   if (delta > 0.01) return 'text-green-700 font-semibold';
   if (delta < -0.01) return 'text-red-700 font-semibold';
   return 'text-gray-700';
+}
+
+function fmt(n: number): string {
+  return Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n ?? 0);
 }
