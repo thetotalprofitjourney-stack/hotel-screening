@@ -5,8 +5,19 @@ export function buildCommercialY1(
   habitaciones: number,
   year: number
 ): Y1Month[] {
+  if (!meses || meses.length !== 12) {
+    throw new Error('Se requieren exactamente 12 meses de datos');
+  }
+  if (habitaciones <= 0) {
+    throw new Error('El número de habitaciones debe ser positivo');
+  }
+  
   const days = Array.from({ length: 12 }, (_, i) => new Date(year, i + 1, 0).getDate());
+  
   return meses.map(m => {
+    if (m.mes < 1 || m.mes > 12) {
+      throw new Error(`Mes inválido: ${m.mes}`);
+    }
     const rn = Math.round(m.occ * habitaciones * days[m.mes - 1]);
     const rooms_rev = m.adr * rn;
     return { mes: m.mes, occ: m.occ, adr: m.adr, rn, rooms_rev };
@@ -20,6 +31,30 @@ export function calcUsaliY1Monthly(
   nonopAnnual: { taxes?:number; insurance?:number; rent?:number; other?:number } | null,
   ffe_pct: number
 ) {
+  // Validaciones
+  if (!comm || comm.length !== 12) {
+    throw new Error('Se requieren exactamente 12 meses de datos comerciales');
+  }
+  if (!ratios) {
+    throw new Error('Los ratios USALI son requeridos');
+  }
+  if (ffe_pct < 0 || ffe_pct > 1) {
+    throw new Error('El porcentaje FF&E debe estar entre 0 y 1');
+  }
+
+  // Validar que los ratios críticos existan
+  const requiredRatios = [
+    'ratio_fb_sobre_rooms', 'ratio_other_sobre_total', 'ratio_misc_sobre_total',
+    'dept_rooms_pct', 'fb_food_cost_pct', 'fb_labor_pct', 'fb_otros_pct',
+    'dept_other_pct', 'und_ag_pct', 'und_it_pct', 'und_sm_pct', 'und_pom_pct', 'und_eww_pct'
+  ];
+  
+  for (const ratio of requiredRatios) {
+    if (ratios[ratio] === undefined || ratios[ratio] === null) {
+      throw new Error(`Ratio requerido faltante: ${ratio}`);
+    }
+  }
+  
   const nonop_m = ((nonopAnnual?.taxes ?? 0) + (nonopAnnual?.insurance ?? 0) + (nonopAnnual?.rent ?? 0) + (nonopAnnual?.other ?? 0)) / 12;
   const base_m = fees?.base_anual ? (fees.base_anual/12) : 0;
 
@@ -28,6 +63,11 @@ export function calcUsaliY1Monthly(
     const r = Number(ratios.ratio_fb_sobre_rooms);
     const a = Number(ratios.ratio_other_sobre_total);
     const b = Number(ratios.ratio_misc_sobre_total);
+
+    // Validar que a + b < 1 para evitar división por cero
+    if (a + b >= 1) {
+      throw new Error('La suma de ratios other y misc debe ser menor a 1');
+    }
 
     // Ingresos
     const total_sin_other_misc = rooms * (1 + r);
