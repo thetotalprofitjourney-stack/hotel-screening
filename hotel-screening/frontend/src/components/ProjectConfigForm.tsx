@@ -3,7 +3,9 @@ import React, { useState } from 'react';
 export interface ProjectConfig {
   // Datos del proyecto
   nombre: string;
-  ubicacion: string;
+  comunidad_autonoma: string;
+  provincia: string;
+  zona: string;
   segmento: 'urbano' | 'vacacional';
   categoria: 'economy' | 'midscale' | 'upper_midscale' | 'upscale' | 'upper_upscale' | 'luxury';
   habitaciones: number;
@@ -51,7 +53,9 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
   const [config, setConfig] = useState<ProjectConfig>({
     // Defaults
     nombre: initialData?.nombre || '',
-    ubicacion: initialData?.ubicacion || '',
+    comunidad_autonoma: initialData?.comunidad_autonoma || '',
+    provincia: initialData?.provincia || '',
+    zona: initialData?.zona || '',
     segmento: initialData?.segmento || 'urbano',
     categoria: initialData?.categoria || 'upscale',
     habitaciones: initialData?.habitaciones || 100,
@@ -112,15 +116,48 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
           </label>
 
           <label className="flex flex-col">
-            <span className="text-sm font-medium mb-1">Ubicación *</span>
+            <span className="text-sm font-medium mb-1">Comunidad Autónoma *</span>
             <input
               required
               className="border px-3 py-2 rounded"
               type="text"
-              placeholder="ej: PALMA_ES"
-              value={config.ubicacion}
-              onChange={e => updateField('ubicacion', e.target.value)}
+              placeholder="ej: Andalucía"
+              value={config.comunidad_autonoma}
+              onChange={e => updateField('comunidad_autonoma', e.target.value)}
             />
+            <span className="text-xs text-gray-500 mt-1">
+              Nivel 1: Filtra las opciones de Provincia
+            </span>
+          </label>
+
+          <label className="flex flex-col">
+            <span className="text-sm font-medium mb-1">Provincia *</span>
+            <input
+              required
+              className="border px-3 py-2 rounded"
+              type="text"
+              placeholder="ej: Málaga"
+              value={config.provincia}
+              onChange={e => updateField('provincia', e.target.value)}
+            />
+            <span className="text-xs text-gray-500 mt-1">
+              Nivel 2: Filtra las opciones de Zona
+            </span>
+          </label>
+
+          <label className="flex flex-col">
+            <span className="text-sm font-medium mb-1">Zona *</span>
+            <input
+              required
+              className="border px-3 py-2 rounded"
+              type="text"
+              placeholder="ej: Costa del Sol"
+              value={config.zona}
+              onChange={e => updateField('zona', e.target.value)}
+            />
+            <span className="text-xs text-gray-500 mt-1">
+              Nivel 3: Define la ubicación geográfica para el benchmark
+            </span>
           </label>
 
           <label className="flex flex-col">

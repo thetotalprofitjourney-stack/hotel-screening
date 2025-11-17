@@ -225,7 +225,7 @@ export default function Selector({ onOpen }:{ onOpen:(id:string)=>void }) {
             {rows.map(r=>(
               <tr key={r.project_id} className="border-t hover:bg-gray-50">
                 <td className="p-2 text-left">{r.nombre}</td>
-                <td className="p-2 text-center">{r.ubicacion}</td>
+                <td className="p-2 text-center text-xs">{r.comunidad_autonoma} - {r.provincia} - {r.zona}</td>
                 <td className="p-2 text-center capitalize">{r.segmento}</td>
                 <td className="p-2 text-center capitalize text-xs">{r.categoria?.replace('_', ' ')}</td>
                 <td className="p-2 text-right">{r.habitaciones}</td>

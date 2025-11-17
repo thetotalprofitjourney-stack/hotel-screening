@@ -8,27 +8,28 @@ import { resolveTamanoBucket } from '../services/utils.js';
 
 const router = Router();
 
-// GET benchmark (12 meses) según la categoría/mercado del proyecto
+// GET benchmark (12 meses) según la categoría y ubicación geográfica del proyecto
 router.get('/v1/projects/:id/y1/benchmark', async (req, res) => {
   const projectId = req.params.id;
-  const anio_base = Number(req.query.anio_base ?? new Date().getFullYear());
 
   const [prjRows] = await pool.query(
-    `SELECT categoria, ubicacion AS mercado, segmento, habitaciones FROM projects WHERE project_id=?`,
+    `SELECT categoria, comunidad_autonoma, provincia, zona, segmento, habitaciones
+     FROM projects
+     WHERE project_id=?`,
     [projectId]
   );
   const prj = (prjRows as any[])[0];
   if (!prj) return res.status(404).json({ error: 'PROJECT_NOT_FOUND' });
 
-  const meses = await getBenchmarkRows(prj.categoria, prj.mercado, anio_base);
-  res.json({ benchmark_id: `${prj.categoria}_${prj.mercado}_${anio_base}`, meses });
+  const meses = await getBenchmarkRows(prj.categoria, prj.comunidad_autonoma, prj.provincia, prj.zona);
+  const benchmark_id = `${prj.comunidad_autonoma}-${prj.provincia}-${prj.zona}`;
+  res.json({ benchmark_id, meses });
 });
 
 // Aceptar/guardar Y1 comercial (permite editar occ/adr)
 router.post('/v1/projects/:id/y1/benchmark/accept', async (req, res) => {
   const projectId = req.params.id;
   const schema = z.object({
-    anio_base: z.number().int().min(1900).max(2100),
     meses: z.array(z.object({
       mes: z.number().int().min(1).max(12),
       occ: z.number().min(0).max(1),
@@ -45,7 +46,9 @@ router.post('/v1/projects/:id/y1/benchmark/accept', async (req, res) => {
   const prj = (prjRows as any[])[0];
   if (!prj) return res.status(404).json({ error: 'PROJECT_NOT_FOUND' });
 
-  const days = Array.from({ length: 12 }, (_, i) => new Date(parsed.data.anio_base, i + 1, 0).getDate());
+  // Usar año actual para calcular días por mes (año 1 proyectado)
+  const currentYear = new Date().getFullYear();
+  const days = Array.from({ length: 12 }, (_, i) => new Date(currentYear, i + 1, 0).getDate());
 
   await pool.query(`DELETE FROM y1_commercial WHERE project_id=?`, [projectId]);
 

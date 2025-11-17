@@ -8,7 +8,9 @@ const router = Router();
 const createProjectSchema = z.object({
   rol: z.enum(['inversor','operador','banco']),
   nombre: z.string().min(2),
-  ubicacion: z.string().min(2),
+  comunidad_autonoma: z.string().min(2),
+  provincia: z.string().min(2),
+  zona: z.string().min(2),
   segmento: z.enum(['urbano','vacacional']),
   categoria: z.enum(['economy','midscale','upper_midscale','upscale','upper_upscale','luxury']),
   habitaciones: z.number().int().positive(),
@@ -19,7 +21,9 @@ const createProjectSchema = z.object({
 const updateConfigSchema = z.object({
   // Datos del proyecto
   nombre: z.string().min(2).optional(),
-  ubicacion: z.string().min(2).optional(),
+  comunidad_autonoma: z.string().min(2).optional(),
+  provincia: z.string().min(2).optional(),
+  zona: z.string().min(2).optional(),
   segmento: z.enum(['urbano','vacacional']).optional(),
   categoria: z.enum(['economy','midscale','upper_midscale','upscale','upper_upscale','luxury']).optional(),
   habitaciones: z.number().int().positive().optional(),
@@ -60,7 +64,7 @@ const updateConfigSchema = z.object({
 router.get('/v1/projects', async (req, res) => {
   const email = (req as any).userEmail as string;
   const [rows] = await pool.query(
-    `SELECT project_id, nombre, rol, ubicacion, segmento, categoria, horizonte, estado, updated_at
+    `SELECT project_id, nombre, rol, comunidad_autonoma, provincia, zona, segmento, categoria, horizonte, estado, updated_at
        FROM projects
       WHERE owner_email=?
       ORDER BY updated_at DESC`,
@@ -77,9 +81,9 @@ router.post('/v1/projects', async (req,res)=>{
   const id = uuidv4();
   const p = parsed.data;
   await pool.query(
-    `INSERT INTO projects (project_id, owner_email, rol, nombre, ubicacion, segmento, categoria, habitaciones, horizonte, moneda)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, email, p.rol, p.nombre, p.ubicacion, p.segmento, p.categoria, p.habitaciones, p.horizonte, p.moneda]
+    `INSERT INTO projects (project_id, owner_email, rol, nombre, comunidad_autonoma, provincia, zona, segmento, categoria, habitaciones, horizonte, moneda)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, email, p.rol, p.nombre, p.comunidad_autonoma, p.provincia, p.zona, p.segmento, p.categoria, p.habitaciones, p.horizonte, p.moneda]
   );
 
   // defaults mínimos
@@ -138,7 +142,9 @@ router.get('/v1/projects/:id/config', async (req, res) => {
   const config = {
     // Proyecto
     nombre: project.nombre,
-    ubicacion: project.ubicacion,
+    comunidad_autonoma: project.comunidad_autonoma,
+    provincia: project.provincia,
+    zona: project.zona,
     segmento: project.segmento,
     categoria: project.categoria,
     habitaciones: project.habitaciones,
@@ -201,7 +207,9 @@ router.put('/v1/projects/:id/config', async (req, res) => {
   // Actualizar tabla projects
   const projectUpdates: any = {};
   if (data.nombre !== undefined) projectUpdates.nombre = data.nombre;
-  if (data.ubicacion !== undefined) projectUpdates.ubicacion = data.ubicacion;
+  if (data.comunidad_autonoma !== undefined) projectUpdates.comunidad_autonoma = data.comunidad_autonoma;
+  if (data.provincia !== undefined) projectUpdates.provincia = data.provincia;
+  if (data.zona !== undefined) projectUpdates.zona = data.zona;
   if (data.segmento !== undefined) projectUpdates.segmento = data.segmento;
   if (data.categoria !== undefined) projectUpdates.categoria = data.categoria;
   if (data.habitaciones !== undefined) projectUpdates.habitaciones = data.habitaciones;
