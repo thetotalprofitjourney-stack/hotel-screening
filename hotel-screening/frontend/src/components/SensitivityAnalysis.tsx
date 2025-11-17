@@ -91,49 +91,55 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
       const sensitivityResults: SensitivityResult[] = [];
 
       for (const scenario of scenarios) {
-        const modifiedAss = {
-          ...baseAssumptions,
-          adr_growth_pct: baseAssumptions.adr_growth_pct + scenario.adr_delta_pct,
-          occ_delta_pp: baseAssumptions.occ_delta_pp + scenario.occ_delta_pp
-        };
+        try {
+          const modifiedAss = {
+            ...baseAssumptions,
+            adr_growth_pct: baseAssumptions.adr_growth_pct + scenario.adr_delta_pct,
+            occ_delta_pp: baseAssumptions.occ_delta_pp + scenario.occ_delta_pp
+          };
 
-        // Ejecutar proyección con este escenario
-        const projectionResult = await api(`/v1/projects/${projectId}/projection`, {
-          method: 'POST',
-          body: JSON.stringify(modifiedAss)
-        });
+          // Ejecutar proyección con este escenario
+          const projectionResult = await api(`/v1/projects/${projectId}/projection`, {
+            method: 'POST',
+            body: JSON.stringify(modifiedAss)
+          });
 
-        // Calcular totales de KPIs sumando todos los años
-        const annuals = projectionResult.annuals || [];
-        const total_rev = annuals.reduce((sum: number, a: any) => sum + (a.operating_revenue || 0), 0);
-        const dept_profit = annuals.reduce((sum: number, a: any) => sum + (a.dept_profit || 0), 0);
-        const gop = annuals.reduce((sum: number, a: any) => sum + (a.gop || 0), 0);
-        const ebitda = annuals.reduce((sum: number, a: any) => sum + (a.ebitda || 0), 0);
+          // Calcular totales de KPIs sumando todos los años
+          const annuals = projectionResult.annuals || [];
+          const total_rev = annuals.reduce((sum: number, a: any) => sum + (a.operating_revenue || 0), 0);
+          const dept_profit = annuals.reduce((sum: number, a: any) => sum + (a.dept_profit || 0), 0);
+          const gop = annuals.reduce((sum: number, a: any) => sum + (a.gop || 0), 0);
+          const ebitda = annuals.reduce((sum: number, a: any) => sum + (a.ebitda || 0), 0);
 
-        // Recalcular deuda
-        await api(`/v1/projects/${projectId}/debt`, {
-          method: 'POST',
-          body: JSON.stringify({})
-        });
+          // Recalcular deuda
+          await api(`/v1/projects/${projectId}/debt`, {
+            method: 'POST',
+            body: JSON.stringify({})
+          });
 
-        // Calcular retornos
-        const vr = await api(`/v1/projects/${projectId}/valuation-and-returns`, {
-          method: 'POST',
-          body: JSON.stringify({})
-        });
+          // Calcular retornos
+          const vr = await api(`/v1/projects/${projectId}/valuation-and-returns`, {
+            method: 'POST',
+            body: JSON.stringify({})
+          });
 
-        sensitivityResults.push({
-          scenario,
-          adr_growth_pct: modifiedAss.adr_growth_pct,
-          occ_delta_pp: modifiedAss.occ_delta_pp,
-          total_rev,
-          dept_profit,
-          gop,
-          ebitda,
-          irr_levered: vr.returns.levered.irr,
-          irr_unlevered: vr.returns.unlevered.irr,
-          delta_vs_base: baseIRR ? (vr.returns.levered.irr - baseIRR) : 0
-        });
+          sensitivityResults.push({
+            scenario,
+            adr_growth_pct: modifiedAss.adr_growth_pct,
+            occ_delta_pp: modifiedAss.occ_delta_pp,
+            total_rev,
+            dept_profit,
+            gop,
+            ebitda,
+            irr_levered: vr.returns.levered.irr,
+            irr_unlevered: vr.returns.unlevered.irr,
+            delta_vs_base: baseIRR ? (vr.returns.levered.irr - baseIRR) : 0
+          });
+        } catch (error) {
+          console.error(`Error en escenario "${scenario.name}":`, error);
+          // Continuar con el siguiente escenario en lugar de fallar todo
+          continue;
+        }
       }
 
       setResults(sensitivityResults);

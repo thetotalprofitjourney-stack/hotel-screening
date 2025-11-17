@@ -50,6 +50,12 @@ export default function UsaliEditor({ calculatedData, onSave }: UsaliEditorProps
   }, [calculatedData]);
 
   const updateField = (mesIndex: number, field: keyof UsaliMonthData, value: number) => {
+    // Validar que el valor sea un número válido
+    if (isNaN(value) || value < 0) {
+      console.warn(`Valor inválido para ${field}: ${value}`);
+      return;
+    }
+
     const newData = [...data];
     newData[mesIndex] = { ...newData[mesIndex], [field]: value };
 

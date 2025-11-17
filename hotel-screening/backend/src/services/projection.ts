@@ -182,21 +182,23 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
   const values: any[] = [];
   const placeholders = res
     .filter(r => r.anio >= 2)
-    .map(() => '(?,?,?,?,?,?,?,?,?,?,?,?,?)').join(',');
+    .map(() => '(?,?,?,?,?,?,?,?,?,?,?,?,?,?)').join(',');
   for (const r of res.filter(r => r.anio >= 2)) {
     values.push(
-      project_id, r.anio,
-      r.operating_revenue, r.gop, r.fees, r.nonop, r.ebitda, r.ffe, r.ebitda_less_ffe,
+      project_id, r.anio, r.rn, r.operating_revenue, r.dept_profit,
+      r.gop, r.fees, r.nonop, r.ebitda, r.ffe, r.ebitda_less_ffe,
       r.gop_margin, r.ebitda_margin, r.ebitda_less_ffe_margin
     );
   }
   if (values.length) {
     await pool.query(
       `INSERT INTO usali_annual
-       (project_id,anio,operating_revenue,gop,fees,nonop,ebitda,ffe,ebitda_less_ffe,gop_margin,ebitda_margin,ebitda_less_ffe_margin)
+       (project_id,anio,rn,operating_revenue,dept_profit,gop,fees,nonop,ebitda,ffe,ebitda_less_ffe,gop_margin,ebitda_margin,ebitda_less_ffe_margin)
        VALUES ${placeholders}
        ON DUPLICATE KEY UPDATE
+         rn=VALUES(rn),
          operating_revenue=VALUES(operating_revenue),
+         dept_profit=VALUES(dept_profit),
          gop=VALUES(gop), fees=VALUES(fees), nonop=VALUES(nonop),
          ebitda=VALUES(ebitda), ffe=VALUES(ffe), ebitda_less_ffe=VALUES(ebitda_less_ffe),
          gop_margin=VALUES(gop_margin), ebitda_margin=VALUES(ebitda_margin), ebitda_less_ffe_margin=VALUES(ebitda_less_ffe_margin)`,
