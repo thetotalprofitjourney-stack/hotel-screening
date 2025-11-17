@@ -100,12 +100,24 @@ export async function valuationAndReturns(project_id:string) {
   const irr_lev = irr(cf_lev);
   const moic_lev = (cf_lev.slice(1).reduce((a,b)=>a+b,0)) / Math.max(1e-9, -cf_lev[0]);
 
+  // Calcular LTV de salida
+  const debtAtExit:any = debt.find((d:any)=> d.anio===years) ?? { saldo_final: 0 };
+  const ltv_salida = valor_salida_bruto > 0
+    ? Number(debtAtExit.saldo_final ?? 0) / valor_salida_bruto
+    : null;
+
   // Persist
   await pool.query(
     `REPLACE INTO valuations (project_id, valor_salida_bruto, valor_salida_neto, ltv_salida)
      VALUES (?,?,?,?)`,
-    [project_id, valor_salida_bruto, valor_salida_neto, null]
+    [project_id, valor_salida_bruto, valor_salida_neto, ltv_salida]
   );
+  // Calcular yield on cost del año 1 (buscando explícitamente anio=1)
+  const y1 = annRows.find((r:any) => r.anio === 1);
+  const yield_on_cost_y1 = y1 && (base + costs_buy) > 0
+    ? Number(y1.ebitda_less_ffe) / (base + costs_buy)
+    : null;
+
   await pool.query(
     `REPLACE INTO returns (project_id, irr_unlevered, moic_unlevered, yield_on_cost_y1, irr_levered, moic_levered, payback_anios, fcfe_json)
      VALUES (?,?,?,?,?,?,?,?)`,
@@ -113,7 +125,7 @@ export async function valuationAndReturns(project_id:string) {
       project_id,
       irr_unlev ?? null,
       moic_unlev ?? null,
-      (annRows[0].ebitda_less_ffe / (base + costs_buy)) || null,
+      yield_on_cost_y1,
       irr_lev ?? null,
       moic_lev ?? null,
       null,

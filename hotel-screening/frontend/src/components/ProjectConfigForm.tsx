@@ -399,13 +399,14 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
 
           {config.metodo_valoracion === 'cap_rate' && (
             <label className="flex flex-col">
-              <span className="text-sm font-medium mb-1">Cap rate salida</span>
+              <span className="text-sm font-medium mb-1">Cap rate salida *</span>
               <input
                 className="border px-3 py-2 rounded"
                 type="number"
                 min={0}
                 max={1}
                 step={0.001}
+                required
                 value={config.cap_rate_salida ?? ''}
                 onChange={e => updateField('cap_rate_salida', e.target.value ? Number(e.target.value) : null)}
               />
@@ -414,12 +415,13 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
 
           {config.metodo_valoracion === 'multiplo' && (
             <label className="flex flex-col">
-              <span className="text-sm font-medium mb-1">Múltiplo salida</span>
+              <span className="text-sm font-medium mb-1">Múltiplo salida *</span>
               <input
                 className="border px-3 py-2 rounded"
                 type="number"
                 min={0}
                 step={0.1}
+                required
                 value={config.multiplo_salida ?? ''}
                 onChange={e => updateField('multiplo_salida', e.target.value ? Number(e.target.value) : null)}
               />

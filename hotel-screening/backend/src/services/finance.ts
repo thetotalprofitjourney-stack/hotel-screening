@@ -10,7 +10,7 @@ export function frenchLoanSchedule(P:number, rate:number, years:number): DebtRow
   let saldo = P;
   for (let y = 1; y <= n; y++) {
     const intereses = saldo * r;
-    const amortizacion = Math.min(saldo, cuota - intereses);
+    const amortizacion = Math.max(0, Math.min(saldo, cuota - intereses));
     saldo = Math.max(0, saldo - amortizacion);
     out.push({ anio: y, intereses, amortizacion, cuota: intereses + amortizacion, saldo_final: saldo });
   }
