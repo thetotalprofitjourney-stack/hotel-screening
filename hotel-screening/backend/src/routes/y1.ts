@@ -142,13 +142,17 @@ router.post('/v1/projects/:id/y1/calc', async (req, res) => {
     vals
   );
 
+  // Calcular RN total de Y1 desde y1_commercial
+  const y1_rn_total = comm.reduce((sum: number, m: any) => sum + Number(m.rn || 0), 0);
+  const y1_dept_profit_total = monthly.reduce((sum, m) => sum + (m.dept_profit || 0), 0);
+
   await pool.query(
     `REPLACE INTO usali_annual
-     (project_id, anio, operating_revenue, gop, fees, nonop, ebitda, ffe, ebitda_less_ffe, gop_margin, ebitda_margin, ebitda_less_ffe_margin)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+     (project_id, anio, rn, operating_revenue, dept_profit, gop, fees, nonop, ebitda, ffe, ebitda_less_ffe, gop_margin, ebitda_margin, ebitda_less_ffe_margin)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
-      projectId, 1,
-      y1_anual.operating_revenue, y1_anual.gop, y1_anual.fees, y1_anual.nonop, y1_anual.ebitda,
+      projectId, 1, y1_rn_total,
+      y1_anual.operating_revenue, y1_dept_profit_total, y1_anual.gop, y1_anual.fees, y1_anual.nonop, y1_anual.ebitda,
       y1_anual.ffe, y1_anual.ebitda_less_ffe, y1_anual.gop_margin, y1_anual.ebitda_margin, y1_anual.ebitda_less_ffe_margin
     ]
   );
@@ -236,8 +240,16 @@ router.put('/v1/projects/:id/y1/usali', async (req, res) => {
   // Calcular y guardar totales anuales
   const sum = (field: string) => monthly.reduce((acc: number, m: any) => acc + Number(m[field] || 0), 0);
 
+  // Obtener RN total desde y1_commercial
+  const [rnRows] = await pool.query(
+    `SELECT SUM(y1_mes_rn) as total_rn FROM y1_commercial WHERE project_id=?`,
+    [projectId]
+  );
+  const y1_rn_total = Number((rnRows as any[])[0]?.total_rn || 0);
+
   const y1_anual = {
     operating_revenue: sum('total_rev'),
+    dept_profit: sum('dept_profit'),
     gop: sum('gop'),
     fees: sum('fees_total'),
     nonop: sum('nonop_total'),
@@ -251,11 +263,11 @@ router.put('/v1/projects/:id/y1/usali', async (req, res) => {
 
   await pool.query(
     `REPLACE INTO usali_annual
-     (project_id, anio, operating_revenue, gop, fees, nonop, ebitda, ffe, ebitda_less_ffe, gop_margin, ebitda_margin, ebitda_less_ffe_margin)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+     (project_id, anio, rn, operating_revenue, dept_profit, gop, fees, nonop, ebitda, ffe, ebitda_less_ffe, gop_margin, ebitda_margin, ebitda_less_ffe_margin)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
-      projectId, 1,
-      y1_anual.operating_revenue, y1_anual.gop, y1_anual.fees, y1_anual.nonop, y1_anual.ebitda,
+      projectId, 1, y1_rn_total,
+      y1_anual.operating_revenue, y1_anual.dept_profit, y1_anual.gop, y1_anual.fees, y1_anual.nonop, y1_anual.ebitda,
       y1_anual.ffe, y1_anual.ebitda_less_ffe, y1_anual.gop_margin, y1_anual.ebitda_margin, y1_anual.ebitda_less_ffe_margin
     ]
   );

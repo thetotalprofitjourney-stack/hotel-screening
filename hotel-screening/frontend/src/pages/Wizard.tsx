@@ -29,6 +29,11 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   const [annuals, setAnnuals] = useState<any[]|null>(null);
   const [debt, setDebt] = useState<any|null>(null);
   const [vr, setVR] = useState<any|null>(null);
+  const [loading, setLoading] = useState({
+    projection: false,
+    debt: false,
+    valuation: false
+  });
 
   async function loadConfig() {
     try {
@@ -97,16 +102,45 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   }
 
   async function doProjection() {
-    const r = await api(`/v1/projects/${projectId}/projection`, { method:'POST', body: JSON.stringify(ass) });
-    setAnnuals(r.annuals);
+    if (loading.projection) return;
+    setLoading(prev => ({ ...prev, projection: true }));
+    try {
+      const r = await api(`/v1/projects/${projectId}/projection`, { method:'POST', body: JSON.stringify(ass) });
+      setAnnuals(r.annuals);
+    } catch (error) {
+      console.error('Error en proyección:', error);
+      alert('Error al proyectar: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+    } finally {
+      setLoading(prev => ({ ...prev, projection: false }));
+    }
   }
+
   async function doDebt() {
-    const r = await api(`/v1/projects/${projectId}/debt`, { method:'POST', body: JSON.stringify({}) });
-    setDebt(r);
+    if (loading.debt) return;
+    setLoading(prev => ({ ...prev, debt: true }));
+    try {
+      const r = await api(`/v1/projects/${projectId}/debt`, { method:'POST', body: JSON.stringify({}) });
+      setDebt(r);
+    } catch (error) {
+      console.error('Error en cálculo de deuda:', error);
+      alert('Error al calcular deuda: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+    } finally {
+      setLoading(prev => ({ ...prev, debt: false }));
+    }
   }
+
   async function doValuation() {
-    const r = await api(`/v1/projects/${projectId}/valuation-and-returns`, { method:'POST', body: JSON.stringify({}) });
-    setVR(r);
+    if (loading.valuation) return;
+    setLoading(prev => ({ ...prev, valuation: true }));
+    try {
+      const r = await api(`/v1/projects/${projectId}/valuation-and-returns`, { method:'POST', body: JSON.stringify({}) });
+      setVR(r);
+    } catch (error) {
+      console.error('Error en valoración:', error);
+      alert('Error al valorar: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+    } finally {
+      setLoading(prev => ({ ...prev, valuation: false }));
+    }
   }
 
   return (
@@ -242,9 +276,27 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
           </div>
 
           <div className="flex gap-2 mt-3">
-            <button className="px-3 py-2 bg-black text-white rounded" onClick={doProjection}>Proyectar 2..N</button>
-            <button className="px-3 py-2 border rounded" onClick={doDebt}>Calcular deuda</button>
-            <button className="px-3 py-2 border rounded" onClick={doValuation}>Valorar & Retornos</button>
+            <button
+              className="px-3 py-2 bg-black text-white rounded disabled:bg-gray-400"
+              onClick={doProjection}
+              disabled={loading.projection}
+            >
+              {loading.projection ? 'Proyectando...' : 'Proyectar 2..N'}
+            </button>
+            <button
+              className="px-3 py-2 border rounded disabled:bg-gray-200"
+              onClick={doDebt}
+              disabled={loading.debt || !annuals}
+            >
+              {loading.debt ? 'Calculando...' : 'Calcular deuda'}
+            </button>
+            <button
+              className="px-3 py-2 border rounded disabled:bg-gray-200"
+              onClick={doValuation}
+              disabled={loading.valuation || !debt}
+            >
+              {loading.valuation ? 'Valorando...' : 'Valorar & Retornos'}
+            </button>
           </div>
 
           {annuals && <AnnualUsaliTable data={annuals} />}

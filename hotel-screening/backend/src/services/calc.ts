@@ -41,6 +41,9 @@ export function calcUsaliY1Monthly(
   if (ffe_pct < 0 || ffe_pct > 1) {
     throw new Error('El porcentaje FF&E debe estar entre 0 y 1');
   }
+  if (isNaN(ffe_pct)) {
+    throw new Error('El porcentaje FF&E debe ser un número válido');
+  }
 
   // Validar que los ratios críticos existan
   const requiredRatios = [
