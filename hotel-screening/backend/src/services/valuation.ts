@@ -21,7 +21,7 @@ export async function computeDebt(project_id:string) {
   // Persist
   await pool.query(`DELETE FROM debt_schedule_annual WHERE project_id=?`, [project_id]);
   if (sched.length) {
-    const ph = sched.map(()=>'(?,?,?,?,?)').join(',');
+    const ph = sched.map(()=>'(?,?,?,?,?,?)').join(',');
     const vals: any[] = [];
     sched.forEach(r => vals.push(project_id, r.anio, r.intereses, r.amortizacion, r.cuota, r.saldo_final));
     await pool.query(
