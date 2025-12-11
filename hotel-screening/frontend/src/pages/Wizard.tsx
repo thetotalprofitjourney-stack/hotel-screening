@@ -10,6 +10,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   const [config, setConfig] = useState<ProjectConfig | null>(null);
   const [configLoaded, setConfigLoaded] = useState(false);
   const [showConfigForm, setShowConfigForm] = useState(false);
+  const [projectState, setProjectState] = useState<string>('draft');
 
   const [anio, setAnio] = useState<number>(new Date().getFullYear());
   const [meses, setMeses] = useState<any[]>([]);
@@ -54,6 +55,26 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     }
   }
 
+  async function loadProjectState() {
+    try {
+      const data = await api(`/v1/projects`);
+      const project = data.find((p: any) => p.project_id === projectId);
+      if (project && project.estado) {
+        setProjectState(project.estado);
+        // Inicializar estados según el estado del proyecto
+        if (project.estado === 'y1_commercial' || project.estado === 'y1_usali' || project.estado === 'projection_2n' || project.estado === 'finalized') {
+          setAccepted(true);
+        }
+        if (project.estado === 'y1_usali' || project.estado === 'projection_2n' || project.estado === 'finalized') {
+          // Cargar datos de USALI
+          calcY1();
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando estado del proyecto:', error);
+    }
+  }
+
   async function saveConfig(newConfig: ProjectConfig) {
     try {
       await api(`/v1/projects/${projectId}/config`, {
@@ -69,12 +90,27 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   }
 
   async function loadBenchmark() {
+    // Primero verificar si ya existen datos guardados en y1_commercial
+    try {
+      const y1Data = await api(`/v1/projects/${projectId}/y1/commercial`);
+      if (y1Data && y1Data.meses && y1Data.meses.length === 12) {
+        // Si hay datos guardados, mostrar esos
+        setMeses(y1Data.meses);
+        return;
+      }
+    } catch (error) {
+      // Si no hay datos guardados, continuar con el benchmark
+      console.log('No hay datos de Y1 comercial guardados, cargando benchmark');
+    }
+
+    // Cargar benchmark si no hay datos guardados
     const data = await api(`/v1/projects/${projectId}/y1/benchmark?anio_base=${anio}`);
     setMeses(data.meses);
   }
 
   useEffect(() => {
     loadConfig().catch(console.error);
+    loadProjectState().catch(console.error);
   }, [projectId]);
 
   useEffect(()=>{
@@ -92,6 +128,17 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   }
 
   async function calcY1() {
+    // Primero intentar cargar datos guardados
+    try {
+      const r = await api(`/v1/projects/${projectId}/y1/usali`);
+      setCalc(r);
+      return;
+    } catch (error) {
+      // Si no hay datos guardados, calcular con ratios de mercado
+      console.log('No hay USALI guardado, calculando con ratios de mercado');
+    }
+
+    // Calcular con ratios de mercado si no hay datos guardados
     const r = await api(`/v1/projects/${projectId}/y1/calc`, { method:'POST', body: JSON.stringify({}) });
     setCalc(r);
   }
@@ -101,7 +148,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       method: 'PUT',
       body: JSON.stringify({ monthly: editedData })
     });
-    // Recargar los datos después de guardar
+    // Recargar los datos después de guardar (ahora cargará los datos guardados, no recalculará)
     await calcY1();
   }
 
@@ -238,44 +285,51 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                 value={ass.years} onChange={e=>setAss({...ass, years:Number(e.target.value)})}/>
             </label>
             <label>ADR crecimiento %
-              <input className="input" type="number" step="0.01"
-                value={ass.adr_growth_pct}
-                onChange={e=>setAss({...ass, adr_growth_pct:Number(e.target.value)})}/>
+              <input className="input" type="number" step="0.1"
+                value={(ass.adr_growth_pct * 100).toFixed(1)}
+                onChange={e=>setAss({...ass, adr_growth_pct:Number(e.target.value) / 100})}
+                onFocus={e => e.target.select()}/>
             </label>
             <label>Δ Ocupación (pp/año)
               <input className="input" type="number" step="0.1"
                 value={ass.occ_delta_pp}
-                onChange={e=>setAss({...ass, occ_delta_pp:Number(e.target.value)})}/>
+                onChange={e=>setAss({...ass, occ_delta_pp:Number(e.target.value)})}
+                onFocus={e => e.target.select()}/>
             </label>
-            <label>Tope ocupación
-              <input className="input" type="number" min={0} max={1} step="0.01"
-                value={ass.occ_cap}
-                onChange={e=>setAss({...ass, occ_cap:Number(e.target.value)})}/>
+            <label>Tope ocupación %
+              <input className="input" type="number" min={0} max={100} step="0.1"
+                value={(ass.occ_cap * 100).toFixed(1)}
+                onChange={e=>setAss({...ass, occ_cap:Number(e.target.value) / 100})}
+                onFocus={e => e.target.select()}/>
             </label>
 
             <label>Inflación costes dept. (%)
-              <input className="input" type="number" step="0.01"
-                value={ass.cost_inflation_pct}
-                onChange={e=>setAss({...ass, cost_inflation_pct:Number(e.target.value)})}/>
+              <input className="input" type="number" step="0.1"
+                value={(ass.cost_inflation_pct * 100).toFixed(1)}
+                onChange={e=>setAss({...ass, cost_inflation_pct:Number(e.target.value) / 100})}
+                onFocus={e => e.target.select()}/>
             </label>
             <label>Inflación undistributed (%)
-              <input className="input" type="number" step="0.01"
-                value={ass.undistributed_inflation_pct}
-                onChange={e=>setAss({...ass, undistributed_inflation_pct:Number(e.target.value)})}/>
+              <input className="input" type="number" step="0.1"
+                value={(ass.undistributed_inflation_pct * 100).toFixed(1)}
+                onChange={e=>setAss({...ass, undistributed_inflation_pct:Number(e.target.value) / 100})}
+                onFocus={e => e.target.select()}/>
             </label>
             <label>Inflación non-op (%)
-              <input className="input" type="number" step="0.01"
-                value={ass.nonop_inflation_pct}
-                onChange={e=>setAss({...ass, nonop_inflation_pct:Number(e.target.value)})}/>
+              <input className="input" type="number" step="0.1"
+                value={(ass.nonop_inflation_pct * 100).toFixed(1)}
+                onChange={e=>setAss({...ass, nonop_inflation_pct:Number(e.target.value) / 100})}
+                onFocus={e => e.target.select()}/>
             </label>
             <label>Indexación fee base (% opcional)
-              <input className="input" type="number" step="0.01"
+              <input className="input" type="number" step="0.1"
                 placeholder="usa contrato si vacío"
-                value={ass.fees_indexation_pct ?? ''}
+                value={ass.fees_indexation_pct !== null ? (ass.fees_indexation_pct * 100).toFixed(1) : ''}
                 onChange={e=>{
-                  const v = e.target.value === '' ? null : Number(e.target.value);
-                  setAss({...ass, fees_indexation_pct: (v as any)});
-                }}/>
+                  const v = e.target.value === '' ? null : Number(e.target.value) / 100;
+                  setAss({...ass, fees_indexation_pct: v});
+                }}
+                onFocus={e => e.target.select()}/>
             </label>
           </div>
 

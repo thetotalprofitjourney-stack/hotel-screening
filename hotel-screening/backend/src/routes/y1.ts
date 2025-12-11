@@ -8,6 +8,25 @@ import { resolveTamanoBucket } from '../services/utils.js';
 
 const router = Router();
 
+// GET datos de Y1 comercial guardados (si existen)
+router.get('/v1/projects/:id/y1/commercial', async (req, res) => {
+  const projectId = req.params.id;
+
+  const [rows] = await pool.query(
+    `SELECT mes, y1_mes_occ AS occ, y1_mes_adr AS adr
+     FROM y1_commercial
+     WHERE project_id=?
+     ORDER BY mes`,
+    [projectId]
+  );
+
+  if ((rows as any[]).length === 0) {
+    return res.status(404).json({ error: 'Y1_COMMERCIAL_NOT_FOUND' });
+  }
+
+  res.json({ meses: rows });
+});
+
 // GET benchmark (12 meses) según la categoría y ubicación geográfica del proyecto
 router.get('/v1/projects/:id/y1/benchmark', async (req, res) => {
   const projectId = req.params.id;
@@ -67,8 +86,49 @@ router.post('/v1/projects/:id/y1/benchmark/accept', async (req, res) => {
     values
   );
 
-  await pool.query(`UPDATE projects SET estado='y1_validated', updated_at=NOW(3) WHERE project_id=?`, [projectId]);
+  await pool.query(`UPDATE projects SET estado='y1_commercial', updated_at=NOW(3) WHERE project_id=?`, [projectId]);
   res.json({ ok: true });
+});
+
+// GET USALI Y1 guardado (si existe)
+router.get('/v1/projects/:id/y1/usali', async (req, res) => {
+  const projectId = req.params.id;
+
+  const [rows] = await pool.query(
+    `SELECT mes, rn, rooms, fb, other_operated, misc_income, total_rev,
+            dept_rooms, dept_fb, dept_other, dept_total, dept_profit,
+            und_ag, und_it, und_sm, und_pom, und_eww, und_total,
+            gop, fees_base, fees_variable, fees_incentive, fees_total,
+            income_before_nonop, nonop_total, ebitda, ffe_amount, ebitda_less_ffe
+     FROM usali_y1_monthly
+     WHERE project_id=?
+     ORDER BY mes`,
+    [projectId]
+  );
+
+  if ((rows as any[]).length === 0) {
+    return res.status(404).json({ error: 'USALI_Y1_NOT_FOUND' });
+  }
+
+  // Calcular totales anuales
+  const monthly = rows as any[];
+  const sum = (field: string) => monthly.reduce((acc: number, m: any) => acc + Number(m[field] || 0), 0);
+
+  const y1_anual = {
+    operating_revenue: sum('total_rev'),
+    dept_profit: sum('dept_profit'),
+    gop: sum('gop'),
+    fees: sum('fees_total'),
+    nonop: sum('nonop_total'),
+    ebitda: sum('ebitda'),
+    ffe: sum('ffe_amount'),
+    ebitda_less_ffe: sum('ebitda_less_ffe'),
+    gop_margin: sum('gop') / Math.max(1, sum('total_rev')),
+    ebitda_margin: sum('ebitda') / Math.max(1, sum('total_rev')),
+    ebitda_less_ffe_margin: sum('ebitda_less_ffe') / Math.max(1, sum('total_rev'))
+  };
+
+  res.json({ y1_mensual: monthly, y1_anual });
 });
 
 // Calcular USALI Y1 (lee y1_commercial y aplica ratios por tamaño)
@@ -274,6 +334,8 @@ router.put('/v1/projects/:id/y1/usali', async (req, res) => {
       y1_anual.ffe, y1_anual.ebitda_less_ffe, y1_anual.gop_margin, y1_anual.ebitda_margin, y1_anual.ebitda_less_ffe_margin
     ]
   );
+
+  await pool.query(`UPDATE projects SET estado='y1_usali', updated_at=NOW(3) WHERE project_id=?`, [projectId]);
 
   res.json({ ok: true, y1_anual });
 });

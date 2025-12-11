@@ -14,7 +14,7 @@ const OPTS = [
 const SEGMENTOS = ['urbano', 'vacacional'];
 const CATEGORIAS = ['economy', 'midscale', 'upper_midscale', 'upscale', 'upper_upscale', 'luxury'];
 
-export default function Selector({ onOpen }:{ onOpen:(id:string)=>void }) {
+export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; onBack:()=>void }) {
   const [sort, setSort] = useState('irr_levered');
   const [order, setOrder] = useState<'asc'|'desc'>('desc');
   const [rows, setRows] = useState<any[]>([]);
@@ -85,7 +85,10 @@ export default function Selector({ onOpen }:{ onOpen:(id:string)=>void }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold">Selector de oportunidades</h2>
+        <div className="flex items-center gap-3">
+          <button className="px-2 py-1 border rounded hover:bg-gray-50" onClick={onBack}>← Volver</button>
+          <h2 className="text-xl font-semibold">Selector de oportunidades</h2>
+        </div>
         <div className="flex gap-2 items-center">
           <button
             className={`px-3 py-2 border rounded ${showFilters ? 'bg-blue-100 border-blue-500' : ''}`}

@@ -274,30 +274,32 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
           </label>
 
           <label className="flex flex-col">
-            <span className="text-sm font-medium mb-1">LTV *</span>
+            <span className="text-sm font-medium mb-1">LTV % *</span>
             <input
               required
               className="border px-3 py-2 rounded"
               type="number"
               min={0}
-              max={1}
-              step={0.01}
-              value={config.ltv}
-              onChange={e => updateField('ltv', Number(e.target.value))}
+              max={100}
+              step={0.1}
+              value={(config.ltv * 100).toFixed(1)}
+              onChange={e => updateField('ltv', Number(e.target.value) / 100)}
+              onFocus={e => e.target.select()}
             />
           </label>
 
           <label className="flex flex-col">
-            <span className="text-sm font-medium mb-1">Tasa de interés *</span>
+            <span className="text-sm font-medium mb-1">Tasa de interés % *</span>
             <input
               required
               className="border px-3 py-2 rounded"
               type="number"
               min={0}
-              max={1}
-              step={0.001}
-              value={config.interes}
-              onChange={e => updateField('interes', Number(e.target.value))}
+              max={100}
+              step={0.01}
+              value={(config.interes * 100).toFixed(2)}
+              onChange={e => updateField('interes', Number(e.target.value) / 100)}
+              onFocus={e => e.target.select()}
             />
           </label>
 
@@ -366,10 +368,11 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
                   className="border px-3 py-2 rounded"
                   type="number"
                   min={0}
-                  max={1}
-                  step={0.001}
-                  value={config.fee_pct_gop ?? ''}
-                  onChange={e => updateField('fee_pct_gop', e.target.value ? Number(e.target.value) : null)}
+                  max={100}
+                  step={0.01}
+                  value={config.fee_pct_gop !== null ? (config.fee_pct_gop * 100).toFixed(2) : ''}
+                  onChange={e => updateField('fee_pct_gop', e.target.value ? Number(e.target.value) / 100 : null)}
+                  onFocus={e => e.target.select()}
                 />
               </label>
 
@@ -379,23 +382,25 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
                   className="border px-3 py-2 rounded"
                   type="number"
                   min={0}
-                  max={1}
-                  step={0.001}
-                  value={config.fee_incentive_pct ?? ''}
-                  onChange={e => updateField('fee_incentive_pct', e.target.value ? Number(e.target.value) : null)}
+                  max={100}
+                  step={0.01}
+                  value={config.fee_incentive_pct !== null ? (config.fee_incentive_pct * 100).toFixed(2) : ''}
+                  onChange={e => updateField('fee_incentive_pct', e.target.value ? Number(e.target.value) / 100 : null)}
+                  onFocus={e => e.target.select()}
                 />
               </label>
 
               <label className="flex flex-col">
-                <span className="text-sm font-medium mb-1">Hurdle GOP margin</span>
+                <span className="text-sm font-medium mb-1">Hurdle GOP margin %</span>
                 <input
                   className="border px-3 py-2 rounded"
                   type="number"
                   min={0}
-                  max={1}
-                  step={0.001}
-                  value={config.fee_hurdle_gop_margin ?? ''}
-                  onChange={e => updateField('fee_hurdle_gop_margin', e.target.value ? Number(e.target.value) : null)}
+                  max={100}
+                  step={0.01}
+                  value={config.fee_hurdle_gop_margin !== null ? (config.fee_hurdle_gop_margin * 100).toFixed(2) : ''}
+                  onChange={e => updateField('fee_hurdle_gop_margin', e.target.value ? Number(e.target.value) / 100 : null)}
+                  onFocus={e => e.target.select()}
                 />
               </label>
             </>
@@ -414,10 +419,11 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
               className="border px-3 py-2 rounded"
               type="number"
               min={0}
-              max={1}
-              step={0.001}
-              value={config.ffe}
-              onChange={e => updateField('ffe', Number(e.target.value))}
+              max={100}
+              step={0.01}
+              value={(config.ffe * 100).toFixed(2)}
+              onChange={e => updateField('ffe', Number(e.target.value) / 100)}
+              onFocus={e => e.target.select()}
             />
           </label>
 
@@ -436,16 +442,17 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
 
           {config.metodo_valoracion === 'cap_rate' && (
             <label className="flex flex-col">
-              <span className="text-sm font-medium mb-1">Cap rate salida *</span>
+              <span className="text-sm font-medium mb-1">Cap rate salida % *</span>
               <input
                 className="border px-3 py-2 rounded"
                 type="number"
                 min={0}
-                max={1}
-                step={0.001}
+                max={100}
+                step={0.01}
                 required
-                value={config.cap_rate_salida ?? ''}
-                onChange={e => updateField('cap_rate_salida', e.target.value ? Number(e.target.value) : null)}
+                value={config.cap_rate_salida !== null ? (config.cap_rate_salida * 100).toFixed(2) : ''}
+                onChange={e => updateField('cap_rate_salida', e.target.value ? Number(e.target.value) / 100 : null)}
+                onFocus={e => e.target.select()}
               />
             </label>
           )}
@@ -466,29 +473,31 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
           )}
 
           <label className="flex flex-col">
-            <span className="text-sm font-medium mb-1">Coste transacción compra (%)</span>
+            <span className="text-sm font-medium mb-1">Coste transacción compra %</span>
             <input
               className="border px-3 py-2 rounded"
               type="number"
               min={0}
-              max={1}
-              step={0.001}
-              value={config.coste_tx_compra_pct ?? ''}
-              onChange={e => updateField('coste_tx_compra_pct', e.target.value ? Number(e.target.value) : null)}
+              max={100}
+              step={0.01}
+              value={config.coste_tx_compra_pct !== null ? (config.coste_tx_compra_pct * 100).toFixed(2) : ''}
+              onChange={e => updateField('coste_tx_compra_pct', e.target.value ? Number(e.target.value) / 100 : null)}
+              onFocus={e => e.target.select()}
             />
           </label>
 
           <label className="flex flex-col">
-            <span className="text-sm font-medium mb-1">Coste transacción venta (%) *</span>
+            <span className="text-sm font-medium mb-1">Coste transacción venta % *</span>
             <input
               required
               className="border px-3 py-2 rounded"
               type="number"
               min={0}
-              max={1}
-              step={0.001}
-              value={config.coste_tx_venta_pct}
-              onChange={e => updateField('coste_tx_venta_pct', Number(e.target.value))}
+              max={100}
+              step={0.01}
+              value={(config.coste_tx_venta_pct * 100).toFixed(2)}
+              onChange={e => updateField('coste_tx_venta_pct', Number(e.target.value) / 100)}
+              onFocus={e => e.target.select()}
             />
           </label>
         </div>

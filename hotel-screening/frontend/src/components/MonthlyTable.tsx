@@ -11,7 +11,12 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
 
   function upd(i:number, key:'occ'|'adr', val:number) {
     const next = rows.slice();
-    (next[i] as any)[key] = val;
+    // Si es ocupación, convertir de porcentaje entero (0-100) a decimal (0-1)
+    if (key === 'occ') {
+      (next[i] as any)[key] = val / 100;
+    } else {
+      (next[i] as any)[key] = val;
+    }
     onChange(next);
   }
 
@@ -53,9 +58,10 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
                 <td className="p-2 text-center text-gray-600">{days}</td>
                 <td className="p-2 text-center">
                   <input className="w-24 border px-2 py-1 rounded text-right"
-                    type="number" min={0} max={1} step={0.01}
-                    value={ocupacion}
+                    type="number" min={0} max={100} step={0.1}
+                    value={(ocupacion * 100).toFixed(1)}
                     onChange={e=>upd(i,'occ', Number(e.target.value))}
+                    onFocus={e => e.target.select()}
                   />
                 </td>
                 <td className="p-2 text-center">
