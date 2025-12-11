@@ -133,6 +133,9 @@ export async function valuationAndReturns(project_id:string) {
     ]
   );
 
+  // Actualizar estado del proyecto a finalized
+  await pool.query(`UPDATE projects SET estado='finalized', updated_at=NOW(3) WHERE project_id=?`, [project_id]);
+
   return {
     valuation: { valor_salida_bruto, valor_salida_neto },
     returns: {

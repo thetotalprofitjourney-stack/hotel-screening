@@ -206,5 +206,8 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
     );
   }
 
+  // Actualizar estado del proyecto a projection_2n
+  await pool.query(`UPDATE projects SET estado='projection_2n', updated_at=NOW(3) WHERE project_id=?`, [project_id]);
+
   return res;
 }

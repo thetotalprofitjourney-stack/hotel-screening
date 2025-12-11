@@ -24,7 +24,7 @@ export default function App() {
       </header>
 
 	  {view.name==='list'    && <ProjectList onNew={()=>setView({name:'new'})} onOpen={(id)=>setView({name:'wizard', projectId:id})} onSelector={()=>setView({name:'selector'})} />}
-	  {view.name==='selector'&& <Selector onOpen={(id)=>setView({name:'wizard', projectId:id})} />}
+	  {view.name==='selector'&& <Selector onOpen={(id)=>setView({name:'wizard', projectId:id})} onBack={()=>setView({name:'list'})} />}
       {view.name==='new'    && <NewProject onCancel={()=>setView({name:'list'})} onCreated={(id)=>setView({name:'wizard',projectId:id})} />}
       {view.name==='wizard' && <Wizard projectId={view.projectId} onBack={()=>setView({name:'list'})} />}
     </div>
