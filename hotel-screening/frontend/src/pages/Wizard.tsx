@@ -29,10 +29,12 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     fees_indexation_pct: null as number | null
   });
   const [annuals, setAnnuals] = useState<any[]|null>(null);
+  const [projectionSaved, setProjectionSaved] = useState(false);
   const [debt, setDebt] = useState<any|null>(null);
   const [vr, setVR] = useState<any|null>(null);
   const [loading, setLoading] = useState({
     projection: false,
+    save_projection: false,
     debt: false,
     valuation: false
   });
@@ -213,11 +215,49 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     try {
       const r = await api(`/v1/projects/${projectId}/projection`, { method:'POST', body: JSON.stringify(ass) });
       setAnnuals(r.annuals);
+      setProjectionSaved(false); // Resetear estado de guardado
+      // Limpiar deuda y valoración al re-proyectar
+      setDebt(null);
+      setVR(null);
     } catch (error) {
       console.error('Error en proyección:', error);
       alert('Error al proyectar: ' + (error instanceof Error ? error.message : 'Error desconocido'));
     } finally {
       setLoading(prev => ({ ...prev, projection: false }));
+    }
+  }
+
+  async function saveProjection(editedAnnuals: any[]) {
+    if (loading.save_projection) return;
+    setLoading(prev => ({ ...prev, save_projection: true }));
+    try {
+      // Preparar datos para enviar (solo años >= 2)
+      const years = editedAnnuals
+        .filter(a => a.anio >= 2)
+        .map(a => ({
+          anio: a.anio,
+          rn: a.rn,
+          operating_revenue: a.operating_revenue,
+          dept_total: a.dept_total,
+          und_total: a.und_total,
+          fees: a.fees,
+          nonop: a.nonop,
+          ffe: a.ffe
+        }));
+
+      await api(`/v1/projects/${projectId}/projection`, {
+        method: 'PUT',
+        body: JSON.stringify({ years })
+      });
+
+      setProjectionSaved(true);
+      setAnnuals(editedAnnuals); // Actualizar con datos editados
+      alert('✅ Proyección guardada correctamente');
+    } catch (error) {
+      console.error('Error guardando proyección:', error);
+      alert('Error al guardar proyección: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+    } finally {
+      setLoading(prev => ({ ...prev, save_projection: false }));
     }
   }
 
@@ -393,7 +433,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
             </label>
           </div>
 
-          <div className="flex gap-2 mt-3">
+          <div className="mt-3">
             <button
               className="px-3 py-2 bg-black text-white rounded disabled:bg-gray-400"
               onClick={doProjection}
@@ -401,27 +441,46 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
             >
               {loading.projection ? 'Proyectando...' : 'Proyectar 2..N'}
             </button>
+          </div>
+
+          {annuals && (
+            <>
+              <AnnualUsaliTable
+                data={annuals}
+                editable={true}
+                onChange={setAnnuals}
+              />
+
+              <div className="mt-3">
+                <button
+                  className="px-4 py-2 bg-green-600 text-white rounded disabled:bg-gray-400 font-semibold"
+                  onClick={() => saveProjection(annuals)}
+                  disabled={loading.save_projection || projectionSaved}
+                >
+                  {loading.save_projection ? 'Guardando...' : projectionSaved ? '✓ Proyección guardada' : 'Guardar PROYECCIÓN AÑOS 2..N'}
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+      )}
+
+      {accepted && calc && usaliSaved && projectionSaved && (
+        <section>
+          <h3 className="text-lg font-semibold mt-8 mb-2">Paso 4 — Calcular Deuda</h3>
+          <div className="mt-3">
             <button
-              className="px-3 py-2 border rounded disabled:bg-gray-200"
+              className="px-3 py-2 bg-black text-white rounded disabled:bg-gray-400"
               onClick={doDebt}
-              disabled={loading.debt || !annuals}
+              disabled={loading.debt}
             >
               {loading.debt ? 'Calculando...' : 'Calcular deuda'}
             </button>
-            <button
-              className="px-3 py-2 border rounded disabled:bg-gray-200"
-              onClick={doValuation}
-              disabled={loading.valuation || !debt}
-            >
-              {loading.valuation ? 'Valorando...' : 'Valorar & Retornos'}
-            </button>
           </div>
-
-          {annuals && <AnnualUsaliTable data={annuals} />}
 
           {debt && (
             <div className="mt-5">
-              <h4 className="font-semibold">Deuda</h4>
+              <h4 className="font-semibold">Resultado del Cálculo de Deuda</h4>
               <div className="text-sm mb-2">Principal inicial: {fmt(debt.loan_amount)}</div>
               <div className="overflow-auto">
                 <table className="w-full text-sm border">
@@ -449,6 +508,21 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               </div>
             </div>
           )}
+        </section>
+      )}
+
+      {accepted && calc && usaliSaved && projectionSaved && debt && (
+        <section>
+          <h3 className="text-lg font-semibold mt-8 mb-2">Paso 5 — Valorar & Retornos</h3>
+          <div className="mt-3">
+            <button
+              className="px-3 py-2 bg-black text-white rounded disabled:bg-gray-400"
+              onClick={doValuation}
+              disabled={loading.valuation}
+            >
+              {loading.valuation ? 'Valorando...' : 'Valorar & Retornos'}
+            </button>
+          </div>
 
           {vr && (
             <>
