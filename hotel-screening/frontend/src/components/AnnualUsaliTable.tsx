@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface AnnualData {
   anio: number;
-  rn: number; // Roomnights anuales
+  occupancy: number;
+  rn: number;
   operating_revenue: number;
+  dept_total: number;
   dept_profit: number;
+  und_total: number;
   gop: number;
+  fees: number;
+  nonop: number;
   ebitda: number;
   ffe: number;
   ebitda_less_ffe: number;
@@ -16,153 +21,206 @@ interface AnnualData {
 
 interface AnnualUsaliTableProps {
   data: AnnualData[];
+  editable?: boolean;
+  onChange?: (data: AnnualData[]) => void;
 }
 
-export default function AnnualUsaliTable({ data }: AnnualUsaliTableProps) {
-  const [showDetailed, setShowDetailed] = useState(false);
+export default function AnnualUsaliTable({ data, editable = false, onChange }: AnnualUsaliTableProps) {
+  const [editableData, setEditableData] = useState<AnnualData[]>(data);
+
+  useEffect(() => {
+    setEditableData(data);
+  }, [data]);
+
+  // Función para actualizar un valor y recalcular campos derivados
+  const updateValue = (anio: number, field: string, euroPerRN: number) => {
+    const newData = editableData.map(row => {
+      if (row.anio !== anio) return row;
+
+      const updated = { ...row };
+      const rn = row.rn || 1;
+
+      // Actualizar el campo editado (convertir €/RN a € total)
+      const euroTotal = euroPerRN * rn;
+
+      switch (field) {
+        case 'operating_revenue':
+          updated.operating_revenue = euroTotal;
+          break;
+        case 'dept_total':
+          updated.dept_total = euroTotal;
+          break;
+        case 'und_total':
+          updated.und_total = euroTotal;
+          break;
+        case 'fees':
+          updated.fees = euroTotal;
+          break;
+        case 'nonop':
+          updated.nonop = euroTotal;
+          break;
+        case 'ffe':
+          updated.ffe = euroTotal;
+          break;
+      }
+
+      // Recalcular campos derivados
+      updated.dept_profit = updated.operating_revenue - updated.dept_total;
+      updated.gop = updated.dept_profit - updated.und_total;
+      updated.ebitda = updated.gop - updated.fees - updated.nonop;
+      updated.ebitda_less_ffe = updated.ebitda - updated.ffe;
+
+      // Recalcular márgenes
+      const totalRev = updated.operating_revenue || 1;
+      updated.gop_margin = updated.gop / totalRev;
+      updated.ebitda_margin = updated.ebitda / totalRev;
+      updated.ebitda_less_ffe_margin = updated.ebitda_less_ffe / totalRev;
+
+      return updated;
+    });
+
+    setEditableData(newData);
+    onChange?.(newData);
+  };
+
+  const renderEditableCell = (row: AnnualData, field: string, value: number, bgClass: string = '') => {
+    const euroPerRN = value / Math.max(1, row.rn);
+
+    if (editable && row.anio >= 2) {
+      return (
+        <input
+          type="number"
+          step="0.01"
+          value={euroPerRN.toFixed(2)}
+          onChange={(e) => updateValue(row.anio, field, parseFloat(e.target.value) || 0)}
+          className={`w-20 px-1 py-0.5 text-right border rounded ${bgClass}`}
+        />
+      );
+    }
+
+    return <span>{euroPerRN.toFixed(2)}</span>;
+  };
+
+  const renderMetricGroup = (
+    label: string,
+    row: AnnualData,
+    euroValue: number,
+    isEditable: boolean,
+    field?: string,
+    bgClass: string = ''
+  ) => {
+    const euroPerRN = euroValue / Math.max(1, row.rn);
+    const pctTotalRev = (euroValue / Math.max(1, row.operating_revenue)) * 100;
+
+    return (
+      <td className={`border ${bgClass}`}>
+        <div className="flex flex-col items-end text-xs p-1 space-y-0.5">
+          <div className="font-semibold">{fmt(euroValue)}</div>
+          <div className="text-gray-600">
+            {isEditable && field && editable && row.anio >= 2 ? (
+              renderEditableCell(row, field, euroValue, 'bg-yellow-50')
+            ) : (
+              <span>{euroPerRN.toFixed(2)} €/RN</span>
+            )}
+          </div>
+          <div className="text-gray-500">{pctTotalRev.toFixed(1)}%</div>
+        </div>
+      </td>
+    );
+  };
 
   return (
     <div className="mt-5 space-y-4">
       <div className="flex justify-between items-center">
-        <h4 className="font-semibold">USALI Anual (Años 1-{data.length})</h4>
-        <button
-          className="px-3 py-2 border rounded text-sm"
-          onClick={() => setShowDetailed(!showDetailed)}
-        >
-          {showDetailed ? 'Vista resumida' : 'Vista detallada'}
-        </button>
+        <h4 className="font-semibold">
+          Proyección USALI Anual (Años 1-{editableData.length})
+          {editable && <span className="ml-2 text-sm text-blue-600">(Editable - modifica €/RN)</span>}
+        </h4>
       </div>
 
-      {showDetailed ? (
-        <div className="space-y-4">
-          {/* Tabla de valores absolutos */}
-          <div className="overflow-auto border rounded-lg">
-            <h5 className="font-semibold p-3 bg-gray-100 border-b">Valores Absolutos (€)</h5>
-            <table className="w-full text-sm border-collapse">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="p-2 border text-left">Año</th>
-                  <th className="p-2 border text-right bg-blue-50">Total Rev</th>
-                  <th className="p-2 border text-right bg-yellow-50">Dept Profit</th>
-                  <th className="p-2 border text-right bg-green-50">GOP</th>
-                  <th className="p-2 border text-right bg-purple-50">EBITDA</th>
-                  <th className="p-2 border text-right">FF&E</th>
-                  <th className="p-2 border text-right bg-orange-50">EBITDA-FF&E</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((r) => (
-                  <tr key={r.anio} className="border-t hover:bg-gray-50">
-                    <td className="p-2 border text-center font-medium">Año {r.anio}</td>
-                    <td className="p-2 border text-right bg-blue-50 font-semibold">{fmt(r.operating_revenue)}</td>
-                    <td className="p-2 border text-right bg-yellow-50 font-semibold">{fmt(r.dept_profit)}</td>
-                    <td className="p-2 border text-right bg-green-50 font-semibold">{fmt(r.gop)}</td>
-                    <td className="p-2 border text-right bg-purple-50 font-semibold">{fmt(r.ebitda)}</td>
-                    <td className="p-2 border text-right font-semibold">{fmt(r.ffe)}</td>
-                    <td className="p-2 border text-right bg-orange-50 font-semibold">{fmt(r.ebitda_less_ffe)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      <div className="overflow-x-auto border rounded-lg">
+        <table className="w-full text-sm border-collapse">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="p-2 border sticky left-0 bg-gray-100 z-10" rowSpan={2}>Año</th>
+              <th className="p-2 border" rowSpan={2}>% Ocupación</th>
+              <th className="p-2 border bg-blue-50" colSpan={1}>Total Rev</th>
+              <th className="p-2 border bg-red-50" colSpan={1}>Dept Cost</th>
+              <th className="p-2 border bg-yellow-50" colSpan={1}>Dept Profit</th>
+              <th className="p-2 border bg-orange-50" colSpan={1}>Undistributed</th>
+              <th className="p-2 border bg-green-50" colSpan={1}>GOP</th>
+              <th className="p-2 border bg-indigo-50" colSpan={1}>FEES</th>
+              <th className="p-2 border bg-pink-50" colSpan={1}>NON-OP</th>
+              <th className="p-2 border bg-purple-50" colSpan={1}>EBITDA</th>
+              <th className="p-2 border bg-gray-50" colSpan={1}>FF&E</th>
+              <th className="p-2 border bg-teal-50" colSpan={1}>EBITDA-FF&E</th>
+            </tr>
+            <tr>
+              <th className="p-1 border text-xs bg-blue-50">€ | €/RN | %</th>
+              <th className="p-1 border text-xs bg-red-50">€ | €/RN | %</th>
+              <th className="p-1 border text-xs bg-yellow-50">€ | €/RN | %</th>
+              <th className="p-1 border text-xs bg-orange-50">€ | €/RN | %</th>
+              <th className="p-1 border text-xs bg-green-50">€ | €/RN | %</th>
+              <th className="p-1 border text-xs bg-indigo-50">€ | €/RN | %</th>
+              <th className="p-1 border text-xs bg-pink-50">€ | €/RN | %</th>
+              <th className="p-1 border text-xs bg-purple-50">€ | €/RN | %</th>
+              <th className="p-1 border text-xs bg-gray-50">€ | €/RN | %</th>
+              <th className="p-1 border text-xs bg-teal-50">€ | €/RN | %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {editableData.map((row) => (
+              <tr key={row.anio} className="hover:bg-gray-50">
+                {/* Año */}
+                <td className="p-2 border text-center font-medium sticky left-0 bg-white">
+                  Año {row.anio}
+                </td>
 
-          {/* Tabla de % sobre Total Rev */}
-          <div className="overflow-auto border rounded-lg">
-            <h5 className="font-semibold p-3 bg-gray-100 border-b">% sobre Total Revenue</h5>
-            <table className="w-full text-sm border-collapse">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="p-2 border text-left">Año</th>
-                  <th className="p-2 border text-right bg-yellow-50">Dept Profit %</th>
-                  <th className="p-2 border text-right bg-green-50">GOP %</th>
-                  <th className="p-2 border text-right bg-purple-50">EBITDA %</th>
-                  <th className="p-2 border text-right">FF&E %</th>
-                  <th className="p-2 border text-right bg-orange-50">EBITDA-FF&E %</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((r) => {
-                  const pct = (val: number) => ((val / r.operating_revenue) * 100).toFixed(1) + '%';
-                  return (
-                    <tr key={r.anio} className="border-t hover:bg-gray-50">
-                      <td className="p-2 border text-center font-medium">Año {r.anio}</td>
-                      <td className="p-2 border text-right bg-yellow-50">{pct(r.dept_profit)}</td>
-                      <td className="p-2 border text-right bg-green-50">{pct(r.gop)}</td>
-                      <td className="p-2 border text-right bg-purple-50">{pct(r.ebitda)}</td>
-                      <td className="p-2 border text-right">{pct(r.ffe)}</td>
-                      <td className="p-2 border text-right bg-orange-50">{pct(r.ebitda_less_ffe)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                {/* % Ocupación */}
+                <td className="p-2 border text-center">
+                  {(row.occupancy * 100).toFixed(1)}%
+                </td>
 
-          {/* Tabla de € por Roomnight */}
-          <div className="overflow-auto border rounded-lg">
-            <h5 className="font-semibold p-3 bg-gray-100 border-b">€ por Roomnight</h5>
-            <table className="w-full text-sm border-collapse">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="p-2 border text-left">Año</th>
-                  <th className="p-2 border text-right">Roomnights</th>
-                  <th className="p-2 border text-right bg-blue-50">Total Rev €/RN</th>
-                  <th className="p-2 border text-right bg-yellow-50">Dept Profit €/RN</th>
-                  <th className="p-2 border text-right bg-green-50">GOP €/RN</th>
-                  <th className="p-2 border text-right bg-purple-50">EBITDA €/RN</th>
-                  <th className="p-2 border text-right">FF&E €/RN</th>
-                  <th className="p-2 border text-right bg-orange-50">EBITDA-FF&E €/RN</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((r) => {
-                  const perRN = (val: number) => (val / Math.max(1, r.rn)).toFixed(2);
-                  return (
-                    <tr key={r.anio} className="border-t hover:bg-gray-50">
-                      <td className="p-2 border text-center font-medium">Año {r.anio}</td>
-                      <td className="p-2 border text-right font-semibold">{Math.round(r.rn).toLocaleString('es-ES')}</td>
-                      <td className="p-2 border text-right bg-blue-50">{perRN(r.operating_revenue)}</td>
-                      <td className="p-2 border text-right bg-yellow-50">{perRN(r.dept_profit)}</td>
-                      <td className="p-2 border text-right bg-green-50">{perRN(r.gop)}</td>
-                      <td className="p-2 border text-right bg-purple-50">{perRN(r.ebitda)}</td>
-                      <td className="p-2 border text-right">{perRN(r.ffe)}</td>
-                      <td className="p-2 border text-right bg-orange-50">{perRN(r.ebitda_less_ffe)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : (
-        /* Vista resumida */
-        <div className="overflow-auto border rounded-lg">
-          <table className="w-full text-sm border-collapse">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="p-2 border">Año</th>
-                <th className="p-2 border bg-blue-50">Total Rev</th>
-                <th className="p-2 border bg-yellow-50">Dept Profit</th>
-                <th className="p-2 border bg-green-50">GOP</th>
-                <th className="p-2 border bg-purple-50">EBITDA</th>
-                <th className="p-2 border">FF&E</th>
-                <th className="p-2 border bg-orange-50">EBITDA-FF&E</th>
+                {/* Total Rev - Editable */}
+                {renderMetricGroup('Total Rev', row, row.operating_revenue, true, 'operating_revenue', 'bg-blue-50')}
+
+                {/* Dept Cost - Editable */}
+                {renderMetricGroup('Dept Cost', row, row.dept_total, true, 'dept_total', 'bg-red-50')}
+
+                {/* Dept Profit - Calculado */}
+                {renderMetricGroup('Dept Profit', row, row.dept_profit, false, undefined, 'bg-yellow-50')}
+
+                {/* Undistributed - Editable */}
+                {renderMetricGroup('Undistributed', row, row.und_total, true, 'und_total', 'bg-orange-50')}
+
+                {/* GOP - Calculado */}
+                {renderMetricGroup('GOP', row, row.gop, false, undefined, 'bg-green-50')}
+
+                {/* FEES - Editable */}
+                {renderMetricGroup('FEES', row, row.fees, true, 'fees', 'bg-indigo-50')}
+
+                {/* NON-OP - Editable */}
+                {renderMetricGroup('NON-OP', row, row.nonop, true, 'nonop', 'bg-pink-50')}
+
+                {/* EBITDA - Calculado */}
+                {renderMetricGroup('EBITDA', row, row.ebitda, false, undefined, 'bg-purple-50')}
+
+                {/* FF&E - Editable */}
+                {renderMetricGroup('FF&E', row, row.ffe, true, 'ffe', 'bg-gray-50')}
+
+                {/* EBITDA-FF&E - Calculado */}
+                {renderMetricGroup('EBITDA-FF&E', row, row.ebitda_less_ffe, false, undefined, 'bg-teal-50')}
               </tr>
-            </thead>
-            <tbody>
-              {data.map((r) => (
-                <tr key={r.anio} className="border-t hover:bg-gray-50">
-                  <td className="p-2 border text-center font-medium">Año {r.anio}</td>
-                  <td className="p-2 border text-right bg-blue-50 font-semibold">{fmt(r.operating_revenue)}</td>
-                  <td className="p-2 border text-right bg-yellow-50 font-semibold">{fmt(r.dept_profit)}</td>
-                  <td className="p-2 border text-right bg-green-50 font-semibold">{fmt(r.gop)}</td>
-                  <td className="p-2 border text-right bg-purple-50 font-semibold">{fmt(r.ebitda)}</td>
-                  <td className="p-2 border text-right font-semibold">{fmt(r.ffe)}</td>
-                  <td className="p-2 border text-right bg-orange-50 font-semibold">{fmt(r.ebitda_less_ffe)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {editable && (
+        <div className="text-sm text-gray-600 bg-yellow-50 p-3 rounded border border-yellow-200">
+          <strong>Nota:</strong> Los campos editables (Total Rev, Dept Cost, Undistributed, FEES, NON-OP, FF&E)
+          se modifican en <strong>€/RN</strong>. Los campos calculados (Dept Profit, GOP, EBITDA, EBITDA-FF&E)
+          se actualizan automáticamente.
         </div>
       )}
     </div>
@@ -170,5 +228,9 @@ export default function AnnualUsaliTable({ data }: AnnualUsaliTableProps) {
 }
 
 function fmt(n: number) {
-  return Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n ?? 0);
+  return Intl.NumberFormat('es-ES', {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: 0
+  }).format(n ?? 0);
 }

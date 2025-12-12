@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { pool } from '../db.js';
 import { projectYears } from '../services/projection.js';
 import { computeDebt, valuationAndReturns } from '../services/valuation.js';
 
@@ -45,6 +46,85 @@ router.post('/v1/projects/:id/valuation-and-returns', async (req,res) => {
     const vr = await valuationAndReturns(req.params.id);
     res.json(vr);
   } catch (e:any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// 4) Guardar ediciones de proyección (años 2..N)
+router.put('/v1/projects/:id/projection', async (req, res) => {
+  const projectId = req.params.id;
+
+  const yearSchema = z.object({
+    anio: z.number().int().min(2),
+    rn: z.number(),
+    operating_revenue: z.number(),
+    dept_total: z.number(),
+    und_total: z.number(),
+    fees: z.number(),
+    nonop: z.number(),
+    ffe: z.number()
+  });
+
+  const schema = z.object({
+    years: z.array(yearSchema).min(1)
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error);
+
+  try {
+    // Invalidar deuda y valoración si existen
+    const [prjRows] = await pool.query(
+      `SELECT estado FROM projects WHERE project_id=?`,
+      [projectId]
+    );
+    const prj = (prjRows as any[])[0];
+    if (!prj) return res.status(404).json({ error: 'PROJECT_NOT_FOUND' });
+
+    const currentState = prj.estado;
+    const statesWithDebt = ['finalized'];
+
+    if (statesWithDebt.includes(currentState)) {
+      // Borrar deuda y valoración
+      await pool.query(`DELETE FROM debt_schedule_annual WHERE project_id=?`, [projectId]);
+      await pool.query(`DELETE FROM valuations WHERE project_id=?`, [projectId]);
+      await pool.query(`DELETE FROM returns WHERE project_id=?`, [projectId]);
+      console.log(`[INVALIDATE] Project ${projectId}: Projection edited, cleared debt and valuation data`);
+    }
+
+    // Actualizar cada año con cálculos
+    for (const year of parsed.data.years) {
+      // Recalcular campos derivados
+      const dept_profit = year.operating_revenue - year.dept_total;
+      const gop = dept_profit - year.und_total;
+      const ebitda = gop - year.fees - year.nonop;
+      const ebitda_less_ffe = ebitda - year.ffe;
+
+      // Calcular márgenes
+      const gop_margin = year.operating_revenue > 0 ? gop / year.operating_revenue : 0;
+      const ebitda_margin = year.operating_revenue > 0 ? ebitda / year.operating_revenue : 0;
+      const ebitda_less_ffe_margin = year.operating_revenue > 0 ? ebitda_less_ffe / year.operating_revenue : 0;
+
+      await pool.query(
+        `UPDATE usali_annual
+         SET rn=?, operating_revenue=?, dept_total=?, dept_profit=?, und_total=?, gop=?,
+             fees=?, nonop=?, ebitda=?, ffe=?, ebitda_less_ffe=?,
+             gop_margin=?, ebitda_margin=?, ebitda_less_ffe_margin=?
+         WHERE project_id=? AND anio=?`,
+        [
+          year.rn, year.operating_revenue, year.dept_total, dept_profit, year.und_total, gop,
+          year.fees, year.nonop, ebitda, year.ffe, ebitda_less_ffe,
+          gop_margin, ebitda_margin, ebitda_less_ffe_margin,
+          projectId, year.anio
+        ]
+      );
+    }
+
+    // Mantener estado en projection_2n
+    await pool.query(`UPDATE projects SET estado='projection_2n', updated_at=NOW(3) WHERE project_id=?`, [projectId]);
+
+    res.json({ ok: true });
+  } catch (e: any) {
     res.status(400).json({ error: e.message });
   }
 });

@@ -42,7 +42,7 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
 
   // Verificar si existe Y1 guardado en usali_annual
   const [[y1Saved]]: any = await pool.query(
-    `SELECT rn, operating_revenue, dept_profit, gop, fees, nonop, ebitda, ffe, ebitda_less_ffe,
+    `SELECT rn, operating_revenue, dept_total, dept_profit, und_total, gop, fees, nonop, ebitda, ffe, ebitda_less_ffe,
             gop_margin, ebitda_margin, ebitda_less_ffe_margin
      FROM usali_annual
      WHERE project_id=? AND anio=1`,
@@ -89,11 +89,14 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
   const y1_dept_rooms = sum('dept_rooms');
   const y1_dept_fb = sum('dept_fb');
   const y1_dept_other = sum('dept_other');
+  const y1_dept_total = y1_dept_rooms + y1_dept_fb + y1_dept_other;
+
   const y1_und_ag = sum('und_ag');
   const y1_und_it = sum('und_it');
   const y1_und_sm = sum('und_sm');
   const y1_und_pom = sum('und_pom');
   const y1_und_eww = sum('und_eww');
+  const y1_und_total = y1_und_ag + y1_und_it + y1_und_sm + y1_und_pom + y1_und_eww;
 
   // Calcular porcentajes REALES del Y1 guardado
   const realY1Pct = {
@@ -158,7 +161,9 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
         other_operated: y1_total_other,  // ✅ Usar valor de usali_y1_monthly
         misc_income: y1_total_misc,      // ✅ Usar valor de usali_y1_monthly
         operating_revenue: Number(y1Saved.operating_revenue),
+        dept_total: y1_dept_total,
         dept_profit: Number(y1Saved.dept_profit),
+        und_total: y1_und_total,
         gop: Number(y1Saved.gop),
         fees: Number(y1Saved.fees),
         nonop: Number(y1Saved.nonop),
@@ -258,7 +263,9 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
       rn, // Roomnights anuales
       rooms_rev, fb, other_operated: other, misc_income: misc,
       operating_revenue: total_rev,
+      dept_total,
       dept_profit, // Dept Profit
+      und_total,
       gop, fees: fees_total, nonop: nonop_total,
       ebitda, ffe: ffe_amount, ebitda_less_ffe,
       gop_margin: total_rev ? gop/total_rev : 0,
@@ -272,23 +279,25 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
   const values: any[] = [];
   const placeholders = res
     .filter(r => r.anio >= 2)
-    .map(() => '(?,?,?,?,?,?,?,?,?,?,?,?,?,?)').join(',');
+    .map(() => '(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').join(',');
   for (const r of res.filter(r => r.anio >= 2)) {
     values.push(
-      project_id, r.anio, r.rn, r.operating_revenue, r.dept_profit,
-      r.gop, r.fees, r.nonop, r.ebitda, r.ffe, r.ebitda_less_ffe,
+      project_id, r.anio, r.rn, r.operating_revenue, r.dept_total, r.dept_profit,
+      r.und_total, r.gop, r.fees, r.nonop, r.ebitda, r.ffe, r.ebitda_less_ffe,
       r.gop_margin, r.ebitda_margin, r.ebitda_less_ffe_margin
     );
   }
   if (values.length) {
     await pool.query(
       `INSERT INTO usali_annual
-       (project_id,anio,rn,operating_revenue,dept_profit,gop,fees,nonop,ebitda,ffe,ebitda_less_ffe,gop_margin,ebitda_margin,ebitda_less_ffe_margin)
+       (project_id,anio,rn,operating_revenue,dept_total,dept_profit,und_total,gop,fees,nonop,ebitda,ffe,ebitda_less_ffe,gop_margin,ebitda_margin,ebitda_less_ffe_margin)
        VALUES ${placeholders}
        ON DUPLICATE KEY UPDATE
          rn=VALUES(rn),
          operating_revenue=VALUES(operating_revenue),
+         dept_total=VALUES(dept_total),
          dept_profit=VALUES(dept_profit),
+         und_total=VALUES(und_total),
          gop=VALUES(gop), fees=VALUES(fees), nonop=VALUES(nonop),
          ebitda=VALUES(ebitda), ffe=VALUES(ffe), ebitda_less_ffe=VALUES(ebitda_less_ffe),
          gop_margin=VALUES(gop_margin), ebitda_margin=VALUES(ebitda_margin), ebitda_less_ffe_margin=VALUES(ebitda_less_ffe_margin)`,
