@@ -18,9 +18,10 @@ export function buildCommercialY1(
     if (m.mes < 1 || m.mes > 12) {
       throw new Error(`Mes inválido: ${m.mes}`);
     }
-    const rn = Math.round(m.occ * habitaciones * days[m.mes - 1]);
+    const dias = days[m.mes - 1];
+    const rn = Math.round(m.occ * habitaciones * dias);
     const rooms_rev = m.adr * rn;
-    return { mes: m.mes, occ: m.occ, adr: m.adr, rn, rooms_rev };
+    return { mes: m.mes, dias, occ: m.occ, adr: m.adr, rn, rooms_rev };
   });
 }
 
