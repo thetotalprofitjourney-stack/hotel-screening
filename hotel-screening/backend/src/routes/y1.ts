@@ -59,11 +59,25 @@ router.post('/v1/projects/:id/y1/benchmark/accept', async (req, res) => {
   if (!parsed.success) return res.status(400).json(parsed.error);
 
   const [prjRows] = await pool.query(
-    `SELECT habitaciones FROM projects WHERE project_id=?`,
+    `SELECT habitaciones, estado FROM projects WHERE project_id=?`,
     [projectId]
   );
   const prj = (prjRows as any[])[0];
   if (!prj) return res.status(404).json({ error: 'PROJECT_NOT_FOUND' });
+
+  // ✅ INVALIDAR PASOS SIGUIENTES si el proyecto ya tiene datos guardados posteriores
+  const currentState = prj.estado;
+  const statesWithDataToInvalidate = ['y1_usali', 'projection_2n', 'finalized'];
+
+  if (statesWithDataToInvalidate.includes(currentState)) {
+    // Borrar USALI Y1 guardado (Paso 2)
+    await pool.query(`DELETE FROM usali_y1_monthly WHERE project_id=?`, [projectId]);
+
+    // Borrar datos de proyección (Paso 3)
+    await pool.query(`DELETE FROM usali_annual WHERE project_id=?`, [projectId]);
+
+    console.log(`[INVALIDATE] Project ${projectId}: Y1 comercial changed from state '${currentState}', cleared USALI Y1 and projection data`);
+  }
 
   // Usar año actual para calcular días por mes (año 1 proyectado)
   const currentYear = new Date().getFullYear();

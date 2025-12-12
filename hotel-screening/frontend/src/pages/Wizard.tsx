@@ -120,10 +120,30 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   },[anio, projectId, configLoaded]);
 
   async function accept() {
+    // ⚠️ ADVERTIR si el usuario está modificando Y1 comercial cuando ya tiene pasos posteriores guardados
+    const statesWithData = ['y1_usali', 'projection_2n', 'finalized'];
+
+    if (statesWithData.includes(projectState)) {
+      const confirmed = window.confirm(
+        '⚠️ ADVERTENCIA: Si modificas el Año 1 comercial, se borrarán los datos guardados de:\n\n' +
+        '• USALI Y1 (Paso 2)\n' +
+        '• Proyección 2-N (Paso 3)\n\n' +
+        'Deberás recalcular estos pasos nuevamente.\n\n' +
+        '¿Estás seguro que deseas continuar?'
+      );
+
+      if (!confirmed) {
+        return; // Cancelar si el usuario no confirma
+      }
+    }
+
     await api(`/v1/projects/${projectId}/y1/benchmark/accept`, {
       method:'POST',
       body: JSON.stringify({ anio_base: anio, meses: meses.map((m:any)=>({ mes:m.mes, occ:m.occ, adr:m.adr })) })
     });
+
+    // Actualizar estado del proyecto después de aceptar
+    setProjectState('y1_commercial');
     setAccepted(true);
   }
 
