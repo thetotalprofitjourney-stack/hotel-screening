@@ -145,6 +145,12 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     // Actualizar estado del proyecto después de aceptar
     setProjectState('y1_commercial');
     setAccepted(true);
+
+    // ✅ Limpiar datos de pasos posteriores en el frontend
+    setCalc(null);
+    setAnnuals(null);
+    setDebt(null);
+    setVR(null);
   }
 
   async function calcY1() {
@@ -164,10 +170,36 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   }
 
   async function saveUsali(editedData: any[]) {
+    // ⚠️ ADVERTIR si el usuario está modificando USALI Y1 cuando ya tiene proyección guardada
+    const statesWithProjection = ['projection_2n', 'finalized'];
+
+    if (statesWithProjection.includes(projectState)) {
+      const confirmed = window.confirm(
+        '⚠️ ADVERTENCIA: Si modificas el USALI Y1, se borrarán los datos guardados de:\n\n' +
+        '• Proyección 2-N (Paso 3)\n' +
+        '• Deuda y Valoración\n\n' +
+        'Deberás recalcular el paso 3 nuevamente.\n\n' +
+        '¿Estás seguro que deseas continuar?'
+      );
+
+      if (!confirmed) {
+        return; // Cancelar si el usuario no confirma
+      }
+    }
+
     await api(`/v1/projects/${projectId}/y1/usali`, {
       method: 'PUT',
       body: JSON.stringify({ monthly: editedData })
     });
+
+    // Actualizar estado del proyecto
+    setProjectState('y1_usali');
+
+    // ✅ Limpiar datos de proyección en el frontend
+    setAnnuals(null);
+    setDebt(null);
+    setVR(null);
+
     // Recargar los datos después de guardar (ahora cargará los datos guardados, no recalculará)
     await calcY1();
   }
