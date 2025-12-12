@@ -61,32 +61,67 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
   const occ1 = rn1 / (prj.habitaciones * 365);                // ocupación Y1
   const adr1 = rooms_rev1 / rn1;                               // ADR Y1
 
-  // Obtener ratios solo para proyectar años 2-N (no para recalcular Y1)
-  const tamano_bucket_id = resolveTamanoBucket(prj.habitaciones);
-  const ratios = await getRatios(prj.segmento, prj.categoria, tamano_bucket_id);
+  // ✅ CALCULAR PORCENTAJES REALES DEL Y1 GUARDADO (no usar ratios de mercado)
+  // Leer datos mensuales guardados del Y1
+  const [y1Monthly]: any = await pool.query(
+    `SELECT rooms, fb, other_operated, misc_income, total_rev,
+            dept_rooms, dept_fb, dept_other,
+            und_ag, und_it, und_sm, und_pom, und_eww
+     FROM usali_y1_monthly
+     WHERE project_id=?
+     ORDER BY mes`,
+    [project_id]
+  );
 
-  // Porcentajes base (se "inflan" cada año si así se pide)
-  const base = {
-    dept_rooms_pct: Number(ratios.dept_rooms_pct),
-    dept_rooms_eur_por_rn: Number(ratios.dept_rooms_eur_por_rn ?? 0),
-    fb_food_cost_pct: Number(ratios.fb_food_cost_pct),
-    fb_labor_pct: Number(ratios.fb_labor_pct),
-    fb_otros_pct: Number(ratios.fb_otros_pct),
-    dept_other_pct: Number(ratios.dept_other_pct),
-    und_ag_pct: Number(ratios.und_ag_pct),
-    und_it_pct: Number(ratios.und_it_pct),
-    und_sm_pct: Number(ratios.und_sm_pct),
-    und_pom_pct: Number(ratios.und_pom_pct),
-    und_eww_pct: Number(ratios.und_eww_pct),
-    r: Number(ratios.ratio_fb_sobre_rooms),
-    a: Number(ratios.ratio_other_sobre_total),
-    b: Number(ratios.ratio_misc_sobre_total),
+  // Sumar totales anuales del Y1 guardado
+  const sum = (field: string) => (y1Monthly as any[]).reduce((acc: number, m: any) => acc + Number(m[field] || 0), 0);
+
+  const y1_total_rooms = sum('rooms');
+  const y1_total_fb = sum('fb');
+  const y1_total_other = sum('other_operated');
+  const y1_total_misc = sum('misc_income');
+  const y1_total_rev = sum('total_rev');
+  const y1_dept_rooms = sum('dept_rooms');
+  const y1_dept_fb = sum('dept_fb');
+  const y1_dept_other = sum('dept_other');
+  const y1_und_ag = sum('und_ag');
+  const y1_und_it = sum('und_it');
+  const y1_und_sm = sum('und_sm');
+  const y1_und_pom = sum('und_pom');
+  const y1_und_eww = sum('und_eww');
+
+  // Calcular porcentajes REALES del Y1 guardado
+  const realY1Pct = {
+    // Departamentales como % de su línea de ingreso correspondiente
+    dept_rooms_pct: y1_total_rooms > 0 ? y1_dept_rooms / y1_total_rooms : 0,
+    dept_rooms_eur_por_rn: 0, // No usamos este campo en la proyección de Y1 editado
+
+    // FB: separamos los 3 componentes (food cost, labor, otros) del total dept_fb
+    // Como no guardamos el detalle, calculamos el total como % de FB revenue
+    fb_total_pct: y1_total_fb > 0 ? y1_dept_fb / y1_total_fb : 0,
+    fb_food_cost_pct: 0, // Se usará fb_total_pct en su lugar
+    fb_labor_pct: 0,
+    fb_otros_pct: 0,
+
+    dept_other_pct: y1_total_other > 0 ? y1_dept_other / y1_total_other : 0,
+
+    // Undistributed como % del total revenue
+    und_ag_pct: y1_total_rev > 0 ? y1_und_ag / y1_total_rev : 0,
+    und_it_pct: y1_total_rev > 0 ? y1_und_it / y1_total_rev : 0,
+    und_sm_pct: y1_total_rev > 0 ? y1_und_sm / y1_total_rev : 0,
+    und_pom_pct: y1_total_rev > 0 ? y1_und_pom / y1_total_rev : 0,
+    und_eww_pct: y1_total_rev > 0 ? y1_und_eww / y1_total_rev : 0,
+
+    // Ratios de ingresos (mantener los mismos del Y1)
+    r: y1_total_rooms > 0 ? y1_total_fb / y1_total_rooms : 0,
+    a: y1_total_rev > 0 ? y1_total_other / y1_total_rev : 0,
+    b: y1_total_rev > 0 ? y1_total_misc / y1_total_rev : 0,
   };
 
   const res: any[] = [];
   let occ = occ1;
   let adr = adr1;
-  let pct = { ...base };
+  let pct = { ...realY1Pct }; // ✅ Usar porcentajes REALES del Y1 guardado, no ratios de mercado
 
   // Leo fees y non-op iniciales
   const base_fee = Number(prj.fee_base_anual ?? 0);
@@ -140,9 +175,7 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
     const kDept = (1 + (assumptions.cost_inflation_pct ?? 0));
     const kUnd  = (1 + (assumptions.undistributed_inflation_pct ?? 0));
     pct.dept_rooms_pct *= kDept;
-    pct.fb_food_cost_pct *= kDept;
-    pct.fb_labor_pct    *= kDept;
-    pct.fb_otros_pct    *= kDept;
+    pct.fb_total_pct *= kDept;  // ✅ Usar fb_total_pct del Y1 guardado
     pct.dept_other_pct  *= kDept;
     pct.und_ag_pct *= kUnd; pct.und_it_pct *= kUnd; pct.und_sm_pct *= kUnd; pct.und_pom_pct *= kUnd; pct.und_eww_pct *= kUnd;
 
@@ -163,16 +196,16 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
     const rn = occ * prj.habitaciones * 365;
     const rooms_rev = rn * adr;
 
-    // Ingresos con r/a/b
-    const total_sin_other_misc = rooms_rev * (1 + base.r);
-    const total_rev = total_sin_other_misc / (1 - base.a - base.b);
-    const fb = base.r * rooms_rev;
-    const other = base.a * total_rev;
-    const misc = base.b * total_rev;
+    // Ingresos con r/a/b (usar ratios del Y1 guardado)
+    const total_sin_other_misc = rooms_rev * (1 + pct.r);
+    const total_rev = total_sin_other_misc / (1 - pct.a - pct.b);
+    const fb = pct.r * rooms_rev;
+    const other = pct.a * total_rev;
+    const misc = pct.b * total_rev;
 
-    // Departamentales
-    const dept_rooms = pct.dept_rooms_pct * rooms_rev + (base.dept_rooms_eur_por_rn ? base.dept_rooms_eur_por_rn * rn : 0);
-    const dept_fb = (pct.fb_food_cost_pct + pct.fb_labor_pct + pct.fb_otros_pct) * fb;
+    // Departamentales (usar porcentajes del Y1 guardado)
+    const dept_rooms = pct.dept_rooms_pct * rooms_rev;
+    const dept_fb = pct.fb_total_pct * fb;  // ✅ Usar fb_total_pct del Y1 guardado
     const dept_other = pct.dept_other_pct * other;
     const dept_total = dept_rooms + dept_fb + dept_other;
     const dept_profit = total_rev - dept_total;
