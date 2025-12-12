@@ -1,4 +1,6 @@
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+// Por defecto usa /api (producción con Nginx)
+// En desarrollo local, crear .env.local con VITE_API_URL=http://localhost:3001
+const API = import.meta.env.VITE_API_URL ?? '/api';
 
 export async function api(path: string, opts: RequestInit = {}) {
   const headers = new Headers(opts.headers);
