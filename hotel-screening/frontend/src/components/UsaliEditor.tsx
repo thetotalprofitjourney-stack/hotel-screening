@@ -38,11 +38,31 @@ interface UsaliMonthData {
 interface UsaliEditorProps {
   calculatedData: UsaliMonthData[];
   onSave: (editedData: UsaliMonthData[]) => Promise<void>;
+  isGestionPropia?: boolean;
+  occupancyData?: Array<{ mes: number; occ: number }>;
 }
 
-export default function UsaliEditor({ calculatedData, onSave }: UsaliEditorProps) {
+export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = false, occupancyData = [] }: UsaliEditorProps) {
   const [data, setData] = useState<UsaliMonthData[]>(calculatedData);
   const [saving, setSaving] = useState(false);
+
+  // Helper para obtener ocupación de un mes
+  const getOccupancy = (mes: number) => {
+    const occData = occupancyData.find(o => o.mes === mes);
+    return occData ? occData.occ : 0;
+  };
+
+  // Helper para cálculo seguro de porcentajes
+  const safePct = (val: number, total: number) => {
+    if (!total || total === 0) return '0.0%';
+    return ((val / total) * 100).toFixed(1) + '%';
+  };
+
+  // Helper para cálculo seguro de valor por RN
+  const safePerRN = (val: number, rn: number) => {
+    if (!rn || rn === 0) return '0.00';
+    return (val / rn).toFixed(2);
+  };
 
   useEffect(() => {
     setData(calculatedData);
@@ -130,12 +150,13 @@ export default function UsaliEditor({ calculatedData, onSave }: UsaliEditorProps
       </div>
 
       {/* Banner KPIs Año - Con 3 métricas por KPI */}
-      <div className="grid grid-cols-5 gap-3 p-4 bg-gray-50 rounded-lg">
+      <div className={`grid gap-3 p-4 bg-gray-50 rounded-lg ${isGestionPropia ? 'grid-cols-5' : 'grid-cols-6'}`}>
         <StatTriple label="Total Rev" value={annual.operating_revenue} totalRN={annual.total_rn} totalRev={annual.total_rev} />
         <StatTriple label="Dept Profit" value={annual.dept_profit} totalRN={annual.total_rn} totalRev={annual.total_rev} />
         <StatTriple label="GOP" value={annual.gop} totalRN={annual.total_rn} totalRev={annual.total_rev} />
-        <StatTriple label="Fees Operador" value={annual.fees_total} totalRN={annual.total_rn} totalRev={annual.total_rev} />
+        {!isGestionPropia && <StatTriple label="Fees Operador" value={annual.fees_total} totalRN={annual.total_rn} totalRev={annual.total_rev} />}
         <StatTriple label="EBITDA" value={annual.ebitda} totalRN={annual.total_rn} totalRev={annual.total_rev} />
+        <StatTriple label="EBITDA-FF&E" value={annual.ebitda_less_ffe} totalRN={annual.total_rn} totalRev={annual.total_rev} />
       </div>
 
       {/* Vista Resumida */}
@@ -145,10 +166,11 @@ export default function UsaliEditor({ calculatedData, onSave }: UsaliEditorProps
           <thead className="bg-gray-100">
             <tr>
               <th className="p-2 border" rowSpan={2}>Mes</th>
+              <th className="p-2 border" rowSpan={2}>% Occ</th>
               <th className="p-2 border bg-blue-50" colSpan={3}>Total Rev</th>
               <th className="p-2 border bg-yellow-50" colSpan={3}>Dept Profit</th>
               <th className="p-2 border bg-green-50" colSpan={3}>GOP</th>
-              <th className="p-2 border bg-pink-50" colSpan={3}>Fees Operador</th>
+              {!isGestionPropia && <th className="p-2 border bg-pink-50" colSpan={3}>Fees Operador</th>}
               <th className="p-2 border bg-purple-50" colSpan={3}>EBITDA</th>
             </tr>
             <tr>
@@ -161,9 +183,13 @@ export default function UsaliEditor({ calculatedData, onSave }: UsaliEditorProps
               <th className="p-1 border text-xs bg-green-50">€</th>
               <th className="p-1 border text-xs bg-green-50">€/RN</th>
               <th className="p-1 border text-xs bg-green-50">%</th>
-              <th className="p-1 border text-xs bg-pink-50">€</th>
-              <th className="p-1 border text-xs bg-pink-50">€/RN</th>
-              <th className="p-1 border text-xs bg-pink-50">%</th>
+              {!isGestionPropia && (
+                <>
+                  <th className="p-1 border text-xs bg-pink-50">€</th>
+                  <th className="p-1 border text-xs bg-pink-50">€/RN</th>
+                  <th className="p-1 border text-xs bg-pink-50">%</th>
+                </>
+              )}
               <th className="p-1 border text-xs bg-purple-50">€</th>
               <th className="p-1 border text-xs bg-purple-50">€/RN</th>
               <th className="p-1 border text-xs bg-purple-50">%</th>
@@ -171,26 +197,30 @@ export default function UsaliEditor({ calculatedData, onSave }: UsaliEditorProps
           </thead>
           <tbody>
             {data.map((m) => {
-              const pct = (val: number) => ((val / m.total_rev) * 100).toFixed(1) + '%';
-              const perRN = (val: number) => (val / Math.max(1, m.rn)).toFixed(2);
+              const occ = getOccupancy(m.mes);
               return (
                 <tr key={m.mes} className="hover:bg-gray-50">
                   <td className="p-2 border text-center font-medium">{m.mes}</td>
+                  <td className="p-2 border text-center text-xs">{(occ * 100).toFixed(1)}%</td>
                   <td className="p-2 border text-right bg-blue-50 font-semibold">{fmt(m.total_rev)}</td>
-                  <td className="p-2 border text-right bg-blue-50 text-xs">{perRN(m.total_rev)}</td>
-                  <td className="p-2 border text-right bg-blue-50 text-xs">{pct(m.total_rev)}</td>
+                  <td className="p-2 border text-right bg-blue-50 text-xs">{safePerRN(m.total_rev, m.rn)}</td>
+                  <td className="p-2 border text-right bg-blue-50 text-xs">{safePct(m.total_rev, m.total_rev)}</td>
                   <td className="p-2 border text-right bg-yellow-50 font-semibold">{fmt(m.dept_profit)}</td>
-                  <td className="p-2 border text-right bg-yellow-50 text-xs">{perRN(m.dept_profit)}</td>
-                  <td className="p-2 border text-right bg-yellow-50 text-xs">{pct(m.dept_profit)}</td>
+                  <td className="p-2 border text-right bg-yellow-50 text-xs">{safePerRN(m.dept_profit, m.rn)}</td>
+                  <td className="p-2 border text-right bg-yellow-50 text-xs">{safePct(m.dept_profit, m.total_rev)}</td>
                   <td className="p-2 border text-right bg-green-50 font-semibold">{fmt(m.gop)}</td>
-                  <td className="p-2 border text-right bg-green-50 text-xs">{perRN(m.gop)}</td>
-                  <td className="p-2 border text-right bg-green-50 text-xs">{pct(m.gop)}</td>
-                  <td className="p-2 border text-right bg-pink-50 font-semibold">{fmt(m.fees_total)}</td>
-                  <td className="p-2 border text-right bg-pink-50 text-xs">{perRN(m.fees_total)}</td>
-                  <td className="p-2 border text-right bg-pink-50 text-xs">{pct(m.fees_total)}</td>
+                  <td className="p-2 border text-right bg-green-50 text-xs">{safePerRN(m.gop, m.rn)}</td>
+                  <td className="p-2 border text-right bg-green-50 text-xs">{safePct(m.gop, m.total_rev)}</td>
+                  {!isGestionPropia && (
+                    <>
+                      <td className="p-2 border text-right bg-pink-50 font-semibold">{fmt(m.fees_total)}</td>
+                      <td className="p-2 border text-right bg-pink-50 text-xs">{safePerRN(m.fees_total, m.rn)}</td>
+                      <td className="p-2 border text-right bg-pink-50 text-xs">{safePct(m.fees_total, m.total_rev)}</td>
+                    </>
+                  )}
                   <td className="p-2 border text-right bg-purple-50 font-semibold">{fmt(m.ebitda)}</td>
-                  <td className="p-2 border text-right bg-purple-50 text-xs">{perRN(m.ebitda)}</td>
-                  <td className="p-2 border text-right bg-purple-50 text-xs">{pct(m.ebitda)}</td>
+                  <td className="p-2 border text-right bg-purple-50 text-xs">{safePerRN(m.ebitda, m.rn)}</td>
+                  <td className="p-2 border text-right bg-purple-50 text-xs">{safePct(m.ebitda, m.total_rev)}</td>
                 </tr>
               );
             })}
@@ -220,10 +250,14 @@ export default function UsaliEditor({ calculatedData, onSave }: UsaliEditorProps
               <th className="p-1 border" colSpan={3}>Und POM</th>
               <th className="p-1 border" colSpan={3}>Und EWW</th>
               <th className="p-1 border bg-green-50" colSpan={3}>GOP</th>
-              <th className="p-1 border" colSpan={3}>Fees Base</th>
-              <th className="p-1 border" colSpan={3}>Fees Var</th>
-              <th className="p-1 border" colSpan={3}>Fees Inc</th>
-              <th className="p-1 border bg-pink-50" colSpan={3}>Fees Total</th>
+              {!isGestionPropia && (
+                <>
+                  <th className="p-1 border" colSpan={3}>Fees Base</th>
+                  <th className="p-1 border" colSpan={3}>Fees Var</th>
+                  <th className="p-1 border" colSpan={3}>Fees Inc</th>
+                  <th className="p-1 border bg-pink-50" colSpan={3}>Fees Total</th>
+                </>
+              )}
               <th className="p-1 border" colSpan={3}>Non-op</th>
               <th className="p-1 border bg-purple-50" colSpan={3}>EBITDA</th>
               <th className="p-1 border" colSpan={3}>FF&E</th>
@@ -231,7 +265,7 @@ export default function UsaliEditor({ calculatedData, onSave }: UsaliEditorProps
             </tr>
             <tr>
               {/* Repetir para cada columna: €, €/RN, % */}
-              {Array(34).fill(null).map((_, i) => (
+              {Array(isGestionPropia ? 19 : 23).fill(null).map((_, i) => (
                 <React.Fragment key={i}>
                   <th className="p-1 border text-xs">€</th>
                   <th className="p-1 border text-xs">€/RN</th>
@@ -242,127 +276,128 @@ export default function UsaliEditor({ calculatedData, onSave }: UsaliEditorProps
           </thead>
           <tbody>
             {data.map((m, idx) => {
-              const pct = (val: number) => ((val / m.total_rev) * 100).toFixed(1) + '%';
-              const perRN = (val: number) => (val / Math.max(1, m.rn)).toFixed(2);
-
               return (
                 <tr key={m.mes} className="hover:bg-gray-50">
                   <td className="p-2 border text-center font-medium">{m.mes}</td>
 
-                  {/* Rooms Rev */}
-                  <td className="p-1 border bg-gray-100"><EditCell value={m.rooms} onChange={(v) => updateField(idx, 'rooms', v)} /></td>
-                  <td className="p-1 border text-right text-xs">{perRN(m.rooms)}</td>
-                  <td className="p-1 border text-right text-xs">{pct(m.rooms)}</td>
+                  {/* Rooms Rev - NO EDITABLE (viene del Y1 comercial) */}
+                  <td className="p-2 border text-right font-semibold">{fmt(m.rooms)}</td>
+                  <td className="p-1 border text-right text-xs">{safePerRN(m.rooms, m.rn)}</td>
+                  <td className="p-1 border text-right text-xs">{safePct(m.rooms, m.total_rev)}</td>
 
                   {/* F&B Rev */}
                   <td className="p-1 border bg-gray-100"><EditCell value={m.fb} onChange={(v) => updateField(idx, 'fb', v)} /></td>
-                  <td className="p-1 border text-right text-xs">{perRN(m.fb)}</td>
-                  <td className="p-1 border text-right text-xs">{pct(m.fb)}</td>
+                  <td className="p-1 border text-right text-xs">{safePerRN(m.fb, m.rn)}</td>
+                  <td className="p-1 border text-right text-xs">{safePct(m.fb, m.total_rev)}</td>
 
                   {/* Other Op */}
                   <td className="p-1 border bg-gray-100"><EditCell value={m.other_operated} onChange={(v) => updateField(idx, 'other_operated', v)} /></td>
-                  <td className="p-1 border text-right text-xs">{perRN(m.other_operated)}</td>
-                  <td className="p-1 border text-right text-xs">{pct(m.other_operated)}</td>
+                  <td className="p-1 border text-right text-xs">{safePerRN(m.other_operated, m.rn)}</td>
+                  <td className="p-1 border text-right text-xs">{safePct(m.other_operated, m.total_rev)}</td>
 
                   {/* Misc */}
                   <td className="p-1 border bg-gray-100"><EditCell value={m.misc_income} onChange={(v) => updateField(idx, 'misc_income', v)} /></td>
-                  <td className="p-1 border text-right text-xs">{perRN(m.misc_income)}</td>
-                  <td className="p-1 border text-right text-xs">{pct(m.misc_income)}</td>
+                  <td className="p-1 border text-right text-xs">{safePerRN(m.misc_income, m.rn)}</td>
+                  <td className="p-1 border text-right text-xs">{safePct(m.misc_income, m.total_rev)}</td>
 
                   {/* Total Rev */}
                   <td className="p-2 border text-right bg-blue-50 font-semibold">{fmt(m.total_rev)}</td>
-                  <td className="p-1 border text-right bg-blue-50 text-xs">{perRN(m.total_rev)}</td>
-                  <td className="p-1 border text-right bg-blue-50 text-xs">{pct(m.total_rev)}</td>
+                  <td className="p-1 border text-right bg-blue-50 text-xs">{safePerRN(m.total_rev, m.rn)}</td>
+                  <td className="p-1 border text-right bg-blue-50 text-xs">{safePct(m.total_rev, m.total_rev)}</td>
 
                   {/* Dept Rooms */}
                   <td className="p-1 border bg-gray-100"><EditCell value={m.dept_rooms} onChange={(v) => updateField(idx, 'dept_rooms', v)} /></td>
-                  <td className="p-1 border text-right text-xs">{perRN(m.dept_rooms)}</td>
-                  <td className="p-1 border text-right text-xs">{pct(m.dept_rooms)}</td>
+                  <td className="p-1 border text-right text-xs">{safePerRN(m.dept_rooms, m.rn)}</td>
+                  <td className="p-1 border text-right text-xs">{safePct(m.dept_rooms, m.total_rev)}</td>
 
                   {/* Dept F&B */}
                   <td className="p-1 border bg-gray-100"><EditCell value={m.dept_fb} onChange={(v) => updateField(idx, 'dept_fb', v)} /></td>
-                  <td className="p-1 border text-right text-xs">{perRN(m.dept_fb)}</td>
-                  <td className="p-1 border text-right text-xs">{pct(m.dept_fb)}</td>
+                  <td className="p-1 border text-right text-xs">{safePerRN(m.dept_fb, m.rn)}</td>
+                  <td className="p-1 border text-right text-xs">{safePct(m.dept_fb, m.total_rev)}</td>
 
                   {/* Dept Other */}
                   <td className="p-1 border bg-gray-100"><EditCell value={m.dept_other} onChange={(v) => updateField(idx, 'dept_other', v)} /></td>
-                  <td className="p-1 border text-right text-xs">{perRN(m.dept_other)}</td>
-                  <td className="p-1 border text-right text-xs">{pct(m.dept_other)}</td>
+                  <td className="p-1 border text-right text-xs">{safePerRN(m.dept_other, m.rn)}</td>
+                  <td className="p-1 border text-right text-xs">{safePct(m.dept_other, m.total_rev)}</td>
 
                   {/* Dept Profit */}
                   <td className="p-2 border text-right bg-yellow-50 font-semibold">{fmt(m.dept_profit)}</td>
-                  <td className="p-1 border text-right bg-yellow-50 text-xs">{perRN(m.dept_profit)}</td>
-                  <td className="p-1 border text-right bg-yellow-50 text-xs">{pct(m.dept_profit)}</td>
+                  <td className="p-1 border text-right bg-yellow-50 text-xs">{safePerRN(m.dept_profit, m.rn)}</td>
+                  <td className="p-1 border text-right bg-yellow-50 text-xs">{safePct(m.dept_profit, m.total_rev)}</td>
 
                   {/* Und AG */}
                   <td className="p-1 border bg-gray-100"><EditCell value={m.und_ag} onChange={(v) => updateField(idx, 'und_ag', v)} /></td>
-                  <td className="p-1 border text-right text-xs">{perRN(m.und_ag)}</td>
-                  <td className="p-1 border text-right text-xs">{pct(m.und_ag)}</td>
+                  <td className="p-1 border text-right text-xs">{safePerRN(m.und_ag, m.rn)}</td>
+                  <td className="p-1 border text-right text-xs">{safePct(m.und_ag, m.total_rev)}</td>
 
                   {/* Und IT */}
                   <td className="p-1 border bg-gray-100"><EditCell value={m.und_it} onChange={(v) => updateField(idx, 'und_it', v)} /></td>
-                  <td className="p-1 border text-right text-xs">{perRN(m.und_it)}</td>
-                  <td className="p-1 border text-right text-xs">{pct(m.und_it)}</td>
+                  <td className="p-1 border text-right text-xs">{safePerRN(m.und_it, m.rn)}</td>
+                  <td className="p-1 border text-right text-xs">{safePct(m.und_it, m.total_rev)}</td>
 
                   {/* Und SM */}
                   <td className="p-1 border bg-gray-100"><EditCell value={m.und_sm} onChange={(v) => updateField(idx, 'und_sm', v)} /></td>
-                  <td className="p-1 border text-right text-xs">{perRN(m.und_sm)}</td>
-                  <td className="p-1 border text-right text-xs">{pct(m.und_sm)}</td>
+                  <td className="p-1 border text-right text-xs">{safePerRN(m.und_sm, m.rn)}</td>
+                  <td className="p-1 border text-right text-xs">{safePct(m.und_sm, m.total_rev)}</td>
 
                   {/* Und POM */}
                   <td className="p-1 border bg-gray-100"><EditCell value={m.und_pom} onChange={(v) => updateField(idx, 'und_pom', v)} /></td>
-                  <td className="p-1 border text-right text-xs">{perRN(m.und_pom)}</td>
-                  <td className="p-1 border text-right text-xs">{pct(m.und_pom)}</td>
+                  <td className="p-1 border text-right text-xs">{safePerRN(m.und_pom, m.rn)}</td>
+                  <td className="p-1 border text-right text-xs">{safePct(m.und_pom, m.total_rev)}</td>
 
                   {/* Und EWW */}
                   <td className="p-1 border bg-gray-100"><EditCell value={m.und_eww} onChange={(v) => updateField(idx, 'und_eww', v)} /></td>
-                  <td className="p-1 border text-right text-xs">{perRN(m.und_eww)}</td>
-                  <td className="p-1 border text-right text-xs">{pct(m.und_eww)}</td>
+                  <td className="p-1 border text-right text-xs">{safePerRN(m.und_eww, m.rn)}</td>
+                  <td className="p-1 border text-right text-xs">{safePct(m.und_eww, m.total_rev)}</td>
 
                   {/* GOP */}
                   <td className="p-2 border text-right bg-green-50 font-semibold">{fmt(m.gop)}</td>
-                  <td className="p-1 border text-right bg-green-50 text-xs">{perRN(m.gop)}</td>
-                  <td className="p-1 border text-right bg-green-50 text-xs">{pct(m.gop)}</td>
+                  <td className="p-1 border text-right bg-green-50 text-xs">{safePerRN(m.gop, m.rn)}</td>
+                  <td className="p-1 border text-right bg-green-50 text-xs">{safePct(m.gop, m.total_rev)}</td>
 
-                  {/* Fees Base */}
-                  <td className="p-1 border bg-gray-100"><EditCell value={m.fees_base} onChange={(v) => updateField(idx, 'fees_base', v)} /></td>
-                  <td className="p-1 border text-right text-xs">{perRN(m.fees_base)}</td>
-                  <td className="p-1 border text-right text-xs">{pct(m.fees_base)}</td>
+                  {!isGestionPropia && (
+                    <>
+                      {/* Fees Base */}
+                      <td className="p-1 border bg-gray-100"><EditCell value={m.fees_base} onChange={(v) => updateField(idx, 'fees_base', v)} /></td>
+                      <td className="p-1 border text-right text-xs">{safePerRN(m.fees_base, m.rn)}</td>
+                      <td className="p-1 border text-right text-xs">{safePct(m.fees_base, m.total_rev)}</td>
 
-                  {/* Fees Var */}
-                  <td className="p-1 border bg-gray-100"><EditCell value={m.fees_variable} onChange={(v) => updateField(idx, 'fees_variable', v)} /></td>
-                  <td className="p-1 border text-right text-xs">{perRN(m.fees_variable)}</td>
-                  <td className="p-1 border text-right text-xs">{pct(m.fees_variable)}</td>
+                      {/* Fees Var */}
+                      <td className="p-1 border bg-gray-100"><EditCell value={m.fees_variable} onChange={(v) => updateField(idx, 'fees_variable', v)} /></td>
+                      <td className="p-1 border text-right text-xs">{safePerRN(m.fees_variable, m.rn)}</td>
+                      <td className="p-1 border text-right text-xs">{safePct(m.fees_variable, m.total_rev)}</td>
 
-                  {/* Fees Inc */}
-                  <td className="p-1 border bg-gray-100"><EditCell value={m.fees_incentive} onChange={(v) => updateField(idx, 'fees_incentive', v)} /></td>
-                  <td className="p-1 border text-right text-xs">{perRN(m.fees_incentive)}</td>
-                  <td className="p-1 border text-right text-xs">{pct(m.fees_incentive)}</td>
+                      {/* Fees Inc */}
+                      <td className="p-1 border bg-gray-100"><EditCell value={m.fees_incentive} onChange={(v) => updateField(idx, 'fees_incentive', v)} /></td>
+                      <td className="p-1 border text-right text-xs">{safePerRN(m.fees_incentive, m.rn)}</td>
+                      <td className="p-1 border text-right text-xs">{safePct(m.fees_incentive, m.total_rev)}</td>
 
-                  {/* Fees Total */}
-                  <td className="p-2 border text-right bg-pink-50 font-semibold">{fmt(m.fees_total)}</td>
-                  <td className="p-1 border text-right bg-pink-50 text-xs">{perRN(m.fees_total)}</td>
-                  <td className="p-1 border text-right bg-pink-50 text-xs">{pct(m.fees_total)}</td>
+                      {/* Fees Total */}
+                      <td className="p-2 border text-right bg-pink-50 font-semibold">{fmt(m.fees_total)}</td>
+                      <td className="p-1 border text-right bg-pink-50 text-xs">{safePerRN(m.fees_total, m.rn)}</td>
+                      <td className="p-1 border text-right bg-pink-50 text-xs">{safePct(m.fees_total, m.total_rev)}</td>
+                    </>
+                  )}
 
                   {/* Non-op */}
                   <td className="p-1 border bg-gray-100"><EditCell value={m.nonop_total} onChange={(v) => updateField(idx, 'nonop_total', v)} /></td>
-                  <td className="p-1 border text-right text-xs">{perRN(m.nonop_total)}</td>
-                  <td className="p-1 border text-right text-xs">{pct(m.nonop_total)}</td>
+                  <td className="p-1 border text-right text-xs">{safePerRN(m.nonop_total, m.rn)}</td>
+                  <td className="p-1 border text-right text-xs">{safePct(m.nonop_total, m.total_rev)}</td>
 
                   {/* EBITDA */}
                   <td className="p-2 border text-right bg-purple-50 font-semibold">{fmt(m.ebitda)}</td>
-                  <td className="p-1 border text-right bg-purple-50 text-xs">{perRN(m.ebitda)}</td>
-                  <td className="p-1 border text-right bg-purple-50 text-xs">{pct(m.ebitda)}</td>
+                  <td className="p-1 border text-right bg-purple-50 text-xs">{safePerRN(m.ebitda, m.rn)}</td>
+                  <td className="p-1 border text-right bg-purple-50 text-xs">{safePct(m.ebitda, m.total_rev)}</td>
 
                   {/* FF&E */}
                   <td className="p-1 border bg-gray-100"><EditCell value={m.ffe_amount} onChange={(v) => updateField(idx, 'ffe_amount', v)} /></td>
-                  <td className="p-1 border text-right text-xs">{perRN(m.ffe_amount)}</td>
-                  <td className="p-1 border text-right text-xs">{pct(m.ffe_amount)}</td>
+                  <td className="p-1 border text-right text-xs">{safePerRN(m.ffe_amount, m.rn)}</td>
+                  <td className="p-1 border text-right text-xs">{safePct(m.ffe_amount, m.total_rev)}</td>
 
                   {/* EBITDA-FF&E */}
                   <td className="p-2 border text-right bg-orange-50 font-semibold">{fmt(m.ebitda_less_ffe)}</td>
-                  <td className="p-1 border text-right bg-orange-50 text-xs">{perRN(m.ebitda_less_ffe)}</td>
-                  <td className="p-1 border text-right bg-orange-50 text-xs">{pct(m.ebitda_less_ffe)}</td>
+                  <td className="p-1 border text-right bg-orange-50 text-xs">{safePerRN(m.ebitda_less_ffe, m.rn)}</td>
+                  <td className="p-1 border text-right bg-orange-50 text-xs">{safePct(m.ebitda_less_ffe, m.total_rev)}</td>
                 </tr>
               );
             })}
@@ -371,7 +406,7 @@ export default function UsaliEditor({ calculatedData, onSave }: UsaliEditorProps
       </div>
 
       {/* Botón Guardar debajo de la tabla detallada */}
-      <div className="flex justify-end">
+      <div className="flex justify-start">
         <button
           className="px-4 py-2 bg-black text-white rounded disabled:bg-gray-400"
           onClick={handleSave}

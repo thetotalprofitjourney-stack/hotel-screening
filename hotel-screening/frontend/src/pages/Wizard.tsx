@@ -16,6 +16,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   const [meses, setMeses] = useState<any[]>([]);
   const [accepted, setAccepted] = useState(false);
   const [calc, setCalc] = useState<any|null>(null);
+  const [usaliSaved, setUsaliSaved] = useState(false);
   // nuevos estados
   const [ass, setAss] = useState({
     years: 7,
@@ -68,6 +69,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         if (project.estado === 'y1_usali' || project.estado === 'projection_2n' || project.estado === 'finalized') {
           // Cargar datos de USALI
           calcY1();
+          setUsaliSaved(true); // Marcar que USALI ya está guardado
         }
       }
     } catch (error) {
@@ -194,6 +196,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
     // Actualizar estado del proyecto
     setProjectState('y1_usali');
+    setUsaliSaved(true); // Marcar que se ha guardado el USALI
 
     // ✅ Limpiar datos de proyección en el frontend
     setAnnuals(null);
@@ -323,12 +326,17 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               Calcular USALI con ratios de mercado
             </button>
           ) : (
-            <UsaliEditor calculatedData={calc.y1_mensual} onSave={saveUsali} />
+            <UsaliEditor
+              calculatedData={calc.y1_mensual}
+              onSave={saveUsali}
+              isGestionPropia={config?.operacion_tipo === 'gestion_propia'}
+              occupancyData={meses.map(m => ({ mes: m.mes, occ: m.occ }))}
+            />
           )}
         </section>
       )}
 	  
-	  {accepted && calc && (
+	  {accepted && calc && usaliSaved && (
         <section>
           <h3 className="text-lg font-semibold mt-8 mb-2">Paso 3 — Supuestos de Proyección y Resultados</h3>
           <div className="grid grid-cols-4 gap-3">
