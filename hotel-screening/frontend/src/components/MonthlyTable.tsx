@@ -20,6 +20,14 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
     onChange(next);
   }
 
+  // Normalizar ocupación: siempre debe ser un valor decimal entre 0 y 1
+  const normalizeOcc = (occ: number): number => {
+    if (typeof occ !== 'number' || isNaN(occ)) return 0;
+    // Si el valor es mayor a 1, probablemente está en formato porcentual (ej: 81)
+    // Si es menor o igual a 1, está en formato decimal (ej: 0.81)
+    return occ > 1 ? occ / 100 : occ;
+  };
+
   // Calcular Roomnights y Rooms Rev para cada mes
   const calcRoomnights = (mesIndex: number, ocupacion: number) => {
     const month = mesIndex + 1; // mesIndex es 0-11, month es 1-12
@@ -46,7 +54,8 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
         </thead>
         <tbody>
           {rows.map((r,i)=>{
-            const ocupacion = r.occ;
+            // Normalizar ocupación a decimal (0-1) independientemente del formato de entrada
+            const ocupacion = normalizeOcc(r.occ);
             const month = i + 1;
             const days = getDaysInMonth(month, currentYear);
             const roomnights = calcRoomnights(i, ocupacion);

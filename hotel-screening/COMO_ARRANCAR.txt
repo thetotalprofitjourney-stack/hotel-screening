@@ -10,11 +10,15 @@
 
 3. Frontend:
 	cd ../frontend
+	cp .env.example .env.local
+	# Edita .env.local y descomenta: VITE_API_URL=http://localhost:3001
 	npm i
 	npm run dev
 
 4. Abre http://localhost:5173. Introduce email (simulado),
    crea un proyecto, entra al wizard, acepta Y1 y calcula USALI.
 
-NOTA: Si ya tienes la base de datos creada, ejecuta solamente
-el archivo migrations/001_fix_missing_fields.sql antes de arrancar.
+NOTAS:
+- Si ya tienes la base de datos creada, ejecuta solamente
+  el archivo migrations/001_fix_missing_fields.sql antes de arrancar.
+- Para despliegue en producción, consulta DEPLOY.md
