@@ -6,7 +6,7 @@ import { pool } from '../db.js';
  * @param comunidad_autonoma - Comunidad Autónoma
  * @param provincia - Provincia
  * @param zona - Zona específica
- * @returns Array de 12 meses con occ y adr
+ * @returns Array de 12 meses con dias (calculados por defecto), occ y adr
  */
 export async function getBenchmarkRows(
   categoria: string,
@@ -23,5 +23,13 @@ export async function getBenchmarkRows(
   );
   const r = rows as Array<{ mes:number; occ:number; adr:number }>;
   if (r.length !== 12) throw new Error('BENCHMARK_NOT_FOUND_OR_INCOMPLETE');
-  return r;
+
+  // Añadir días por defecto basados en el año actual
+  const currentYear = new Date().getFullYear();
+  const mesesConDias = r.map(m => ({
+    ...m,
+    dias: new Date(currentYear, m.mes, 0).getDate() // Días del mes
+  }));
+
+  return mesesConDias;
 }
