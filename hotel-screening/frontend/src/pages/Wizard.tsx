@@ -139,7 +139,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
     await api(`/v1/projects/${projectId}/y1/benchmark/accept`, {
       method:'POST',
-      body: JSON.stringify({ anio_base: anio, meses: meses.map((m:any)=>({ mes:m.mes, occ:m.occ, adr:m.adr })) })
+      body: JSON.stringify({ anio_base: anio, meses: meses.map((m:any)=>({ mes:m.mes, dias:m.dias, occ:m.occ, adr:m.adr })) })
     });
 
     // Actualizar estado del proyecto después de aceptar

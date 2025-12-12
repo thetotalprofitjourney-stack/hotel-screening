@@ -13,7 +13,7 @@ router.get('/v1/projects/:id/y1/commercial', async (req, res) => {
   const projectId = req.params.id;
 
   const [rows] = await pool.query(
-    `SELECT mes, y1_mes_occ AS occ, y1_mes_adr AS adr
+    `SELECT mes, y1_mes_dias AS dias, y1_mes_occ AS occ, y1_mes_adr AS adr
      FROM y1_commercial
      WHERE project_id=?
      ORDER BY mes`,
@@ -45,12 +45,13 @@ router.get('/v1/projects/:id/y1/benchmark', async (req, res) => {
   res.json({ benchmark_id, meses });
 });
 
-// Aceptar/guardar Y1 comercial (permite editar occ/adr)
+// Aceptar/guardar Y1 comercial (permite editar occ/adr/dias)
 router.post('/v1/projects/:id/y1/benchmark/accept', async (req, res) => {
   const projectId = req.params.id;
   const schema = z.object({
     meses: z.array(z.object({
       mes: z.number().int().min(1).max(12),
+      dias: z.number().int().min(1).max(31),
       occ: z.number().min(0).max(1),
       adr: z.number().min(0)
     })).length(12)
@@ -79,23 +80,20 @@ router.post('/v1/projects/:id/y1/benchmark/accept', async (req, res) => {
     console.log(`[INVALIDATE] Project ${projectId}: Y1 comercial changed from state '${currentState}', cleared USALI Y1 and projection data`);
   }
 
-  // Usar año actual para calcular días por mes (año 1 proyectado)
-  const currentYear = new Date().getFullYear();
-  const days = Array.from({ length: 12 }, (_, i) => new Date(currentYear, i + 1, 0).getDate());
-
   await pool.query(`DELETE FROM y1_commercial WHERE project_id=?`, [projectId]);
 
   const values: any[] = [];
   for (const m of parsed.data.meses) {
-    const rn = Math.round(m.occ * prj.habitaciones * days[m.mes-1]);
+    // Usar los días proporcionados por el usuario (editables)
+    const rn = Math.round(m.occ * prj.habitaciones * m.dias);
     const rooms_rev = rn * m.adr;
-    values.push(projectId, m.mes, m.occ, m.adr, rn, rooms_rev, 1);
+    values.push(projectId, m.mes, m.dias, m.occ, m.adr, rn, rooms_rev, 1);
   }
 
-  const placeholders = parsed.data.meses.map(()=>'(?,?,?,?,?,?,?)').join(',');
+  const placeholders = parsed.data.meses.map(()=>'(?,?,?,?,?,?,?,?)').join(',');
   await pool.query(
     `INSERT INTO y1_commercial
-     (project_id,mes,y1_mes_occ,y1_mes_adr,y1_mes_rn,y1_mes_rooms_rev,locked)
+     (project_id,mes,y1_mes_dias,y1_mes_occ,y1_mes_adr,y1_mes_rn,y1_mes_rooms_rev,locked)
      VALUES ${placeholders}`,
     values
   );
@@ -178,7 +176,7 @@ router.post('/v1/projects/:id/y1/calc', async (req, res) => {
   if (!prj) return res.status(404).json({ error: 'PROJECT_NOT_FOUND' });
 
   const [y1Rows] = await pool.query(
-    `SELECT mes, y1_mes_occ AS occ, y1_mes_adr AS adr, y1_mes_rn AS rn, y1_mes_rooms_rev AS rooms_rev
+    `SELECT mes, y1_mes_dias AS dias, y1_mes_occ AS occ, y1_mes_adr AS adr, y1_mes_rn AS rn, y1_mes_rooms_rev AS rooms_rev
        FROM y1_commercial
       WHERE project_id=?
       ORDER BY mes`,
