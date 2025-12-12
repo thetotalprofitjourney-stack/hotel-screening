@@ -54,14 +54,7 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
     throw new Error('Y1_NOT_SAVED_YET: Debes guardar el USALI Y1 antes de proyectar');
   }
 
-  // Obtener datos comerciales de Y1 para calcular occ y ADR base
-  const { rn: rn1, rooms_rev: rooms_rev1 } = await getY1CommercialAgg(project_id);
-  if (rn1 <= 0 || rooms_rev1 <= 0) throw new Error('Y1_COMMERCIAL_NOT_READY');
-
-  const occ1 = rn1 / (prj.habitaciones * 365);                // ocupación Y1
-  const adr1 = rooms_rev1 / rn1;                               // ADR Y1
-
-  // ✅ CALCULAR PORCENTAJES REALES DEL Y1 GUARDADO (no usar ratios de mercado)
+  // ✅ LEER TODOS LOS DATOS DEL Y1 DESDE usali_y1_monthly (fuente única de verdad)
   // Leer datos mensuales guardados del Y1
   const [y1Monthly]: any = await pool.query(
     `SELECT rooms, fb, other_operated, misc_income, total_rev,
@@ -73,7 +66,11 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
     [project_id]
   );
 
-  // Sumar totales anuales del Y1 guardado
+  if (!y1Monthly || y1Monthly.length === 0) {
+    throw new Error('Y1_USALI_NOT_SAVED: Debes guardar el USALI Y1 antes de proyectar');
+  }
+
+  // Sumar totales anuales del Y1 guardado (fuente única de verdad)
   const sum = (field: string) => (y1Monthly as any[]).reduce((acc: number, m: any) => acc + Number(m[field] || 0), 0);
 
   const y1_total_rooms = sum('rooms');
@@ -81,6 +78,14 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
   const y1_total_other = sum('other_operated');
   const y1_total_misc = sum('misc_income');
   const y1_total_rev = sum('total_rev');
+
+  // Calcular RN desde y1_saved (debe coincidir con los ingresos)
+  const rn1 = Number(y1Saved.rn);
+  if (rn1 <= 0 || y1_total_rooms <= 0) throw new Error('Y1_DATA_INCOMPLETE');
+
+  // Calcular occ y ADR desde los datos guardados
+  const occ1 = rn1 / (prj.habitaciones * 365);
+  const adr1 = y1_total_rooms / rn1;  // ✅ Usar y1_total_rooms (de usali_y1_monthly), no rooms_rev1
   const y1_dept_rooms = sum('dept_rooms');
   const y1_dept_fb = sum('dept_fb');
   const y1_dept_other = sum('dept_other');
@@ -142,16 +147,16 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
 
   for (let y = 1; y <= horizon; y++) {
     if (y === 1) {
-      // ✅ AÑO 1: Usar datos guardados de usali_annual (editados por el usuario)
+      // ✅ AÑO 1: Usar datos guardados directamente de usali_y1_monthly (editados por el usuario)
       res.push({
         anio: 1,
         occupancy: occ1,
         adr: adr1,
-        rn: Number(y1Saved.rn),
-        rooms_rev: rooms_rev1,
-        fb: 0, // No guardamos este detalle en usali_annual
-        other_operated: 0,
-        misc_income: 0,
+        rn: rn1,
+        rooms_rev: y1_total_rooms,  // ✅ Usar valor de usali_y1_monthly
+        fb: y1_total_fb,            // ✅ Usar valor de usali_y1_monthly
+        other_operated: y1_total_other,  // ✅ Usar valor de usali_y1_monthly
+        misc_income: y1_total_misc,      // ✅ Usar valor de usali_y1_monthly
         operating_revenue: Number(y1Saved.operating_revenue),
         dept_profit: Number(y1Saved.dept_profit),
         gop: Number(y1Saved.gop),
@@ -167,15 +172,36 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
       continue; // Saltar al siguiente año
     }
 
-    // ✅ AÑOS 2-N: Proyectar con crecimientos e inflaciones
-    // aplica crecimiento
+    // ✅ AÑOS 2-N: Proyectar aplicando crecimientos sobre el año anterior
+
+    // Aplicar crecimientos a ADR y ocupación
     adr = adr * (1 + assumptions.adr_growth_pct);
-    occ = Math.max(0, Math.min(occ_cap, occ + (assumptions.occ_delta_pp / 100)));
+    const occ_new = Math.max(0, Math.min(occ_cap, occ + (assumptions.occ_delta_pp / 100)));
+
+    // Calcular factor de crecimiento de ingresos (compuesto de ADR y ocupación)
+    const adr_factor = (1 + assumptions.adr_growth_pct);
+    const occ_factor = occ > 0 ? occ_new / occ : 1;
+    const revenue_growth = adr_factor * occ_factor;
+
+    occ = occ_new;  // Actualizar ocupación para siguiente año
+
+    // ✅ APLICAR CRECIMIENTO DIRECTAMENTE SOBRE INGRESOS DEL AÑO ANTERIOR
+    // Obtener datos del año anterior (y-1 está en posición y-2 del array res)
+    const prev_year = res[y - 2];
+    const rooms_rev = prev_year.rooms_rev * revenue_growth;
+    const fb = prev_year.fb * revenue_growth;
+    const other = prev_year.other_operated * revenue_growth;
+    const misc = prev_year.misc_income * revenue_growth;
+    const total_rev = rooms_rev + fb + other + misc;
+
+    // RN (roomnights) anual actualizado
+    const rn = occ * prj.habitaciones * 365;
+
     // "inflación" de % de costes (si se define)
     const kDept = (1 + (assumptions.cost_inflation_pct ?? 0));
     const kUnd  = (1 + (assumptions.undistributed_inflation_pct ?? 0));
     pct.dept_rooms_pct *= kDept;
-    pct.fb_total_pct *= kDept;  // ✅ Usar fb_total_pct del Y1 guardado
+    pct.fb_total_pct *= kDept;
     pct.dept_other_pct  *= kDept;
     pct.und_ag_pct *= kUnd; pct.und_it_pct *= kUnd; pct.und_sm_pct *= kUnd; pct.und_pom_pct *= kUnd; pct.und_eww_pct *= kUnd;
 
@@ -191,17 +217,6 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
       rent: nonop.rent * kNonOp,
       other: nonop.other * kNonOp
     };
-
-    // RN anual y Rooms revenue
-    const rn = occ * prj.habitaciones * 365;
-    const rooms_rev = rn * adr;
-
-    // Ingresos con r/a/b (usar ratios del Y1 guardado)
-    const total_sin_other_misc = rooms_rev * (1 + pct.r);
-    const total_rev = total_sin_other_misc / (1 - pct.a - pct.b);
-    const fb = pct.r * rooms_rev;
-    const other = pct.a * total_rev;
-    const misc = pct.b * total_rev;
 
     // Departamentales (usar porcentajes del Y1 guardado)
     const dept_rooms = pct.dept_rooms_pct * rooms_rev;
