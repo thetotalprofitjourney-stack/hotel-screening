@@ -9,6 +9,18 @@ const getDaysInMonth = (month: number, year: number = new Date().getFullYear()):
 export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any[]; onChange:(r:any[])=>void; habitaciones:number }) {
   const currentYear = new Date().getFullYear();
 
+  // Si no hay datos, mostrar mensaje de carga
+  if (!rows || rows.length === 0) {
+    return (
+      <div className="p-4 border rounded-lg bg-gray-50 text-center text-gray-600">
+        Cargando datos de benchmark...
+      </div>
+    );
+  }
+
+  // Debug: Verificar estructura de datos
+  console.log('MonthlyTable - rows:', rows);
+
   function upd(i:number, key:'occ'|'adr'|'dias', val:number) {
     const next = rows.slice();
     // Si es ocupación, convertir de porcentaje entero (0-100) a decimal (0-1)
