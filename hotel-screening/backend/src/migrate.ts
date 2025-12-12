@@ -1,4 +1,4 @@
-import { pool } from './src/db.js';
+import { pool } from './db.js';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function runMigration(filename: string) {
-  const sql = readFileSync(join(__dirname, '../migrations', filename), 'utf8');
+  const sql = readFileSync(join(__dirname, '../../migrations', filename), 'utf8');
   const statements = sql.split(';').filter(s => s.trim());
 
   for (const statement of statements) {
