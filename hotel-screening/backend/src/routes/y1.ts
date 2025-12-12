@@ -298,6 +298,29 @@ router.put('/v1/projects/:id/y1/usali', async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(parsed.error);
 
+  // ✅ INVALIDAR proyección si el proyecto ya tiene datos guardados posteriores
+  const [prjRows] = await pool.query(
+    `SELECT estado FROM projects WHERE project_id=?`,
+    [projectId]
+  );
+  const prj = (prjRows as any[])[0];
+  if (!prj) return res.status(404).json({ error: 'PROJECT_NOT_FOUND' });
+
+  const currentState = prj.estado;
+  const statesWithProjection = ['projection_2n', 'finalized'];
+
+  if (statesWithProjection.includes(currentState)) {
+    // Borrar datos de proyección (años 2-N en usali_annual)
+    await pool.query(`DELETE FROM usali_annual WHERE project_id=? AND anio > 1`, [projectId]);
+
+    // Borrar deuda y valoración
+    await pool.query(`DELETE FROM debt_schedule_annual WHERE project_id=?`, [projectId]);
+    await pool.query(`DELETE FROM valuations WHERE project_id=?`, [projectId]);
+    await pool.query(`DELETE FROM returns WHERE project_id=?`, [projectId]);
+
+    console.log(`[INVALIDATE] Project ${projectId}: USALI Y1 changed from state '${currentState}', cleared projection data`);
+  }
+
   const monthly = parsed.data.monthly;
 
   // Eliminar datos anteriores
