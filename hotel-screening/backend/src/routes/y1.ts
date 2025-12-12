@@ -94,8 +94,9 @@ router.post('/v1/projects/:id/y1/benchmark/accept', async (req, res) => {
 router.get('/v1/projects/:id/y1/usali', async (req, res) => {
   const projectId = req.params.id;
 
+  // Obtener datos de USALI Y1 guardados
   const [rows] = await pool.query(
-    `SELECT mes, rn, rooms, fb, other_operated, misc_income, total_rev,
+    `SELECT mes, rooms, fb, other_operated, misc_income, total_rev,
             dept_rooms, dept_fb, dept_other, dept_total, dept_profit,
             und_ag, und_it, und_sm, und_pom, und_eww, und_total,
             gop, fees_base, fees_variable, fees_incentive, fees_total,
@@ -110,8 +111,21 @@ router.get('/v1/projects/:id/y1/usali', async (req, res) => {
     return res.status(404).json({ error: 'USALI_Y1_NOT_FOUND' });
   }
 
-  // Calcular totales anuales
-  const monthly = rows as any[];
+  // Obtener roomnights desde y1_commercial
+  const [rnRows] = await pool.query(
+    `SELECT mes, y1_mes_rn as rn FROM y1_commercial WHERE project_id=? ORDER BY mes`,
+    [projectId]
+  );
+
+  // Combinar datos: añadir rn a cada mes
+  const monthly = (rows as any[]).map((usaliRow: any) => {
+    const rnRow = (rnRows as any[]).find((r: any) => r.mes === usaliRow.mes);
+    return {
+      ...usaliRow,
+      rn: rnRow ? Number(rnRow.rn) : 0
+    };
+  });
+
   const sum = (field: string) => monthly.reduce((acc: number, m: any) => acc + Number(m[field] || 0), 0);
 
   const y1_anual = {
