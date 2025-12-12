@@ -39,16 +39,33 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
   if (!prj) throw new Error('PROJECT_NOT_FOUND');
 
   const horizon = Math.max(1, Number(assumptions.years ?? prj.horizonte));
+
+  // Verificar si existe Y1 guardado en usali_annual
+  const [[y1Saved]]: any = await pool.query(
+    `SELECT rn, operating_revenue, dept_profit, gop, fees, nonop, ebitda, ffe, ebitda_less_ffe,
+            gop_margin, ebitda_margin, ebitda_less_ffe_margin
+     FROM usali_annual
+     WHERE project_id=? AND anio=1`,
+    [project_id]
+  );
+
+  // Si no existe Y1 guardado, lanzar error
+  if (!y1Saved) {
+    throw new Error('Y1_NOT_SAVED_YET: Debes guardar el USALI Y1 antes de proyectar');
+  }
+
+  // Obtener datos comerciales de Y1 para calcular occ y ADR base
   const { rn: rn1, rooms_rev: rooms_rev1 } = await getY1CommercialAgg(project_id);
   if (rn1 <= 0 || rooms_rev1 <= 0) throw new Error('Y1_COMMERCIAL_NOT_READY');
 
   const occ1 = rn1 / (prj.habitaciones * 365);                // ocupación Y1
   const adr1 = rooms_rev1 / rn1;                               // ADR Y1
 
+  // Obtener ratios solo para proyectar años 2-N (no para recalcular Y1)
   const tamano_bucket_id = resolveTamanoBucket(prj.habitaciones);
   const ratios = await getRatios(prj.segmento, prj.categoria, tamano_bucket_id);
 
-  // Porcentajes base (se “inflan” cada año si así se pide)
+  // Porcentajes base (se "inflan" cada año si así se pide)
   const base = {
     dept_rooms_pct: Number(ratios.dept_rooms_pct),
     dept_rooms_eur_por_rn: Number(ratios.dept_rooms_eur_por_rn ?? 0),
@@ -89,33 +106,58 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
   const ffe_pct = Number(prj.ffe);
 
   for (let y = 1; y <= horizon; y++) {
-    if (y >= 2) {
-      // aplica crecimiento
-      adr = adr * (1 + assumptions.adr_growth_pct);
-      occ = Math.max(0, Math.min(occ_cap, occ + (assumptions.occ_delta_pp / 100)));
-      // “inflación” de % de costes (si se define)
-      const kDept = (1 + (assumptions.cost_inflation_pct ?? 0));
-      const kUnd  = (1 + (assumptions.undistributed_inflation_pct ?? 0));
-      pct.dept_rooms_pct *= kDept;
-      pct.fb_food_cost_pct *= kDept;
-      pct.fb_labor_pct    *= kDept;
-      pct.fb_otros_pct    *= kDept;
-      pct.dept_other_pct  *= kDept;
-      pct.und_ag_pct *= kUnd; pct.und_it_pct *= kUnd; pct.und_sm_pct *= kUnd; pct.und_pom_pct *= kUnd; pct.und_eww_pct *= kUnd;
-
-      // indexación fees base
-      const indexPct = (assumptions.fees_indexation_pct ?? prj.fees_indexacion_pct_anual ?? 0);
-      fee_base_year = fee_base_year * (1 + indexPct);
-
-      // non-op inflación
-      const kNonOp = (1 + (assumptions.nonop_inflation_pct ?? 0));
-      nonop = {
-        taxes: nonop.taxes * kNonOp,
-        insurance: nonop.insurance * kNonOp,
-        rent: nonop.rent * kNonOp,
-        other: nonop.other * kNonOp
-      };
+    if (y === 1) {
+      // ✅ AÑO 1: Usar datos guardados de usali_annual (editados por el usuario)
+      res.push({
+        anio: 1,
+        occupancy: occ1,
+        adr: adr1,
+        rn: Number(y1Saved.rn),
+        rooms_rev: rooms_rev1,
+        fb: 0, // No guardamos este detalle en usali_annual
+        other_operated: 0,
+        misc_income: 0,
+        operating_revenue: Number(y1Saved.operating_revenue),
+        dept_profit: Number(y1Saved.dept_profit),
+        gop: Number(y1Saved.gop),
+        fees: Number(y1Saved.fees),
+        nonop: Number(y1Saved.nonop),
+        ebitda: Number(y1Saved.ebitda),
+        ffe: Number(y1Saved.ffe),
+        ebitda_less_ffe: Number(y1Saved.ebitda_less_ffe),
+        gop_margin: Number(y1Saved.gop_margin),
+        ebitda_margin: Number(y1Saved.ebitda_margin),
+        ebitda_less_ffe_margin: Number(y1Saved.ebitda_less_ffe_margin)
+      });
+      continue; // Saltar al siguiente año
     }
+
+    // ✅ AÑOS 2-N: Proyectar con crecimientos e inflaciones
+    // aplica crecimiento
+    adr = adr * (1 + assumptions.adr_growth_pct);
+    occ = Math.max(0, Math.min(occ_cap, occ + (assumptions.occ_delta_pp / 100)));
+    // "inflación" de % de costes (si se define)
+    const kDept = (1 + (assumptions.cost_inflation_pct ?? 0));
+    const kUnd  = (1 + (assumptions.undistributed_inflation_pct ?? 0));
+    pct.dept_rooms_pct *= kDept;
+    pct.fb_food_cost_pct *= kDept;
+    pct.fb_labor_pct    *= kDept;
+    pct.fb_otros_pct    *= kDept;
+    pct.dept_other_pct  *= kDept;
+    pct.und_ag_pct *= kUnd; pct.und_it_pct *= kUnd; pct.und_sm_pct *= kUnd; pct.und_pom_pct *= kUnd; pct.und_eww_pct *= kUnd;
+
+    // indexación fees base
+    const indexPct = (assumptions.fees_indexation_pct ?? prj.fees_indexacion_pct_anual ?? 0);
+    fee_base_year = fee_base_year * (1 + indexPct);
+
+    // non-op inflación
+    const kNonOp = (1 + (assumptions.nonop_inflation_pct ?? 0));
+    nonop = {
+      taxes: nonop.taxes * kNonOp,
+      insurance: nonop.insurance * kNonOp,
+      rent: nonop.rent * kNonOp,
+      other: nonop.other * kNonOp
+    };
 
     // RN anual y Rooms revenue
     const rn = occ * prj.habitaciones * 365;
