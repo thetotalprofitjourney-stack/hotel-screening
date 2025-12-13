@@ -109,7 +109,9 @@ export function calcUsaliY1Monthly(
     const var_fee = fees?.pct_gop ? (fees.pct_gop * gop_for_fees) : 0;
     const inc_fee = (fees?.incentive_pct && fees?.hurdle_gop_margin && (gop_for_fees/total_rev >= fees.hurdle_gop_margin))
       ? (fees.incentive_pct * gop_for_fees) : 0;
-    const fees_total = base_m + fee_total_rev + var_fee + inc_fee;
+    // F.Base incluye Fee Base € + Fee % sobre TOTAL REV
+    const fees_base = base_m + fee_total_rev;
+    const fees_total = fees_base + var_fee + inc_fee;
 
     const income_before_nonop = gop - fees_total;
 
@@ -124,7 +126,7 @@ export function calcUsaliY1Monthly(
       rooms, fb, other_operated: other, misc_income: misc, total_rev,
       dept_rooms, dept_fb, dept_other, dept_total, dept_profit,
       und_ag, und_it, und_sm, und_pom, und_eww, und_total,
-      gop, fees_base: base_m, fees_variable: var_fee, fees_incentive: inc_fee, fees_total,
+      gop, fees_base, fees_variable: var_fee, fees_incentive: inc_fee, fees_total,
       income_before_nonop, nonop_total: nonop_m,
       ebitda, ffe_amount, ebitda_less_ffe
     };
