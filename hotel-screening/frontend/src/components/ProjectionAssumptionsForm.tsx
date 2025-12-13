@@ -1,0 +1,143 @@
+import React from 'react';
+import NumericInput from './NumericInput';
+
+export interface ProjectionAssumptions {
+  horizonte: number;
+  adr_growth_pct: number;
+  occ_delta_pp: number;
+  occ_cap: number;
+  cost_inflation_pct: number;
+  undistributed_inflation_pct: number;
+  nonop_inflation_pct: number;
+  fees_indexation_pct: number | null;
+}
+
+interface ProjectionAssumptionsFormProps {
+  data: ProjectionAssumptions;
+  onChange: (data: ProjectionAssumptions) => void;
+  onSubmit: () => void;
+}
+
+export default function ProjectionAssumptionsForm({ data, onChange, onSubmit }: ProjectionAssumptionsFormProps) {
+  function updateField<K extends keyof ProjectionAssumptions>(field: K, value: ProjectionAssumptions[K]) {
+    onChange({ ...data, [field]: value });
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    onSubmit();
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <section className="border rounded-lg p-6">
+        <h3 className="text-xl font-semibold mb-4">Supuestos de Proyección</h3>
+        <div className="grid grid-cols-4 gap-4">
+          <label className="flex flex-col">
+            <span className="text-sm font-medium mb-1">Horizonte (años) *</span>
+            <input
+              required
+              className="border px-3 py-2 rounded"
+              type="number"
+              min={1}
+              max={40}
+              value={data.horizonte}
+              onChange={e => updateField('horizonte', Number(e.target.value))}
+            />
+          </label>
+
+          <label className="flex flex-col">
+            <span className="text-sm font-medium mb-1">ADR crecimiento % *</span>
+            <NumericInput
+              required
+              className="border px-3 py-2 rounded"
+              value={data.adr_growth_pct * 100}
+              onChange={val => updateField('adr_growth_pct', val / 100)}
+              decimals={2}
+            />
+          </label>
+
+          <label className="flex flex-col">
+            <span className="text-sm font-medium mb-1">Δ Ocupación (pp/año) *</span>
+            <input
+              required
+              className="border px-3 py-2 rounded"
+              type="number"
+              step="0.1"
+              value={data.occ_delta_pp}
+              onChange={e => updateField('occ_delta_pp', Number(e.target.value))}
+              onFocus={e => e.target.select()}
+            />
+          </label>
+
+          <label className="flex flex-col">
+            <span className="text-sm font-medium mb-1">Tope ocupación % *</span>
+            <NumericInput
+              required
+              className="border px-3 py-2 rounded"
+              value={data.occ_cap * 100}
+              onChange={val => updateField('occ_cap', val / 100)}
+              decimals={2}
+            />
+          </label>
+
+          <label className="flex flex-col">
+            <span className="text-sm font-medium mb-1">Inflación costes dept. (%) *</span>
+            <NumericInput
+              required
+              className="border px-3 py-2 rounded"
+              value={data.cost_inflation_pct * 100}
+              onChange={val => updateField('cost_inflation_pct', val / 100)}
+              decimals={2}
+            />
+          </label>
+
+          <label className="flex flex-col">
+            <span className="text-sm font-medium mb-1">Inflación undistributed (%) *</span>
+            <NumericInput
+              required
+              className="border px-3 py-2 rounded"
+              value={data.undistributed_inflation_pct * 100}
+              onChange={val => updateField('undistributed_inflation_pct', val / 100)}
+              decimals={2}
+            />
+          </label>
+
+          <label className="flex flex-col">
+            <span className="text-sm font-medium mb-1">Inflación non-op (%) *</span>
+            <NumericInput
+              required
+              className="border px-3 py-2 rounded"
+              value={data.nonop_inflation_pct * 100}
+              onChange={val => updateField('nonop_inflation_pct', val / 100)}
+              decimals={2}
+            />
+          </label>
+
+          <label className="flex flex-col">
+            <span className="text-sm font-medium mb-1">Indexación fee base (% opcional)</span>
+            <NumericInput
+              className="border px-3 py-2 rounded"
+              placeholder="usa contrato si vacío"
+              value={data.fees_indexation_pct !== null ? data.fees_indexation_pct * 100 : ''}
+              onChange={val => {
+                const v = val === 0 && !data.fees_indexation_pct ? null : val / 100;
+                updateField('fees_indexation_pct', v);
+              }}
+              decimals={2}
+            />
+          </label>
+        </div>
+      </section>
+
+      <div className="flex justify-end">
+        <button
+          type="submit"
+          className="px-6 py-2 bg-black text-white rounded hover:bg-gray-800"
+        >
+          Proyectar años 2..N
+        </button>
+      </div>
+    </form>
+  );
+}
