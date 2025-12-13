@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import NumericInput from './NumericInput';
 
 export interface ProjectConfig {
   // Datos del proyecto
@@ -275,27 +276,23 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
 
           <label className="flex flex-col">
             <span className="text-sm font-medium mb-1">LTV % *</span>
-            <input
+            <NumericInput
               required
               className="border px-3 py-2 rounded"
-              type="number"
-              step="any"
               value={config.ltv * 100}
-              onChange={e => updateField('ltv', Number(e.target.value) / 100)}
-              onFocus={e => e.target.select()}
+              onChange={val => updateField('ltv', val / 100)}
+              decimals={2}
             />
           </label>
 
           <label className="flex flex-col">
             <span className="text-sm font-medium mb-1">Tasa de interés % *</span>
-            <input
+            <NumericInput
               required
               className="border px-3 py-2 rounded"
-              type="number"
-              step="any"
               value={config.interes * 100}
-              onChange={e => updateField('interes', Number(e.target.value) / 100)}
-              onFocus={e => e.target.select()}
+              onChange={val => updateField('interes', val / 100)}
+              decimals={2}
             />
           </label>
 
@@ -358,49 +355,41 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
 
               <label className="flex flex-col">
                 <span className="text-sm font-medium mb-1">Fee % sobre TOTAL REV</span>
-                <input
+                <NumericInput
                   className="border px-3 py-2 rounded"
-                  type="number"
-                  step="any"
                   value={config.fee_pct_total_rev !== null ? config.fee_pct_total_rev * 100 : ''}
-                  onChange={e => updateField('fee_pct_total_rev', e.target.value ? Number(e.target.value) / 100 : null)}
-                  onFocus={e => e.target.select()}
+                  onChange={val => updateField('fee_pct_total_rev', val === 0 && !config.fee_pct_total_rev ? null : val / 100)}
+                  decimals={2}
                 />
               </label>
 
               <label className="flex flex-col">
                 <span className="text-sm font-medium mb-1">Fee % sobre GOP</span>
-                <input
+                <NumericInput
                   className="border px-3 py-2 rounded"
-                  type="number"
-                  step="any"
                   value={config.fee_pct_gop !== null ? config.fee_pct_gop * 100 : ''}
-                  onChange={e => updateField('fee_pct_gop', e.target.value ? Number(e.target.value) / 100 : null)}
-                  onFocus={e => e.target.select()}
+                  onChange={val => updateField('fee_pct_gop', val === 0 && !config.fee_pct_gop ? null : val / 100)}
+                  decimals={2}
                 />
               </label>
 
               <label className="flex flex-col">
                 <span className="text-sm font-medium mb-1">Fee incentivo %</span>
-                <input
+                <NumericInput
                   className="border px-3 py-2 rounded"
-                  type="number"
-                  step="any"
                   value={config.fee_incentive_pct !== null ? config.fee_incentive_pct * 100 : ''}
-                  onChange={e => updateField('fee_incentive_pct', e.target.value ? Number(e.target.value) / 100 : null)}
-                  onFocus={e => e.target.select()}
+                  onChange={val => updateField('fee_incentive_pct', val === 0 && !config.fee_incentive_pct ? null : val / 100)}
+                  decimals={2}
                 />
               </label>
 
               <label className="flex flex-col">
                 <span className="text-sm font-medium mb-1">Hurdle GOP margin %</span>
-                <input
+                <NumericInput
                   className="border px-3 py-2 rounded"
-                  type="number"
-                  step="any"
                   value={config.fee_hurdle_gop_margin !== null ? config.fee_hurdle_gop_margin * 100 : ''}
-                  onChange={e => updateField('fee_hurdle_gop_margin', e.target.value ? Number(e.target.value) / 100 : null)}
-                  onFocus={e => e.target.select()}
+                  onChange={val => updateField('fee_hurdle_gop_margin', val === 0 && !config.fee_hurdle_gop_margin ? null : val / 100)}
+                  decimals={2}
                 />
               </label>
             </>
@@ -414,14 +403,12 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
         <div className="grid grid-cols-2 gap-4">
           <label className="flex flex-col">
             <span className="text-sm font-medium mb-1">FF&E (% sobre ingresos) *</span>
-            <input
+            <NumericInput
               required
               className="border px-3 py-2 rounded"
-              type="number"
-              step="any"
               value={config.ffe * 100}
-              onChange={e => updateField('ffe', Number(e.target.value) / 100)}
-              onFocus={e => e.target.select()}
+              onChange={val => updateField('ffe', val / 100)}
+              decimals={2}
             />
           </label>
 
@@ -441,14 +428,12 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
           {config.metodo_valoracion === 'cap_rate' && (
             <label className="flex flex-col">
               <span className="text-sm font-medium mb-1">Cap rate salida % *</span>
-              <input
+              <NumericInput
                 className="border px-3 py-2 rounded"
-                type="number"
-                step="any"
                 required
                 value={config.cap_rate_salida !== null ? config.cap_rate_salida * 100 : ''}
-                onChange={e => updateField('cap_rate_salida', e.target.value ? Number(e.target.value) / 100 : null)}
-                onFocus={e => e.target.select()}
+                onChange={val => updateField('cap_rate_salida', val === 0 && !config.cap_rate_salida ? null : val / 100)}
+                decimals={2}
               />
             </label>
           )}
@@ -469,26 +454,22 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
 
           <label className="flex flex-col">
             <span className="text-sm font-medium mb-1">Coste transacción compra %</span>
-            <input
+            <NumericInput
               className="border px-3 py-2 rounded"
-              type="number"
-              step="any"
               value={config.coste_tx_compra_pct !== null ? config.coste_tx_compra_pct * 100 : ''}
-              onChange={e => updateField('coste_tx_compra_pct', e.target.value ? Number(e.target.value) / 100 : null)}
-              onFocus={e => e.target.select()}
+              onChange={val => updateField('coste_tx_compra_pct', val === 0 && !config.coste_tx_compra_pct ? null : val / 100)}
+              decimals={2}
             />
           </label>
 
           <label className="flex flex-col">
             <span className="text-sm font-medium mb-1">Coste transacción venta % *</span>
-            <input
+            <NumericInput
               required
               className="border px-3 py-2 rounded"
-              type="number"
-              step="any"
               value={config.coste_tx_venta_pct * 100}
-              onChange={e => updateField('coste_tx_venta_pct', Number(e.target.value) / 100)}
-              onFocus={e => e.target.select()}
+              onChange={val => updateField('coste_tx_venta_pct', val / 100)}
+              decimals={2}
             />
           </label>
         </div>

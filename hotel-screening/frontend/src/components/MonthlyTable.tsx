@@ -1,4 +1,5 @@
 import React from 'react';
+import NumericInput from './NumericInput';
 
 // Función para obtener días exactos de un mes considerando años bisiestos
 const getDaysInMonth = (month: number, year: number = new Date().getFullYear()): number => {
@@ -123,11 +124,11 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
                     />
                   </td>
                   <td className="p-2 text-center">
-                    <input className="w-24 border px-2 py-1 rounded text-right"
-                      type="number" step="any"
+                    <NumericInput
+                      className="w-24 border px-2 py-1 rounded text-right"
                       value={ocupacion * 100}
-                      onChange={e=>upd(i,'occ', Number(e.target.value))}
-                      onFocus={e => e.target.select()}
+                      onChange={val => upd(i, 'occ', val)}
+                      decimals={2}
                     />
                   </td>
                   <td className="p-2 text-center">

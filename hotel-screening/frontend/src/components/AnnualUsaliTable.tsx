@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import NumericInput from './NumericInput';
 
 interface AnnualData {
   anio: number;
@@ -88,12 +89,10 @@ export default function AnnualUsaliTable({ data, editable = false, onChange }: A
 
     if (editable && row.anio >= 2) {
       return (
-        <input
-          type="number"
-          step="any"
+        <NumericInput
           value={euroPerRN}
-          onChange={(e) => updateValue(row.anio, field, parseFloat(e.target.value) || 0)}
-          onFocus={(e) => e.target.select()}
+          onChange={(val) => updateValue(row.anio, field, val)}
+          decimals={2}
           className="w-20 px-1 py-0.5 text-right border rounded bg-red-50 text-red-600 font-medium"
         />
       );
