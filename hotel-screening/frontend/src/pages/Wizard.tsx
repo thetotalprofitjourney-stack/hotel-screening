@@ -427,6 +427,22 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     }
   }, [accepted, operationConfig, usaliSaved, projectId]);
 
+  // Calcular proyección automáticamente al abrir Paso 3 o cuando cambia projectionAssumptions
+  useEffect(() => {
+    if (accepted && calc && usaliSaved && !projectionSaved) {
+      // Guardar supuestos y recalcular proyección
+      const recalculate = async () => {
+        try {
+          await saveProjectionAssumptions();
+          await doProjection();
+        } catch (error) {
+          console.error('Error recalculando proyección:', error);
+        }
+      };
+      recalculate();
+    }
+  }, [accepted, calc, usaliSaved, projectionAssumptions, projectionSaved, projectId]);
+
   async function accept() {
     await api(`/v1/projects/${projectId}/y1/benchmark/accept`, {
       method:'POST',
@@ -708,42 +724,49 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         </section>
       )}
 
-      {/* Formulario de Supuestos de Proyección (aparece después de guardar Paso 2) */}
-      {accepted && calc && usaliSaved && !projectionAssumptionsSaved && (
+      {/* PASO 3: Proyección 2..N (aparece después de guardar Paso 2, antes de guardar Paso 3) */}
+      {accepted && calc && usaliSaved && !projectionSaved && (
         <section>
-          <h3 className="text-lg font-semibold mb-4">Supuestos de Proyección</h3>
+          <h3 className="text-lg font-semibold mb-2">Paso 3 — Proyección {projectionAssumptions.horizonte > 2 ? '2..' + projectionAssumptions.horizonte : ''}</h3>
+
+          {/* Formulario de Supuestos */}
           <ProjectionAssumptionsForm
             data={projectionAssumptions}
             onChange={setProjectionAssumptions}
             onSubmit={saveProjectionAssumptions}
+            showSubmitButton={false}
           />
-        </section>
-      )}
 
-      {/* PASO 3: Proyección 2..N */}
-      {accepted && calc && usaliSaved && projectionAssumptionsSaved && (
-        <section>
-          <h3 className="text-lg font-semibold mb-2">Paso 3 — Proyección {projectionAssumptions.horizonte > 2 ? '2..' + projectionAssumptions.horizonte : ''}</h3>
-
+          {/* Tabla de Proyección */}
           {annuals && (
             <>
-              <AnnualUsaliTable
-                data={annuals}
-                editable={true}
-                onChange={setAnnuals}
-              />
+              <div className="mt-3">
+                <AnnualUsaliTable
+                  data={annuals}
+                  editable={true}
+                  onChange={setAnnuals}
+                />
+              </div>
 
               <div className="mt-3">
                 <button
                   className="px-4 py-2 bg-green-600 text-white rounded disabled:bg-gray-400 font-semibold"
                   onClick={() => saveProjection(annuals)}
-                  disabled={loading.save_projection || projectionSaved}
+                  disabled={loading.save_projection}
                 >
-                  {loading.save_projection ? 'Guardando...' : projectionSaved ? '✓ Proyección guardada' : 'Guardar Paso 3 (PROYECCIÓN)'}
+                  {loading.save_projection ? 'Guardando...' : 'Guardar Paso 3 (PROYECCIÓN)'}
                 </button>
               </div>
             </>
           )}
+        </section>
+      )}
+
+      {/* PASO 3 Locked: Proyección guardada ✓ */}
+      {accepted && calc && usaliSaved && projectionSaved && (
+        <section className="border-2 border-green-500 rounded-lg p-4 bg-green-50 opacity-75 pointer-events-none">
+          <h3 className="text-lg font-semibold mb-2">Paso 3 — Proyección ✓</h3>
+          <p className="text-sm text-gray-600">Proyección guardada correctamente.</p>
         </section>
       )}
 
