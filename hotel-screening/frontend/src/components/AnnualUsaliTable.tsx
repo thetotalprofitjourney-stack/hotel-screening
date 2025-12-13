@@ -238,11 +238,3 @@ export default function AnnualUsaliTable({ data, editable = false, onChange }: A
     </div>
   );
 }
-
-function fmt(n: number) {
-  return Intl.NumberFormat('es-ES', {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 0
-  }).format(n ?? 0);
-}
