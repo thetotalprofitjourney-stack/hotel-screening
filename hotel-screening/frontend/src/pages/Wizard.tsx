@@ -412,13 +412,20 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   // Calcular USALI automáticamente al abrir Paso 2 o cuando cambia operationConfig
   useEffect(() => {
     if (accepted && !usaliSaved) {
-      // Guardar configuración primero en el backend
-      saveOperationConfig().then(() => {
-        // Luego calcular USALI
-        calcY1();
-      }).catch(console.error);
+      // Guardar configuración y recalcular USALI
+      const recalculate = async () => {
+        try {
+          await saveOperationConfig();
+          // Llamar directamente a /calc para recalcular con nuevos valores
+          const r = await api(`/v1/projects/${projectId}/y1/calc`, { method:'POST', body: JSON.stringify({}) });
+          setCalc(r);
+        } catch (error) {
+          console.error('Error recalculando USALI:', error);
+        }
+      };
+      recalculate();
     }
-  }, [accepted, operationConfig, usaliSaved]);
+  }, [accepted, operationConfig, usaliSaved, projectId]);
 
   async function accept() {
     await api(`/v1/projects/${projectId}/y1/benchmark/accept`, {
@@ -622,6 +629,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                 occupancyData={meses.map(m => ({ mes: m.mes, occ: m.occ }))}
                 showSaveButton={false}
                 onChange={setEditedUsaliData}
+                showSummaryView={false}
+                showBannerTop={false}
               />
             )}
 
@@ -663,6 +672,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
             occupancyData={meses.map(m => ({ mes: m.mes, occ: m.occ }))}
             showSaveButton={false}
             onChange={() => {}}
+            showSummaryView={false}
+            showBannerTop={false}
           />
         </section>
       )}
