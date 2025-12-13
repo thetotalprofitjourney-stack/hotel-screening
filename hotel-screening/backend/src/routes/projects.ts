@@ -36,7 +36,7 @@ const updateConfigSchema = z.object({
   capex_inicial: z.number().optional(),
   ltv: z.number().min(0).max(1).optional(),
   interes: z.number().min(0).max(1).optional(),
-  plazo_anios: z.number().int().min(1).max(40).optional(),
+  plazo_anios: z.number().int().min(0).max(40).optional(), // 0 = sin financiación
   tipo_amortizacion: z.enum(['frances','bullet']).optional(),
 
   // Operator contract

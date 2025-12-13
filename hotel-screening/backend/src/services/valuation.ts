@@ -6,7 +6,8 @@ export async function computeDebt(project_id:string) {
     `SELECT precio_compra, capex_inicial, ltv, interes, plazo_anios, tipo_amortizacion
        FROM financing_terms WHERE project_id=?`, [project_id]
   );
-  if (!ft || ft.ltv==null || ft.interes==null || !ft.plazo_anios || !ft.tipo_amortizacion)
+  // Permitir plazo_anios = 0 (sin financiación), pero rechazar null/undefined
+  if (!ft || ft.ltv==null || ft.interes==null || ft.plazo_anios==null || !ft.tipo_amortizacion)
     throw new Error('FINANCING_TERMS_INCOMPLETE');
 
   const base = Number(ft.precio_compra ?? 0) + Number(ft.capex_inicial ?? 0);
