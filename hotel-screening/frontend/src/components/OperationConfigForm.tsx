@@ -206,7 +206,7 @@ export default function OperationConfigForm({ data, onChange, onSubmit }: Operat
           type="submit"
           className="px-6 py-2 bg-black text-white rounded hover:bg-gray-800"
         >
-          Guardar y calcular USALI Y1
+          Guardar configuración
         </button>
       </div>
     </form>
