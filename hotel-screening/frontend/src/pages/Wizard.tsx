@@ -443,6 +443,22 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     }
   }, [accepted, calc, usaliSaved, projectionAssumptions, projectionSaved, projectId]);
 
+  // Calcular deuda automáticamente al abrir Paso 4 o cuando cambia financingConfig
+  useEffect(() => {
+    if (accepted && calc && usaliSaved && projectionSaved && !financingConfigSaved) {
+      // Guardar configuración y recalcular deuda
+      const recalculate = async () => {
+        try {
+          await saveFinancingConfig();
+          await doDebt();
+        } catch (error) {
+          console.error('Error recalculando deuda:', error);
+        }
+      };
+      recalculate();
+    }
+  }, [accepted, calc, usaliSaved, projectionSaved, financingConfig, financingConfigSaved, projectId]);
+
   async function accept() {
     await api(`/v1/projects/${projectId}/y1/benchmark/accept`, {
       method:'POST',
@@ -530,7 +546,6 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
       setProjectionSaved(true);
       setAnnuals(editedAnnuals);
-      alert('✅ Proyección guardada correctamente');
     } catch (error) {
       console.error('Error guardando proyección:', error);
       alert('Error al guardar proyección: ' + (error instanceof Error ? error.message : 'Error desconocido'));
@@ -762,33 +777,110 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         </section>
       )}
 
-      {/* PASO 3 Locked: Proyección guardada ✓ */}
+      {/* PASO 3 guardado (read-only) */}
       {accepted && calc && usaliSaved && projectionSaved && (
-        <section className="border-2 border-green-500 rounded-lg p-4 bg-green-50 opacity-75 pointer-events-none">
-          <h3 className="text-lg font-semibold mb-2">Paso 3 — Proyección ✓</h3>
-          <p className="text-sm text-gray-600">Proyección guardada correctamente.</p>
+        <section>
+          <h3 className="text-lg font-semibold mb-4">Paso 3 — Proyección ✓</h3>
+
+          {/* Formulario de Supuestos (read-only) */}
+          <div className="mb-6 opacity-75 pointer-events-none">
+            <ProjectionAssumptionsForm
+              data={projectionAssumptions}
+              onChange={() => {}}
+              onSubmit={() => {}}
+              showSubmitButton={false}
+            />
+          </div>
+
+          {/* Tabla de Proyección (read-only) */}
+          {annuals && (
+            <div className="opacity-75 pointer-events-none">
+              <AnnualUsaliTable
+                data={annuals}
+                editable={false}
+                onChange={() => {}}
+              />
+            </div>
+          )}
         </section>
       )}
 
-      {/* Formulario de Financiación (aparece después de guardar Paso 3) */}
+      {/* PASO 4: Deuda (aparece después de guardar Paso 3, antes de guardar Paso 4) */}
       {accepted && calc && usaliSaved && projectionSaved && !financingConfigSaved && (
         <section>
-          <h3 className="text-lg font-semibold mb-4">Financiación del Proyecto</h3>
+          <h3 className="text-lg font-semibold mb-2">Paso 4 — Deuda</h3>
+
+          {/* Formulario de Financiación */}
           <FinancingForm
             data={financingConfig}
             onChange={setFinancingConfig}
             onSubmit={saveFinancingConfig}
+            showSubmitButton={false}
           />
+
+          {/* Tabla de Deuda */}
+          {debt && (
+            <>
+              <div className="mt-3">
+                <h4 className="font-semibold">Resultado del Cálculo de Deuda</h4>
+                <div className="text-sm mb-2">Principal inicial: {fmt(debt.loan_amount)}</div>
+                <div className="overflow-auto">
+                  <table className="w-full text-sm border">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="p-2">Año</th>
+                        <th className="p-2">Intereses</th>
+                        <th className="p-2">Amortización</th>
+                        <th className="p-2">Cuota</th>
+                        <th className="p-2">Saldo final</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {debt.schedule.map((d:any)=>(
+                        <tr key={d.anio} className="border-t">
+                          <td className="p-2 text-center">{d.anio}</td>
+                          <td className="p-2 text-right">{fmt(d.intereses)}</td>
+                          <td className="p-2 text-right">{fmt(d.amortizacion)}</td>
+                          <td className="p-2 text-right">{fmt(d.cuota)}</td>
+                          <td className="p-2 text-right">{fmt(d.saldo_final)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <button
+                  className="px-4 py-2 bg-green-600 text-white rounded disabled:bg-gray-400 font-semibold"
+                  onClick={saveFinancingConfig}
+                >
+                  Guardar Paso 4 (DEUDA)
+                </button>
+              </div>
+            </>
+          )}
         </section>
       )}
 
-      {/* PASO 4: Deuda */}
+      {/* PASO 4 guardado (read-only) */}
       {accepted && calc && usaliSaved && projectionSaved && financingConfigSaved && (
         <section>
-          <h3 className="text-lg font-semibold mb-2">Paso 4 — Deuda</h3>
+          <h3 className="text-lg font-semibold mb-4">Paso 4 — Deuda ✓</h3>
 
+          {/* Formulario de Financiación (read-only) */}
+          <div className="mb-6 opacity-75 pointer-events-none">
+            <FinancingForm
+              data={financingConfig}
+              onChange={() => {}}
+              onSubmit={() => {}}
+              showSubmitButton={false}
+            />
+          </div>
+
+          {/* Tabla de Deuda (read-only) */}
           {debt && (
-            <div className="mt-5">
+            <div className="opacity-75 pointer-events-none">
               <h4 className="font-semibold">Resultado del Cálculo de Deuda</h4>
               <div className="text-sm mb-2">Principal inicial: {fmt(debt.loan_amount)}</div>
               <div className="overflow-auto">
