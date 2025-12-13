@@ -416,5 +416,13 @@ function getDeltaColorClass(delta: number): string {
 }
 
 function fmt(n: number) {
-  return Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n ?? 0);
+  const rounded = Math.round(n ?? 0);
+  const str = Math.abs(rounded).toString();
+  const parts = [];
+  for (let i = str.length; i > 0; i -= 3) {
+    const start = Math.max(0, i - 3);
+    parts.unshift(str.substring(start, i));
+  }
+  const formatted = parts.join('.');
+  return rounded < 0 ? '-' + formatted : formatted;
 }
