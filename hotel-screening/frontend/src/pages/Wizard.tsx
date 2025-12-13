@@ -271,8 +271,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       });
 
       setOperationConfigSaved(true);
-      // Calcular USALI automáticamente
-      await calcY1();
+      // NO calcular automáticamente - el usuario debe presionar el botón "CALCULAR USALI Y1"
     } catch (error) {
       console.error('Error guardando configuración de operación:', error);
       alert('Error al guardar la configuración de operación');
@@ -411,22 +410,6 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   }, [anio, projectId, basicInfoSaved]);
 
   async function accept() {
-    const statesWithData = ['y1_usali', 'projection_2n', 'finalized'];
-
-    if (statesWithData.includes(projectState)) {
-      const confirmed = window.confirm(
-        '⚠️ ADVERTENCIA: Si modificas el Año 1 comercial, se borrarán los datos guardados de:\n\n' +
-        '• USALI Y1 (Paso 2)\n' +
-        '• Proyección 2-N (Paso 3)\n\n' +
-        'Deberás recalcular estos pasos nuevamente.\n\n' +
-        '¿Estás seguro que deseas continuar?'
-      );
-
-      if (!confirmed) {
-        return;
-      }
-    }
-
     await api(`/v1/projects/${projectId}/y1/benchmark/accept`, {
       method:'POST',
       body: JSON.stringify({ anio_base: anio, meses: meses.map((m:any)=>({ mes:m.mes, dias:m.dias, occ:m.occ, adr:m.adr })) })
@@ -434,10 +417,6 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
     setProjectState('y1_commercial');
     setAccepted(true);
-    setCalc(null);
-    setAnnuals(null);
-    setDebt(null);
-    setVR(null);
   }
 
   async function calcY1() {
@@ -454,22 +433,6 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   }
 
   async function saveUsali(editedData: any[]) {
-    const statesWithProjection = ['projection_2n', 'finalized'];
-
-    if (statesWithProjection.includes(projectState)) {
-      const confirmed = window.confirm(
-        '⚠️ ADVERTENCIA: Si modificas el USALI Y1, se borrarán los datos guardados de:\n\n' +
-        '• Proyección 2-N (Paso 3)\n' +
-        '• Deuda y Valoración\n\n' +
-        'Deberás recalcular el paso 3 nuevamente.\n\n' +
-        '¿Estás seguro que deseas continuar?'
-      );
-
-      if (!confirmed) {
-        return;
-      }
-    }
-
     await api(`/v1/projects/${projectId}/y1/usali`, {
       method: 'PUT',
       body: JSON.stringify({ monthly: editedData })
@@ -477,10 +440,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
     setProjectState('y1_usali');
     setUsaliSaved(true);
-    setAnnuals(null);
-    setDebt(null);
-    setVR(null);
 
+    // Recargar USALI guardado
     await calcY1();
   }
 
@@ -597,15 +558,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         </section>
       ) : (
         <section>
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="text-lg font-semibold">Datos del Proyecto</h3>
-            <button
-              className="px-3 py-1 border rounded text-sm hover:bg-gray-50"
-              onClick={() => setBasicInfoSaved(false)}
-            >
-              Editar
-            </button>
-          </div>
+          <h3 className="text-lg font-semibold mb-2">Datos del Proyecto</h3>
           <ProjectBasicInfoForm
             data={basicInfo}
             onChange={setBasicInfo}
@@ -616,13 +569,21 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       )}
 
       {/* PASO 1: Validación comercial Y1 */}
-      {basicInfoSaved && (
+      {basicInfoSaved && !accepted && (
         <section>
           <h3 className="text-lg font-semibold mb-2">Paso 1 — Validación comercial Y1</h3>
           <MonthlyTable rows={meses} onChange={setMeses} habitaciones={basicInfo.habitaciones} />
           <button className="mt-3 px-3 py-2 bg-black text-white rounded" onClick={accept}>
             Guardar Paso 1 (Aceptar Y1 comercial)
           </button>
+        </section>
+      )}
+
+      {/* PASO 1 guardado (read-only) */}
+      {accepted && (
+        <section>
+          <h3 className="text-lg font-semibold mb-2">Paso 1 — Validación comercial Y1 ✓</h3>
+          <MonthlyTable rows={meses} onChange={() => {}} habitaciones={basicInfo.habitaciones} />
         </section>
       )}
 
