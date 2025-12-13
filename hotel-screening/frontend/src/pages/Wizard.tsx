@@ -631,6 +631,21 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                 onChange={setEditedUsaliData}
                 showSummaryView={false}
                 showBannerTop={false}
+                feeParams={{
+                  base_anual: operationConfig.fee_base_anual,
+                  pct_total_rev: operationConfig.fee_pct_total_rev,
+                  pct_gop: operationConfig.fee_pct_gop,
+                  incentive_pct: operationConfig.fee_incentive_pct,
+                  hurdle_gop_margin: operationConfig.fee_hurdle_gop_margin,
+                  gop_ajustado: operationConfig.gop_ajustado
+                }}
+                nonopTotal={
+                  operationConfig.nonop_taxes_anual +
+                  operationConfig.nonop_insurance_anual +
+                  operationConfig.nonop_rent_anual +
+                  operationConfig.nonop_other_anual
+                }
+                ffePercent={operationConfig.ffe}
               />
             )}
 
@@ -674,6 +689,21 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
             onChange={() => {}}
             showSummaryView={false}
             showBannerTop={false}
+            feeParams={{
+              base_anual: operationConfig.fee_base_anual,
+              pct_total_rev: operationConfig.fee_pct_total_rev,
+              pct_gop: operationConfig.fee_pct_gop,
+              incentive_pct: operationConfig.fee_incentive_pct,
+              hurdle_gop_margin: operationConfig.fee_hurdle_gop_margin,
+              gop_ajustado: operationConfig.gop_ajustado
+            }}
+            nonopTotal={
+              operationConfig.nonop_taxes_anual +
+              operationConfig.nonop_insurance_anual +
+              operationConfig.nonop_rent_anual +
+              operationConfig.nonop_other_anual
+            }
+            ffePercent={operationConfig.ffe}
           />
         </section>
       )}
