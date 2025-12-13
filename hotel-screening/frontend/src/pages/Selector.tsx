@@ -235,8 +235,8 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
                 <td className="p-2 text-right">{fmt(r.price_per_key)}</td>
                 <td className="p-2 text-right">{pct(r.y1_noi_cap_rate)}</td>
                 <td className="p-2 text-right">{pct(r.y1_yield_on_cost)}</td>
-                <td className="p-2 text-right">{r.y1_dscr ? r.y1_dscr.toFixed(2) : '—'}</td>
-                <td className="p-2 text-right">{r.irr_levered!=null ? (r.irr_levered*100).toFixed(1)+'%' : '—'}</td>
+                <td className="p-2 text-right">{r.y1_dscr ? fmtDecimal(r.y1_dscr, 2) : '—'}</td>
+                <td className="p-2 text-right">{r.irr_levered!=null ? pct(r.irr_levered) : '—'}</td>
                 <td className="p-2 text-center">
                   <button className="px-2 py-1 border rounded hover:bg-gray-100" onClick={()=>onOpen(r.project_id)}>Abrir</button>
                 </td>
