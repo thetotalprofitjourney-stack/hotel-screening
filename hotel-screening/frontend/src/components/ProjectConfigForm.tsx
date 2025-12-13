@@ -329,7 +329,7 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
       <section className="border rounded-lg p-6">
         <h3 className="text-xl font-semibold mb-4">3. Contrato Operador</h3>
         <div className="grid grid-cols-2 gap-4">
-          <label className="flex flex-col col-span-2">
+          <label className="flex flex-col">
             <span className="text-sm font-medium mb-1">Tipo de operación *</span>
             <select
               required
@@ -343,21 +343,24 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
           </label>
 
           {config.operacion_tipo === 'operador' && (
+            <label className="flex flex-col">
+              <span className="text-sm font-medium mb-1">Tipo de GOP para cálculo de fees</span>
+              <select
+                className="border px-3 py-2 rounded"
+                value={config.gop_ajustado ? 'ajustado' : 'standard'}
+                onChange={e => updateField('gop_ajustado', e.target.value === 'ajustado')}
+              >
+                <option value="standard">GOP (sin descontar FF&E)</option>
+                <option value="ajustado">GOP Ajustado (descontando FF&E)</option>
+              </select>
+              <span className="text-xs text-gray-500 mt-1">
+                Afecta al cálculo del Fee % sobre GOP y Fee incentivo %.
+              </span>
+            </label>
+          )}
+
+          {config.operacion_tipo === 'operador' && (
             <>
-              <label className="flex flex-col col-span-2">
-                <span className="text-sm font-medium mb-1">Tipo de GOP para cálculo de fees</span>
-                <select
-                  className="border px-3 py-2 rounded"
-                  value={config.gop_ajustado ? 'ajustado' : 'standard'}
-                  onChange={e => updateField('gop_ajustado', e.target.value === 'ajustado')}
-                >
-                  <option value="standard">GOP (sin descontar FF&E)</option>
-                  <option value="ajustado">GOP Ajustado (descontando FF&E)</option>
-                </select>
-                <span className="text-xs text-gray-500 mt-1">
-                  Esta opción afecta al cálculo del Fee % sobre GOP y Fee incentivo %. No altera las columnas de las tablas USALI.
-                </span>
-              </label>
 
               <label className="flex flex-col">
                 <span className="text-sm font-medium mb-1">Fee base anual (€)</span>
