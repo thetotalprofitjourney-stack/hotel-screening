@@ -82,6 +82,7 @@ CREATE TABLE operator_contracts (
   fee_pct_gop             DECIMAL(6,4) NULL,
   fee_incentive_pct       DECIMAL(6,4) NULL,
   fee_hurdle_gop_margin   DECIMAL(6,4) NULL,
+  gop_ajustado            BOOLEAN NOT NULL DEFAULT FALSE,
   fees_indexacion_pct_anual DECIMAL(6,4) NULL DEFAULT 0.020,
   created_at              DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at              DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),

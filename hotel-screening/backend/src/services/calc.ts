@@ -28,7 +28,7 @@ export function buildCommercialY1(
 export function calcUsaliY1Monthly(
   comm: Y1Month[],
   ratios: any,
-  fees: { base_anual?:number; pct_total_rev?:number; pct_gop?:number; incentive_pct?:number; hurdle_gop_margin?:number } | null,
+  fees: { base_anual?:number; pct_total_rev?:number; pct_gop?:number; incentive_pct?:number; hurdle_gop_margin?:number; gop_ajustado?:boolean } | null,
   nonopAnnual: { taxes?:number; insurance?:number; rent?:number; other?:number } | null,
   ffe_pct: number
 ) {
@@ -98,11 +98,17 @@ export function calcUsaliY1Monthly(
 
     const gop = dept_profit - und_total;
 
+    // FF&E amount (calculado antes para poder usarlo en GOP ajustado)
+    const ffe_amount = ffe_pct * total_rev;
+
+    // Determinar GOP base para cálculo de fees (GOP estándar o GOP ajustado)
+    const gop_for_fees = fees?.gop_ajustado ? (gop - ffe_amount) : gop;
+
     // Fees
     const fee_total_rev = fees?.pct_total_rev ? (fees.pct_total_rev * total_rev) : 0;
-    const var_fee = fees?.pct_gop ? (fees.pct_gop * gop) : 0;
-    const inc_fee = (fees?.incentive_pct && fees?.hurdle_gop_margin && (gop/total_rev >= fees.hurdle_gop_margin))
-      ? (fees.incentive_pct * gop) : 0;
+    const var_fee = fees?.pct_gop ? (fees.pct_gop * gop_for_fees) : 0;
+    const inc_fee = (fees?.incentive_pct && fees?.hurdle_gop_margin && (gop_for_fees/total_rev >= fees.hurdle_gop_margin))
+      ? (fees.incentive_pct * gop_for_fees) : 0;
     const fees_total = base_m + fee_total_rev + var_fee + inc_fee;
 
     const income_before_nonop = gop - fees_total;
@@ -110,7 +116,6 @@ export function calcUsaliY1Monthly(
     // Non-operating (mensual prorrateado)
     const ebitda = income_before_nonop - nonop_m;
 
-    const ffe_amount = ffe_pct * total_rev;
     const ebitda_less_ffe = ebitda - ffe_amount;
 
     return {

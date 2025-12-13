@@ -46,6 +46,7 @@ const updateConfigSchema = z.object({
   fee_pct_gop: z.number().min(0).max(1).nullable().optional(),
   fee_incentive_pct: z.number().min(0).max(1).nullable().optional(),
   fee_hurdle_gop_margin: z.number().min(0).max(1).nullable().optional(),
+  gop_ajustado: z.boolean().optional(),
 
   // Settings
   ffe: z.number().min(0).max(1).optional(),
@@ -168,6 +169,7 @@ router.get('/v1/projects/:id/config', async (req, res) => {
     fee_pct_gop: operator.fee_pct_gop,
     fee_incentive_pct: operator.fee_incentive_pct,
     fee_hurdle_gop_margin: operator.fee_hurdle_gop_margin,
+    gop_ajustado: operator.gop_ajustado,
 
     // Settings
     ffe: settings.ffe,
@@ -271,6 +273,7 @@ router.put('/v1/projects/:id/config', async (req, res) => {
   if (data.fee_pct_gop !== undefined) operatorUpdates.fee_pct_gop = data.fee_pct_gop;
   if (data.fee_incentive_pct !== undefined) operatorUpdates.fee_incentive_pct = data.fee_incentive_pct;
   if (data.fee_hurdle_gop_margin !== undefined) operatorUpdates.fee_hurdle_gop_margin = data.fee_hurdle_gop_margin;
+  if (data.gop_ajustado !== undefined) operatorUpdates.gop_ajustado = data.gop_ajustado;
 
   if (Object.keys(operatorUpdates).length > 0) {
     const setClauses = Object.keys(operatorUpdates).map(k => `${k}=?`).join(', ');

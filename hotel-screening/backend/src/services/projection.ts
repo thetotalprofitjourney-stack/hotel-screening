@@ -28,7 +28,7 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
   const [[prj]]: any = await pool.query(
     `SELECT p.horizonte, p.segmento, p.categoria, p.habitaciones,
             ps.ffe,
-            oc.operacion_tipo, oc.fee_base_anual, oc.fee_pct_gop, oc.fee_incentive_pct, oc.fee_hurdle_gop_margin, oc.fees_indexacion_pct_anual,
+            oc.operacion_tipo, oc.fee_base_anual, oc.fee_pct_gop, oc.fee_incentive_pct, oc.fee_hurdle_gop_margin, oc.gop_ajustado, oc.fees_indexacion_pct_anual,
             no.nonop_taxes_anual, no.nonop_insurance_anual, no.nonop_rent_anual, no.nonop_other_anual
        FROM projects p
        JOIN project_settings ps ON ps.project_id=p.project_id
@@ -136,6 +136,7 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
   const fee_pct_gop = Number(prj.fee_pct_gop ?? 0);
   const fee_incentive_pct = Number(prj.fee_incentive_pct ?? 0);
   const fee_hurdle = Number(prj.fee_hurdle_gop_margin ?? 0);
+  const gop_ajustado = Boolean(prj.gop_ajustado ?? false);
   let fee_base_year = base_fee;
 
   let nonop = {
@@ -240,11 +241,17 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
 
     const gop = dept_profit - und_total;
 
+    // FF&E amount (calculado antes para poder usarlo en GOP ajustado)
+    const ffe_amount = ffe_pct * total_rev;
+
+    // Determinar GOP base para cálculo de fees (GOP estándar o GOP ajustado)
+    const gop_for_fees = gop_ajustado ? (gop - ffe_amount) : gop;
+
     // Fees operador
     const fees_base = prj.operacion_tipo === 'operador' ? fee_base_year : 0;
-    const fees_variable = prj.operacion_tipo === 'operador' ? (fee_pct_gop * gop) : 0;
-    const fees_incentive = (prj.operacion_tipo === 'operador' && fee_incentive_pct && fee_hurdle && (gop/total_rev >= fee_hurdle))
-      ? (fee_incentive_pct * gop) : 0;
+    const fees_variable = prj.operacion_tipo === 'operador' ? (fee_pct_gop * gop_for_fees) : 0;
+    const fees_incentive = (prj.operacion_tipo === 'operador' && fee_incentive_pct && fee_hurdle && (gop_for_fees/total_rev >= fee_hurdle))
+      ? (fee_incentive_pct * gop_for_fees) : 0;
     const fees_total = fees_base + fees_variable + fees_incentive;
 
     const income_before_nonop = gop - fees_total;
@@ -253,7 +260,6 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
 
     const ebitda = income_before_nonop - nonop_total;
 
-    const ffe_amount = ffe_pct * total_rev;
     const ebitda_less_ffe = ebitda - ffe_amount;
 
     res.push({

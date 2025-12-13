@@ -29,6 +29,7 @@ export interface ProjectConfig {
   fee_pct_gop: number | null;
   fee_incentive_pct: number | null;
   fee_hurdle_gop_margin: number | null;
+  gop_ajustado: boolean;
 
   // Settings
   ffe: number;
@@ -78,6 +79,7 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
     fee_pct_gop: initialData?.fee_pct_gop || null,
     fee_incentive_pct: initialData?.fee_incentive_pct || null,
     fee_hurdle_gop_margin: initialData?.fee_hurdle_gop_margin || null,
+    gop_ajustado: initialData?.gop_ajustado || false,
 
     ffe: initialData?.ffe || 0.04,
     metodo_valoracion: initialData?.metodo_valoracion || 'cap_rate',
@@ -342,6 +344,21 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
 
           {config.operacion_tipo === 'operador' && (
             <>
+              <label className="flex flex-col col-span-2">
+                <span className="text-sm font-medium mb-1">Tipo de GOP para cálculo de fees</span>
+                <select
+                  className="border px-3 py-2 rounded"
+                  value={config.gop_ajustado ? 'ajustado' : 'standard'}
+                  onChange={e => updateField('gop_ajustado', e.target.value === 'ajustado')}
+                >
+                  <option value="standard">GOP (sin descontar FF&E)</option>
+                  <option value="ajustado">GOP Ajustado (descontando FF&E)</option>
+                </select>
+                <span className="text-xs text-gray-500 mt-1">
+                  Esta opción afecta al cálculo del Fee % sobre GOP y Fee incentivo %. No altera las columnas de las tablas USALI.
+                </span>
+              </label>
+
               <label className="flex flex-col">
                 <span className="text-sm font-medium mb-1">Fee base anual (€)</span>
                 <input
