@@ -43,7 +43,9 @@ export default function OperationConfigForm({ data, onChange, onSubmit, showSubm
       {/* Sección: Contrato Operador */}
       <section className="border rounded-lg p-3">
         <h3 className="text-base font-semibold mb-2">Contrato Operador</h3>
-        <div className="grid grid-cols-3 gap-3">
+
+        {/* FILA 1: Tipo de operación, Fee base anual, Fee % sobre TOTAL REV */}
+        <div className="grid grid-cols-3 gap-3 mb-3">
           <label className="flex flex-col">
             <span className="text-sm font-medium mb-1">Tipo de operación *</span>
             <select
@@ -56,23 +58,6 @@ export default function OperationConfigForm({ data, onChange, onSubmit, showSubm
               <option value="operador">Operador externo</option>
             </select>
           </label>
-
-          {data.operacion_tipo === 'operador' && (
-            <label className="flex flex-col">
-              <span className="text-sm font-medium mb-1">Tipo de GOP para cálculo de fees</span>
-              <select
-                className="border px-3 py-2 rounded"
-                value={data.gop_ajustado ? 'ajustado' : 'standard'}
-                onChange={e => updateField('gop_ajustado', e.target.value === 'ajustado')}
-              >
-                <option value="standard">GOP (sin descontar FF&E)</option>
-                <option value="ajustado">GOP Ajustado (descontando FF&E)</option>
-              </select>
-              <span className="text-xs text-gray-500 mt-1">
-                Afecta al cálculo del Fee % sobre GOP y Fee incentivo %.
-              </span>
-            </label>
-          )}
 
           {data.operacion_tipo === 'operador' && (
             <>
@@ -96,45 +81,29 @@ export default function OperationConfigForm({ data, onChange, onSubmit, showSubm
                   decimals={2}
                 />
               </label>
-
-              <label className="flex flex-col">
-                <span className="text-sm font-medium mb-1">Fee % sobre GOP</span>
-                <NumericInput
-                  className="border px-3 py-2 rounded"
-                  value={data.fee_pct_gop !== null ? data.fee_pct_gop * 100 : ''}
-                  onChange={val => updateField('fee_pct_gop', val === 0 && !data.fee_pct_gop ? null : val / 100)}
-                  decimals={2}
-                />
-              </label>
-
-              <label className="flex flex-col">
-                <span className="text-sm font-medium mb-1">Fee incentivo %</span>
-                <NumericInput
-                  className="border px-3 py-2 rounded"
-                  value={data.fee_incentive_pct !== null ? data.fee_incentive_pct * 100 : ''}
-                  onChange={val => updateField('fee_incentive_pct', val === 0 && !data.fee_incentive_pct ? null : val / 100)}
-                  decimals={2}
-                />
-              </label>
-
-              <label className="flex flex-col">
-                <span className="text-sm font-medium mb-1">Hurdle GOP margin %</span>
-                <NumericInput
-                  className="border px-3 py-2 rounded"
-                  value={data.fee_hurdle_gop_margin !== null ? data.fee_hurdle_gop_margin * 100 : ''}
-                  onChange={val => updateField('fee_hurdle_gop_margin', val === 0 && !data.fee_hurdle_gop_margin ? null : val / 100)}
-                  decimals={2}
-                />
-              </label>
             </>
           )}
         </div>
-      </section>
 
-      {/* Sección: FF&E */}
-      <section className="border rounded-lg p-3">
-        <h3 className="text-base font-semibold mb-2">Configuración</h3>
-        <div className="grid grid-cols-3 gap-3">
+        {/* FILA 2: Tipo de GOP para cálculo de fees, FF&E */}
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          {data.operacion_tipo === 'operador' && (
+            <label className="flex flex-col">
+              <span className="text-sm font-medium mb-1">Tipo de GOP para cálculo de fees</span>
+              <select
+                className="border px-3 py-2 rounded"
+                value={data.gop_ajustado ? 'ajustado' : 'standard'}
+                onChange={e => updateField('gop_ajustado', e.target.value === 'ajustado')}
+              >
+                <option value="standard">GOP (sin descontar FF&E)</option>
+                <option value="ajustado">GOP Ajustado (descontando FF&E)</option>
+              </select>
+              <span className="text-xs text-gray-500 mt-1">
+                Afecta al cálculo del Fee % sobre GOP y Fee incentivo %.
+              </span>
+            </label>
+          )}
+
           <label className="flex flex-col">
             <span className="text-sm font-medium mb-1">FF&E (% sobre ingresos) *</span>
             <NumericInput
@@ -146,6 +115,41 @@ export default function OperationConfigForm({ data, onChange, onSubmit, showSubm
             />
           </label>
         </div>
+
+        {/* FILA 3: Fee % sobre GOP, Hurdle GOP margin %, Fee incentivo % */}
+        {data.operacion_tipo === 'operador' && (
+          <div className="grid grid-cols-3 gap-3">
+            <label className="flex flex-col">
+              <span className="text-sm font-medium mb-1">Fee % sobre GOP</span>
+              <NumericInput
+                className="border px-3 py-2 rounded"
+                value={data.fee_pct_gop !== null ? data.fee_pct_gop * 100 : ''}
+                onChange={val => updateField('fee_pct_gop', val === 0 && !data.fee_pct_gop ? null : val / 100)}
+                decimals={2}
+              />
+            </label>
+
+            <label className="flex flex-col">
+              <span className="text-sm font-medium mb-1">Hurdle GOP margin %</span>
+              <NumericInput
+                className="border px-3 py-2 rounded"
+                value={data.fee_hurdle_gop_margin !== null ? data.fee_hurdle_gop_margin * 100 : ''}
+                onChange={val => updateField('fee_hurdle_gop_margin', val === 0 && !data.fee_hurdle_gop_margin ? null : val / 100)}
+                decimals={2}
+              />
+            </label>
+
+            <label className="flex flex-col">
+              <span className="text-sm font-medium mb-1">Fee incentivo %</span>
+              <NumericInput
+                className="border px-3 py-2 rounded"
+                value={data.fee_incentive_pct !== null ? data.fee_incentive_pct * 100 : ''}
+                onChange={val => updateField('fee_incentive_pct', val === 0 && !data.fee_incentive_pct ? null : val / 100)}
+                decimals={2}
+              />
+            </label>
+          </div>
+        )}
       </section>
 
       {/* Sección: Non-Operating */}
@@ -153,7 +157,7 @@ export default function OperationConfigForm({ data, onChange, onSubmit, showSubm
         <h3 className="text-base font-semibold mb-2">Gastos Non-Operating (anual)</h3>
         <div className="grid grid-cols-4 gap-3">
           <label className="flex flex-col">
-            <span className="text-sm font-medium mb-1">Impuestos (€) *</span>
+            <span className="text-sm font-medium mb-1">Tributos (€) *</span>
             <input
               required
               className="border px-3 py-2 rounded"
