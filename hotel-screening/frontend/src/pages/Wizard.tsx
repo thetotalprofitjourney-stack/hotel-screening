@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api';
 import MonthlyTable from '../components/MonthlyTable';
-import ProjectConfigForm, { ProjectConfig } from '../components/ProjectConfigForm';
 import UsaliEditor from '../components/UsaliEditor';
 import SensitivityAnalysis from '../components/SensitivityAnalysis';
 import AnnualUsaliTable from '../components/AnnualUsaliTable';
-import NumericInput from '../components/NumericInput';
+import ProjectBasicInfoForm, { ProjectBasicInfo } from '../components/ProjectBasicInfoForm';
+import OperationConfigForm, { OperationConfig } from '../components/OperationConfigForm';
+import ProjectionAssumptionsForm, { ProjectionAssumptions } from '../components/ProjectionAssumptionsForm';
+import FinancingForm, { FinancingConfig } from '../components/FinancingForm';
+import ValuationForm, { ValuationConfig } from '../components/ValuationForm';
 
 // Funciones de formateo de números (formato español)
 function fmtDecimal(n: number, decimals: number = 2) {
@@ -16,28 +19,71 @@ function fmtDecimal(n: number, decimals: number = 2) {
 }
 
 export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:()=>void }) {
-  const [config, setConfig] = useState<ProjectConfig | null>(null);
-  const [configLoaded, setConfigLoaded] = useState(false);
-  const [showConfigForm, setShowConfigForm] = useState(false);
-  const [projectState, setProjectState] = useState<string>('draft');
+  // Estados para formularios progresivos
+  const [basicInfo, setBasicInfo] = useState<ProjectBasicInfo>({
+    nombre: '',
+    comunidad_autonoma: '',
+    provincia: '',
+    zona: '',
+    segmento: 'urbano',
+    categoria: 'upscale',
+    habitaciones: 100
+  });
+  const [basicInfoSaved, setBasicInfoSaved] = useState(false);
 
-  const [anio, setAnio] = useState<number>(new Date().getFullYear());
-  const [meses, setMeses] = useState<any[]>([]);
-  const [accepted, setAccepted] = useState(false);
-  const [calc, setCalc] = useState<any|null>(null);
-  const [usaliSaved, setUsaliSaved] = useState(false);
-  const [editedUsaliData, setEditedUsaliData] = useState<any[]>([]);
-  // nuevos estados
-  const [ass, setAss] = useState({
-    years: 7,
+  const [operationConfig, setOperationConfig] = useState<OperationConfig>({
+    operacion_tipo: 'operador',
+    fee_base_anual: null,
+    fee_pct_total_rev: null,
+    fee_pct_gop: null,
+    fee_incentive_pct: null,
+    fee_hurdle_gop_margin: null,
+    gop_ajustado: false,
+    ffe: 0.04,
+    nonop_taxes_anual: 0,
+    nonop_insurance_anual: 0,
+    nonop_rent_anual: 0,
+    nonop_other_anual: 0
+  });
+  const [operationConfigSaved, setOperationConfigSaved] = useState(false);
+
+  const [projectionAssumptions, setProjectionAssumptions] = useState<ProjectionAssumptions>({
+    horizonte: 7,
     adr_growth_pct: 0.05,
     occ_delta_pp: 1.0,
     occ_cap: 0.85,
     cost_inflation_pct: 0.02,
     undistributed_inflation_pct: 0.02,
     nonop_inflation_pct: 0.02,
-    fees_indexation_pct: null as number | null
+    fees_indexation_pct: null
   });
+  const [projectionAssumptionsSaved, setProjectionAssumptionsSaved] = useState(false);
+
+  const [financingConfig, setFinancingConfig] = useState<FinancingConfig>({
+    precio_compra: 0,
+    capex_inicial: 0,
+    coste_tx_compra_pct: 0.03,
+    ltv: 0.65,
+    interes: 0.045,
+    plazo_anios: 10,
+    tipo_amortizacion: 'frances'
+  });
+  const [financingConfigSaved, setFinancingConfigSaved] = useState(false);
+
+  const [valuationConfig, setValuationConfig] = useState<ValuationConfig>({
+    metodo_valoracion: 'cap_rate',
+    cap_rate_salida: 0.08,
+    multiplo_salida: null,
+    coste_tx_venta_pct: 0.02
+  });
+
+  const [projectState, setProjectState] = useState<string>('draft');
+  const [anio, setAnio] = useState<number>(new Date().getFullYear());
+  const [meses, setMeses] = useState<any[]>([]);
+  const [accepted, setAccepted] = useState(false);
+  const [calc, setCalc] = useState<any|null>(null);
+  const [usaliSaved, setUsaliSaved] = useState(false);
+  const [editedUsaliData, setEditedUsaliData] = useState<any[]>([]);
   const [annuals, setAnnuals] = useState<any[]|null>(null);
   const [projectionSaved, setProjectionSaved] = useState(false);
   const [debt, setDebt] = useState<any|null>(null);
@@ -49,22 +95,76 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     valuation: false
   });
 
-  async function loadConfig() {
+  async function loadAllConfig() {
     try {
       const data = await api(`/v1/projects/${projectId}/config`);
-      setConfig(data);
-      setConfigLoaded(true);
-      // Sincronizar years con horizonte del proyecto
-      if (data.horizonte) {
-        setAss(prev => ({ ...prev, years: data.horizonte }));
+
+      // Cargar datos básicos
+      if (data.nombre) {
+        setBasicInfo({
+          nombre: data.nombre,
+          comunidad_autonoma: data.comunidad_autonoma || '',
+          provincia: data.provincia || '',
+          zona: data.zona || '',
+          segmento: data.segmento || 'urbano',
+          categoria: data.categoria || 'upscale',
+          habitaciones: data.habitaciones || 100
+        });
+        setBasicInfoSaved(true);
       }
-      // Verificar si la configuración está completa (al menos nombre y precio_compra)
-      if (!data.nombre || data.precio_compra === null || data.precio_compra === undefined) {
-        setShowConfigForm(true);
+
+      // Cargar configuración de operación
+      if (data.operacion_tipo) {
+        setOperationConfig({
+          operacion_tipo: data.operacion_tipo,
+          fee_base_anual: data.fee_base_anual ?? null,
+          fee_pct_total_rev: data.fee_pct_total_rev ?? null,
+          fee_pct_gop: data.fee_pct_gop ?? null,
+          fee_incentive_pct: data.fee_incentive_pct ?? null,
+          fee_hurdle_gop_margin: data.fee_hurdle_gop_margin ?? null,
+          gop_ajustado: data.gop_ajustado ?? false,
+          ffe: data.ffe ?? 0.04,
+          nonop_taxes_anual: data.nonop_taxes_anual ?? 0,
+          nonop_insurance_anual: data.nonop_insurance_anual ?? 0,
+          nonop_rent_anual: data.nonop_rent_anual ?? 0,
+          nonop_other_anual: data.nonop_other_anual ?? 0
+        });
+        setOperationConfigSaved(true);
+      }
+
+      // Cargar supuestos de proyección
+      if (data.horizonte) {
+        setProjectionAssumptions(prev => ({
+          ...prev,
+          horizonte: data.horizonte
+        }));
+      }
+
+      // Cargar configuración de financiación
+      if (data.precio_compra !== null && data.precio_compra !== undefined) {
+        setFinancingConfig({
+          precio_compra: data.precio_compra ?? 0,
+          capex_inicial: data.capex_inicial ?? 0,
+          coste_tx_compra_pct: data.coste_tx_compra_pct ?? 0.03,
+          ltv: data.ltv ?? 0.65,
+          interes: data.interes ?? 0.045,
+          plazo_anios: data.plazo_anios ?? 10,
+          tipo_amortizacion: data.tipo_amortizacion ?? 'frances'
+        });
+        setFinancingConfigSaved(true);
+      }
+
+      // Cargar configuración de valoración
+      if (data.metodo_valoracion) {
+        setValuationConfig({
+          metodo_valoracion: data.metodo_valoracion,
+          cap_rate_salida: data.cap_rate_salida ?? 0.08,
+          multiplo_salida: data.multiplo_salida ?? null,
+          coste_tx_venta_pct: data.coste_tx_venta_pct ?? 0.02
+        });
       }
     } catch (error) {
       console.error('Error cargando configuración:', error);
-      setShowConfigForm(true);
     }
   }
 
@@ -79,9 +179,12 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
           setAccepted(true);
         }
         if (project.estado === 'y1_usali' || project.estado === 'projection_2n' || project.estado === 'finalized') {
-          // Cargar datos de USALI
           calcY1();
-          setUsaliSaved(true); // Marcar que USALI ya está guardado
+          setUsaliSaved(true);
+        }
+        if (project.estado === 'projection_2n' || project.estado === 'finalized') {
+          setProjectionSaved(true);
+          setProjectionAssumptionsSaved(true);
         }
       }
     } catch (error) {
@@ -89,52 +192,224 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     }
   }
 
-  async function saveConfig(newConfig: ProjectConfig) {
+  async function saveBasicInfo() {
     try {
+      const configData = {
+        ...basicInfo,
+        moneda: 'EUR', // Siempre EUR
+        // Valores por defecto para campos no usados aún
+        horizonte: projectionAssumptions.horizonte,
+        precio_compra: financingConfig.precio_compra,
+        capex_inicial: financingConfig.capex_inicial,
+        ltv: financingConfig.ltv,
+        interes: financingConfig.interes,
+        plazo_anios: financingConfig.plazo_anios,
+        tipo_amortizacion: financingConfig.tipo_amortizacion,
+        operacion_tipo: operationConfig.operacion_tipo,
+        fee_base_anual: operationConfig.fee_base_anual,
+        fee_pct_total_rev: operationConfig.fee_pct_total_rev,
+        fee_pct_gop: operationConfig.fee_pct_gop,
+        fee_incentive_pct: operationConfig.fee_incentive_pct,
+        fee_hurdle_gop_margin: operationConfig.fee_hurdle_gop_margin,
+        gop_ajustado: operationConfig.gop_ajustado,
+        ffe: operationConfig.ffe,
+        metodo_valoracion: valuationConfig.metodo_valoracion,
+        cap_rate_salida: valuationConfig.cap_rate_salida,
+        multiplo_salida: valuationConfig.multiplo_salida,
+        coste_tx_compra_pct: financingConfig.coste_tx_compra_pct,
+        coste_tx_venta_pct: valuationConfig.coste_tx_venta_pct,
+        nonop_taxes_anual: operationConfig.nonop_taxes_anual,
+        nonop_insurance_anual: operationConfig.nonop_insurance_anual,
+        nonop_rent_anual: operationConfig.nonop_rent_anual,
+        nonop_other_anual: operationConfig.nonop_other_anual
+      };
+
       await api(`/v1/projects/${projectId}/config`, {
         method: 'PUT',
-        body: JSON.stringify(newConfig)
+        body: JSON.stringify(configData)
       });
-      setConfig(newConfig);
-      setShowConfigForm(false);
+
+      setBasicInfoSaved(true);
+      // Cargar benchmark automáticamente
+      await loadBenchmark();
     } catch (error) {
-      console.error('Error guardando configuración:', error);
-      alert('Error al guardar la configuración');
+      console.error('Error guardando datos básicos:', error);
+      alert('Error al guardar los datos del proyecto');
+    }
+  }
+
+  async function saveOperationConfig() {
+    try {
+      const configData = {
+        nombre: basicInfo.nombre,
+        comunidad_autonoma: basicInfo.comunidad_autonoma,
+        provincia: basicInfo.provincia,
+        zona: basicInfo.zona,
+        segmento: basicInfo.segmento,
+        categoria: basicInfo.categoria,
+        habitaciones: basicInfo.habitaciones,
+        moneda: 'EUR',
+        horizonte: projectionAssumptions.horizonte,
+        ...operationConfig,
+        precio_compra: financingConfig.precio_compra,
+        capex_inicial: financingConfig.capex_inicial,
+        ltv: financingConfig.ltv,
+        interes: financingConfig.interes,
+        plazo_anios: financingConfig.plazo_anios,
+        tipo_amortizacion: financingConfig.tipo_amortizacion,
+        metodo_valoracion: valuationConfig.metodo_valoracion,
+        cap_rate_salida: valuationConfig.cap_rate_salida,
+        multiplo_salida: valuationConfig.multiplo_salida,
+        coste_tx_compra_pct: financingConfig.coste_tx_compra_pct,
+        coste_tx_venta_pct: valuationConfig.coste_tx_venta_pct
+      };
+
+      await api(`/v1/projects/${projectId}/config`, {
+        method: 'PUT',
+        body: JSON.stringify(configData)
+      });
+
+      setOperationConfigSaved(true);
+      // Calcular USALI automáticamente
+      await calcY1();
+    } catch (error) {
+      console.error('Error guardando configuración de operación:', error);
+      alert('Error al guardar la configuración de operación');
+    }
+  }
+
+  async function saveProjectionAssumptions() {
+    try {
+      // Actualizar horizonte en el config
+      const configData = {
+        nombre: basicInfo.nombre,
+        comunidad_autonoma: basicInfo.comunidad_autonoma,
+        provincia: basicInfo.provincia,
+        zona: basicInfo.zona,
+        segmento: basicInfo.segmento,
+        categoria: basicInfo.categoria,
+        habitaciones: basicInfo.habitaciones,
+        moneda: 'EUR',
+        horizonte: projectionAssumptions.horizonte,
+        ...operationConfig,
+        precio_compra: financingConfig.precio_compra,
+        capex_inicial: financingConfig.capex_inicial,
+        ltv: financingConfig.ltv,
+        interes: financingConfig.interes,
+        plazo_anios: financingConfig.plazo_anios,
+        tipo_amortizacion: financingConfig.tipo_amortizacion,
+        metodo_valoracion: valuationConfig.metodo_valoracion,
+        cap_rate_salida: valuationConfig.cap_rate_salida,
+        multiplo_salida: valuationConfig.multiplo_salida,
+        coste_tx_compra_pct: financingConfig.coste_tx_compra_pct,
+        coste_tx_venta_pct: valuationConfig.coste_tx_venta_pct
+      };
+
+      await api(`/v1/projects/${projectId}/config`, {
+        method: 'PUT',
+        body: JSON.stringify(configData)
+      });
+
+      setProjectionAssumptionsSaved(true);
+      // Proyectar automáticamente
+      await doProjection();
+    } catch (error) {
+      console.error('Error guardando supuestos de proyección:', error);
+      alert('Error al guardar los supuestos de proyección');
+    }
+  }
+
+  async function saveFinancingConfig() {
+    try {
+      const configData = {
+        nombre: basicInfo.nombre,
+        comunidad_autonoma: basicInfo.comunidad_autonoma,
+        provincia: basicInfo.provincia,
+        zona: basicInfo.zona,
+        segmento: basicInfo.segmento,
+        categoria: basicInfo.categoria,
+        habitaciones: basicInfo.habitaciones,
+        moneda: 'EUR',
+        horizonte: projectionAssumptions.horizonte,
+        ...operationConfig,
+        ...financingConfig,
+        metodo_valoracion: valuationConfig.metodo_valoracion,
+        cap_rate_salida: valuationConfig.cap_rate_salida,
+        multiplo_salida: valuationConfig.multiplo_salida,
+        coste_tx_venta_pct: valuationConfig.coste_tx_venta_pct
+      };
+
+      await api(`/v1/projects/${projectId}/config`, {
+        method: 'PUT',
+        body: JSON.stringify(configData)
+      });
+
+      setFinancingConfigSaved(true);
+      // Calcular deuda automáticamente
+      await doDebt();
+    } catch (error) {
+      console.error('Error guardando configuración de financiación:', error);
+      alert('Error al guardar la configuración de financiación');
+    }
+  }
+
+  async function saveValuationConfig() {
+    try {
+      const configData = {
+        nombre: basicInfo.nombre,
+        comunidad_autonoma: basicInfo.comunidad_autonoma,
+        provincia: basicInfo.provincia,
+        zona: basicInfo.zona,
+        segmento: basicInfo.segmento,
+        categoria: basicInfo.categoria,
+        habitaciones: basicInfo.habitaciones,
+        moneda: 'EUR',
+        horizonte: projectionAssumptions.horizonte,
+        ...operationConfig,
+        ...financingConfig,
+        ...valuationConfig
+      };
+
+      await api(`/v1/projects/${projectId}/config`, {
+        method: 'PUT',
+        body: JSON.stringify(configData)
+      });
+
+      // Calcular valoración automáticamente
+      await doValuation();
+    } catch (error) {
+      console.error('Error guardando configuración de valoración:', error);
+      alert('Error al guardar la configuración de valoración');
     }
   }
 
   async function loadBenchmark() {
-    // Primero verificar si ya existen datos guardados en y1_commercial
     try {
       const y1Data = await api(`/v1/projects/${projectId}/y1/commercial`);
       if (y1Data && y1Data.meses && y1Data.meses.length === 12) {
-        // Si hay datos guardados, mostrar esos
         setMeses(y1Data.meses);
         return;
       }
     } catch (error) {
-      // Si no hay datos guardados, continuar con el benchmark
       console.log('No hay datos de Y1 comercial guardados, cargando benchmark');
     }
 
-    // Cargar benchmark si no hay datos guardados
     const data = await api(`/v1/projects/${projectId}/y1/benchmark?anio_base=${anio}`);
     setMeses(data.meses);
   }
 
   useEffect(() => {
-    loadConfig().catch(console.error);
+    loadAllConfig().catch(console.error);
     loadProjectState().catch(console.error);
   }, [projectId]);
 
-  useEffect(()=>{
-    if (configLoaded) {
+  useEffect(() => {
+    if (basicInfoSaved) {
       loadBenchmark().catch(console.error);
     }
-  },[anio, projectId, configLoaded]);
+  }, [anio, projectId, basicInfoSaved]);
 
   async function accept() {
-    // ⚠️ ADVERTIR si el usuario está modificando Y1 comercial cuando ya tiene pasos posteriores guardados
     const statesWithData = ['y1_usali', 'projection_2n', 'finalized'];
 
     if (statesWithData.includes(projectState)) {
@@ -147,7 +422,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       );
 
       if (!confirmed) {
-        return; // Cancelar si el usuario no confirma
+        return;
       }
     }
 
@@ -156,11 +431,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       body: JSON.stringify({ anio_base: anio, meses: meses.map((m:any)=>({ mes:m.mes, dias:m.dias, occ:m.occ, adr:m.adr })) })
     });
 
-    // Actualizar estado del proyecto después de aceptar
     setProjectState('y1_commercial');
     setAccepted(true);
-
-    // ✅ Limpiar datos de pasos posteriores en el frontend
     setCalc(null);
     setAnnuals(null);
     setDebt(null);
@@ -168,23 +440,19 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   }
 
   async function calcY1() {
-    // Primero intentar cargar datos guardados
     try {
       const r = await api(`/v1/projects/${projectId}/y1/usali`);
       setCalc(r);
       return;
     } catch (error) {
-      // Si no hay datos guardados, calcular con ratios de mercado
       console.log('No hay USALI guardado, calculando con ratios de mercado');
     }
 
-    // Calcular con ratios de mercado si no hay datos guardados
     const r = await api(`/v1/projects/${projectId}/y1/calc`, { method:'POST', body: JSON.stringify({}) });
     setCalc(r);
   }
 
   async function saveUsali(editedData: any[]) {
-    // ⚠️ ADVERTIR si el usuario está modificando USALI Y1 cuando ya tiene proyección guardada
     const statesWithProjection = ['projection_2n', 'finalized'];
 
     if (statesWithProjection.includes(projectState)) {
@@ -197,7 +465,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       );
 
       if (!confirmed) {
-        return; // Cancelar si el usuario no confirma
+        return;
       }
     }
 
@@ -206,16 +474,12 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       body: JSON.stringify({ monthly: editedData })
     });
 
-    // Actualizar estado del proyecto
     setProjectState('y1_usali');
-    setUsaliSaved(true); // Marcar que se ha guardado el USALI
-
-    // ✅ Limpiar datos de proyección en el frontend
+    setUsaliSaved(true);
     setAnnuals(null);
     setDebt(null);
     setVR(null);
 
-    // Recargar los datos después de guardar (ahora cargará los datos guardados, no recalculará)
     await calcY1();
   }
 
@@ -223,10 +487,19 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     if (loading.projection) return;
     setLoading(prev => ({ ...prev, projection: true }));
     try {
+      const ass = {
+        years: projectionAssumptions.horizonte,
+        adr_growth_pct: projectionAssumptions.adr_growth_pct,
+        occ_delta_pp: projectionAssumptions.occ_delta_pp,
+        occ_cap: projectionAssumptions.occ_cap,
+        cost_inflation_pct: projectionAssumptions.cost_inflation_pct,
+        undistributed_inflation_pct: projectionAssumptions.undistributed_inflation_pct,
+        nonop_inflation_pct: projectionAssumptions.nonop_inflation_pct,
+        fees_indexation_pct: projectionAssumptions.fees_indexation_pct
+      };
       const r = await api(`/v1/projects/${projectId}/projection`, { method:'POST', body: JSON.stringify(ass) });
       setAnnuals(r.annuals);
-      setProjectionSaved(false); // Resetear estado de guardado
-      // Limpiar deuda y valoración al re-proyectar
+      setProjectionSaved(false);
       setDebt(null);
       setVR(null);
     } catch (error) {
@@ -241,7 +514,6 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     if (loading.save_projection) return;
     setLoading(prev => ({ ...prev, save_projection: true }));
     try {
-      // Preparar datos para enviar (solo años >= 2)
       const years = editedAnnuals
         .filter(a => a.anio >= 2)
         .map(a => ({
@@ -261,7 +533,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       });
 
       setProjectionSaved(true);
-      setAnnuals(editedAnnuals); // Actualizar con datos editados
+      setAnnuals(editedAnnuals);
       alert('✅ Proyección guardada correctamente');
     } catch (error) {
       console.error('Error guardando proyección:', error);
@@ -303,80 +575,78 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <button className="px-2 py-1 border rounded" onClick={onBack}>← Volver</button>
-        <div className="flex items-center gap-2">
-          <span>Año base</span>
-          <input className="border px-2 py-1 rounded w-24" type="number" value={anio} onChange={e=>setAnio(Number(e.target.value))} />
-          <button className="px-2 py-1 border rounded" onClick={loadBenchmark}>Recargar</button>
-        </div>
-      </div>
-
-      {/* Paso 0: Configuración del proyecto */}
-      <section>
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="text-lg font-semibold">Paso 0 — Configuración del Proyecto</h3>
-          {config && !showConfigForm && (
-            <button
-              className="px-3 py-1 border rounded text-sm hover:bg-gray-50"
-              onClick={() => setShowConfigForm(true)}
-            >
-              Editar configuración
-            </button>
-          )}
-        </div>
-
-        {showConfigForm ? (
-          <ProjectConfigForm
-            initialData={config || undefined}
-            onSubmit={saveConfig}
-            onCancel={config ? () => setShowConfigForm(false) : undefined}
-          />
-        ) : config ? (
-          <div className="border rounded-lg p-4 bg-gray-50">
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="font-medium">Proyecto:</span> {config.nombre}
-              </div>
-              <div>
-                <span className="font-medium">Ubicación:</span> {config.comunidad_autonoma} - {config.provincia} - {config.zona}
-              </div>
-              <div>
-                <span className="font-medium">Habitaciones:</span> {config.habitaciones}
-              </div>
-              <div>
-                <span className="font-medium">Precio compra:</span> {fmt(config.precio_compra || 0)}
-              </div>
-              <div>
-                <span className="font-medium">CAPEX:</span> {fmt(config.capex_inicial || 0)}
-              </div>
-              <div>
-                <span className="font-medium">Horizonte:</span> {config.horizonte} años
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="border rounded-lg p-4 bg-yellow-50 text-sm">
-            Cargando configuración...
+        {basicInfoSaved && (
+          <div className="flex items-center gap-2">
+            <span>Año base</span>
+            <input className="border px-2 py-1 rounded w-24" type="number" value={anio} onChange={e=>setAnio(Number(e.target.value))} />
+            <button className="px-2 py-1 border rounded" onClick={loadBenchmark}>Recargar</button>
           </div>
         )}
-      </section>
+      </div>
 
-      {!showConfigForm && config && (
-        <>
-      <section>
-        <h3 className="text-lg font-semibold mb-2">Paso 1 — Validación comercial Y1</h3>
-        <MonthlyTable rows={meses} onChange={setMeses} habitaciones={config?.habitaciones || 0} />
-        <button className="mt-3 px-3 py-2 bg-black text-white rounded" onClick={accept}>Aceptar Y1 comercial</button>
-      </section>
-
-      {accepted && (
+      {/* INICIO: Datos básicos del proyecto */}
+      {!basicInfoSaved ? (
         <section>
-          <h3 className="text-lg font-semibold mb-2">Paso 2 — Cálculo USALI Y1</h3>
+          <h2 className="text-2xl font-bold mb-4">Configuración Inicial</h2>
+          <ProjectBasicInfoForm
+            data={basicInfo}
+            onChange={setBasicInfo}
+            onSubmit={saveBasicInfo}
+          />
+        </section>
+      ) : (
+        <section>
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-lg font-semibold">Datos del Proyecto</h3>
+            <button
+              className="px-3 py-1 border rounded text-sm hover:bg-gray-50"
+              onClick={() => setBasicInfoSaved(false)}
+            >
+              Editar
+            </button>
+          </div>
+          <ProjectBasicInfoForm
+            data={basicInfo}
+            onChange={setBasicInfo}
+            onSubmit={saveBasicInfo}
+            readOnly
+          />
+        </section>
+      )}
+
+      {/* PASO 1: Validación comercial Y1 */}
+      {basicInfoSaved && (
+        <section>
+          <h3 className="text-lg font-semibold mb-2">Paso 1 — Validación comercial Y1</h3>
+          <MonthlyTable rows={meses} onChange={setMeses} habitaciones={basicInfo.habitaciones} />
+          <button className="mt-3 px-3 py-2 bg-black text-white rounded" onClick={accept}>
+            Guardar Paso 1 (Aceptar Y1 comercial)
+          </button>
+        </section>
+      )}
+
+      {/* Formulario de Operación (aparece después de guardar Paso 1) */}
+      {accepted && !operationConfigSaved && (
+        <section>
+          <h3 className="text-lg font-semibold mb-4">Configuración de Operación y Costes</h3>
+          <OperationConfigForm
+            data={operationConfig}
+            onChange={setOperationConfig}
+            onSubmit={saveOperationConfig}
+          />
+        </section>
+      )}
+
+      {/* PASO 2: USALI Y1 */}
+      {accepted && operationConfigSaved && (
+        <section>
+          <h3 className="text-lg font-semibold mb-2">Paso 2 — USALI Y1</h3>
           <div className="space-y-3">
             {calc && (
               <UsaliEditor
                 calculatedData={calc.y1_mensual}
                 onSave={saveUsali}
-                isGestionPropia={config?.operacion_tipo === 'gestion_propia'}
+                isGestionPropia={operationConfig.operacion_tipo === 'gestion_propia'}
                 occupancyData={meses.map(m => ({ mes: m.mes, occ: m.occ }))}
                 showSaveButton={false}
                 onChange={setEditedUsaliData}
@@ -387,7 +657,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               <button
                 className="px-3 py-2 bg-black text-white rounded"
                 onClick={() => {
-                  setUsaliSaved(false); // Resetear estado al recalcular
+                  setUsaliSaved(false);
                   calcY1();
                 }}
               >
@@ -399,92 +669,30 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                   className="px-4 py-2 bg-black text-white rounded"
                   onClick={() => saveUsali(editedUsaliData.length > 0 ? editedUsaliData : calc.y1_mensual)}
                 >
-                  GUARDAR USALI Y1
+                  Guardar Paso 2 (USALI Y1)
                 </button>
               )}
             </div>
           </div>
         </section>
       )}
-	  
-	  {accepted && calc && usaliSaved && (
+
+      {/* Formulario de Supuestos de Proyección (aparece después de guardar Paso 2) */}
+      {accepted && calc && usaliSaved && !projectionAssumptionsSaved && (
         <section>
-          <h3 className="text-lg font-semibold mt-8 mb-2">Paso 3 — Supuestos de Proyección y Resultados</h3>
-          <div className="grid grid-cols-4 gap-3">
-            <label>Horizonte (años)
-              <input className="input" type="number" min={1} max={40}
-                value={ass.years} onChange={e=>setAss({...ass, years:Number(e.target.value)})}/>
-            </label>
-            <label>ADR crecimiento %
-              <NumericInput
-                className="input"
-                value={ass.adr_growth_pct * 100}
-                onChange={val=>setAss({...ass, adr_growth_pct: val / 100})}
-                decimals={2}
-              />
-            </label>
-            <label>Δ Ocupación (pp/año)
-              <input className="input" type="number" step="0.1"
-                value={ass.occ_delta_pp}
-                onChange={e=>setAss({...ass, occ_delta_pp:Number(e.target.value)})}
-                onFocus={e => e.target.select()}/>
-            </label>
-            <label>Tope ocupación %
-              <NumericInput
-                className="input"
-                value={ass.occ_cap * 100}
-                onChange={val=>setAss({...ass, occ_cap: val / 100})}
-                decimals={2}
-              />
-            </label>
+          <h3 className="text-lg font-semibold mb-4">Supuestos de Proyección</h3>
+          <ProjectionAssumptionsForm
+            data={projectionAssumptions}
+            onChange={setProjectionAssumptions}
+            onSubmit={saveProjectionAssumptions}
+          />
+        </section>
+      )}
 
-            <label>Inflación costes dept. (%)
-              <NumericInput
-                className="input"
-                value={ass.cost_inflation_pct * 100}
-                onChange={val=>setAss({...ass, cost_inflation_pct: val / 100})}
-                decimals={2}
-              />
-            </label>
-            <label>Inflación undistributed (%)
-              <NumericInput
-                className="input"
-                value={ass.undistributed_inflation_pct * 100}
-                onChange={val=>setAss({...ass, undistributed_inflation_pct: val / 100})}
-                decimals={2}
-              />
-            </label>
-            <label>Inflación non-op (%)
-              <NumericInput
-                className="input"
-                value={ass.nonop_inflation_pct * 100}
-                onChange={val=>setAss({...ass, nonop_inflation_pct: val / 100})}
-                decimals={2}
-              />
-            </label>
-            <label>Indexación fee base (% opcional)
-              <NumericInput
-                className="input"
-                placeholder="usa contrato si vacío"
-                value={ass.fees_indexation_pct !== null ? ass.fees_indexation_pct * 100 : ''}
-                onChange={val=>{
-                  const v = val === 0 && !ass.fees_indexation_pct ? null : val / 100;
-                  setAss({...ass, fees_indexation_pct: v});
-                }}
-                decimals={2}
-              />
-            </label>
-          </div>
-
-          <div className="mt-3">
-            <button
-              className="px-3 py-2 bg-black text-white rounded disabled:bg-gray-400"
-              onClick={doProjection}
-              disabled={loading.projection}
-            >
-              {loading.projection ? 'Proyectando...' : 'Proyectar 2..N'}
-            </button>
-          </div>
+      {/* PASO 3: Proyección 2..N */}
+      {accepted && calc && usaliSaved && projectionAssumptionsSaved && (
+        <section>
+          <h3 className="text-lg font-semibold mb-2">Paso 3 — Proyección {projectionAssumptions.horizonte > 2 ? '2..' + projectionAssumptions.horizonte : ''}</h3>
 
           {annuals && (
             <>
@@ -500,7 +708,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                   onClick={() => saveProjection(annuals)}
                   disabled={loading.save_projection || projectionSaved}
                 >
-                  {loading.save_projection ? 'Guardando...' : projectionSaved ? '✓ Proyección guardada' : 'Guardar PROYECCIÓN AÑOS 2..N'}
+                  {loading.save_projection ? 'Guardando...' : projectionSaved ? '✓ Proyección guardada' : 'Guardar Paso 3 (PROYECCIÓN)'}
                 </button>
               </div>
             </>
@@ -508,18 +716,22 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         </section>
       )}
 
-      {accepted && calc && usaliSaved && projectionSaved && (
+      {/* Formulario de Financiación (aparece después de guardar Paso 3) */}
+      {accepted && calc && usaliSaved && projectionSaved && !financingConfigSaved && (
         <section>
-          <h3 className="text-lg font-semibold mt-8 mb-2">Paso 4 — Calcular Deuda</h3>
-          <div className="mt-3">
-            <button
-              className="px-3 py-2 bg-black text-white rounded disabled:bg-gray-400"
-              onClick={doDebt}
-              disabled={loading.debt}
-            >
-              {loading.debt ? 'Calculando...' : 'Calcular deuda'}
-            </button>
-          </div>
+          <h3 className="text-lg font-semibold mb-4">Financiación del Proyecto</h3>
+          <FinancingForm
+            data={financingConfig}
+            onChange={setFinancingConfig}
+            onSubmit={saveFinancingConfig}
+          />
+        </section>
+      )}
+
+      {/* PASO 4: Deuda */}
+      {accepted && calc && usaliSaved && projectionSaved && financingConfigSaved && (
+        <section>
+          <h3 className="text-lg font-semibold mb-2">Paso 4 — Deuda</h3>
 
           {debt && (
             <div className="mt-5">
@@ -554,52 +766,59 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         </section>
       )}
 
-      {accepted && calc && usaliSaved && projectionSaved && debt && (
+      {/* Formulario de Valoración (aparece después de calcular deuda) */}
+      {accepted && calc && usaliSaved && projectionSaved && debt && !vr && (
         <section>
-          <h3 className="text-lg font-semibold mt-8 mb-2">Paso 5 — Valorar & Retornos</h3>
-          <div className="mt-3">
-            <button
-              className="px-3 py-2 bg-black text-white rounded disabled:bg-gray-400"
-              onClick={doValuation}
-              disabled={loading.valuation}
-            >
-              {loading.valuation ? 'Valorando...' : 'Valorar & Retornos'}
-            </button>
-          </div>
-
-          {vr && (
-            <>
-              <div className="mt-5">
-                <h4 className="font-semibold">Valoración & Retornos</h4>
-                <div className="grid grid-cols-3 gap-3">
-                  <Stat label="Valor salida bruto" value={vr.valuation.valor_salida_bruto}/>
-                  <Stat label="Valor salida neto" value={vr.valuation.valor_salida_neto}/>
-                  <Stat label="Equity inicial" value={vr.returns.levered.equity0}/>
-                </div>
-                <div className="grid grid-cols-2 gap-3 mt-3">
-                  <div className="p-3 border rounded">
-                    <div className="font-semibold mb-1">Unlevered</div>
-                    <div>IRR: {fmtDecimal(vr.returns.unlevered.irr*100, 2)}%</div>
-                    <div>MOIC: {fmtDecimal(vr.returns.unlevered.moic, 2)}x</div>
-                  </div>
-                  <div className="p-3 border rounded">
-                    <div className="font-semibold mb-1">Levered</div>
-                    <div>IRR: {fmtDecimal(vr.returns.levered.irr*100, 2)}%</div>
-                    <div>MOIC: {fmtDecimal(vr.returns.levered.moic, 2)}x</div>
-                  </div>
-                </div>
-              </div>
-
-              <SensitivityAnalysis
-                projectId={projectId}
-                baseAssumptions={ass}
-                baseIRR={vr.returns.levered.irr}
-              />
-            </>
-          )}
+          <h3 className="text-lg font-semibold mb-4">Configuración de Valoración</h3>
+          <ValuationForm
+            data={valuationConfig}
+            onChange={setValuationConfig}
+            onSubmit={saveValuationConfig}
+          />
         </section>
       )}
-        </>
+
+      {/* PASO 5: Valoración y Retornos */}
+      {accepted && calc && usaliSaved && projectionSaved && debt && vr && (
+        <section>
+          <h3 className="text-lg font-semibold mb-2">Paso 5 — Valoración & Retornos</h3>
+
+          <div className="mt-5">
+            <h4 className="font-semibold">Valoración & Retornos</h4>
+            <div className="grid grid-cols-3 gap-3">
+              <Stat label="Valor salida bruto" value={vr.valuation.valor_salida_bruto}/>
+              <Stat label="Valor salida neto" value={vr.valuation.valor_salida_neto}/>
+              <Stat label="Equity inicial" value={vr.returns.levered.equity0}/>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <div className="p-3 border rounded">
+                <div className="font-semibold mb-1">Unlevered</div>
+                <div>IRR: {fmtDecimal(vr.returns.unlevered.irr*100, 2)}%</div>
+                <div>MOIC: {fmtDecimal(vr.returns.unlevered.moic, 2)}x</div>
+              </div>
+              <div className="p-3 border rounded">
+                <div className="font-semibold mb-1">Levered</div>
+                <div>IRR: {fmtDecimal(vr.returns.levered.irr*100, 2)}%</div>
+                <div>MOIC: {fmtDecimal(vr.returns.levered.moic, 2)}x</div>
+              </div>
+            </div>
+          </div>
+
+          <SensitivityAnalysis
+            projectId={projectId}
+            baseAssumptions={{
+              years: projectionAssumptions.horizonte,
+              adr_growth_pct: projectionAssumptions.adr_growth_pct,
+              occ_delta_pp: projectionAssumptions.occ_delta_pp,
+              occ_cap: projectionAssumptions.occ_cap,
+              cost_inflation_pct: projectionAssumptions.cost_inflation_pct,
+              undistributed_inflation_pct: projectionAssumptions.undistributed_inflation_pct,
+              nonop_inflation_pct: projectionAssumptions.nonop_inflation_pct,
+              fees_indexation_pct: projectionAssumptions.fees_indexation_pct
+            }}
+            baseIRR={vr.returns.levered.irr}
+          />
+        </section>
       )}
     </div>
   );
@@ -616,6 +835,7 @@ function fmt(n: number) {
   const formatted = parts.join('.');
   return rounded < 0 ? '-' + formatted : formatted;
 }
+
 function Stat({label, value}:{label:string; value:number}) {
   return (
     <div className="p-3 border rounded">
