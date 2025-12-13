@@ -42,6 +42,7 @@ const updateConfigSchema = z.object({
   // Operator contract
   operacion_tipo: z.enum(['gestion_propia','operador']).optional(),
   fee_base_anual: z.number().nullable().optional(),
+  fee_pct_total_rev: z.number().min(0).max(1).nullable().optional(),
   fee_pct_gop: z.number().min(0).max(1).nullable().optional(),
   fee_incentive_pct: z.number().min(0).max(1).nullable().optional(),
   fee_hurdle_gop_margin: z.number().min(0).max(1).nullable().optional(),
@@ -89,7 +90,7 @@ router.post('/v1/projects', async (req,res)=>{
   // defaults mínimos
   await pool.query(`INSERT INTO project_settings (project_id) VALUES (?)`, [id]);
   await pool.query(`INSERT INTO nonoperating_assumptions (project_id) VALUES (?)`, [id]);
-  await pool.query(`INSERT INTO operator_contracts (project_id, operacion_tipo) VALUES (?, 'gestion_propia')`, [id]);
+  await pool.query(`INSERT INTO operator_contracts (project_id, operacion_tipo) VALUES (?, 'operador')`, [id]);
 
   res.status(201).json({ project_id: id });
 });
@@ -163,6 +164,7 @@ router.get('/v1/projects/:id/config', async (req, res) => {
     // Operator
     operacion_tipo: operator.operacion_tipo,
     fee_base_anual: operator.fee_base_anual,
+    fee_pct_total_rev: operator.fee_pct_total_rev,
     fee_pct_gop: operator.fee_pct_gop,
     fee_incentive_pct: operator.fee_incentive_pct,
     fee_hurdle_gop_margin: operator.fee_hurdle_gop_margin,
@@ -265,6 +267,7 @@ router.put('/v1/projects/:id/config', async (req, res) => {
   const operatorUpdates: any = {};
   if (data.operacion_tipo !== undefined) operatorUpdates.operacion_tipo = data.operacion_tipo;
   if (data.fee_base_anual !== undefined) operatorUpdates.fee_base_anual = data.fee_base_anual;
+  if (data.fee_pct_total_rev !== undefined) operatorUpdates.fee_pct_total_rev = data.fee_pct_total_rev;
   if (data.fee_pct_gop !== undefined) operatorUpdates.fee_pct_gop = data.fee_pct_gop;
   if (data.fee_incentive_pct !== undefined) operatorUpdates.fee_incentive_pct = data.fee_incentive_pct;
   if (data.fee_hurdle_gop_margin !== undefined) operatorUpdates.fee_hurdle_gop_margin = data.fee_hurdle_gop_margin;

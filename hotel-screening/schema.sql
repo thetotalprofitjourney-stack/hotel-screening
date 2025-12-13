@@ -78,6 +78,7 @@ CREATE TABLE operator_contracts (
   project_id              CHAR(36) PRIMARY KEY,
   operacion_tipo          ENUM('gestion_propia','operador') NOT NULL,
   fee_base_anual          DECIMAL(14,2) NULL,
+  fee_pct_total_rev       DECIMAL(6,4) NULL,
   fee_pct_gop             DECIMAL(6,4) NULL,
   fee_incentive_pct       DECIMAL(6,4) NULL,
   fee_hurdle_gop_margin   DECIMAL(6,4) NULL,
