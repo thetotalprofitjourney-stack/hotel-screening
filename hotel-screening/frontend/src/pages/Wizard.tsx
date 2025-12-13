@@ -536,8 +536,9 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         body: JSON.stringify({ years })
       });
 
-      setProjectionSaved(true);
+      // Asegurarse de que annuals esté actualizado ANTES de marcar como guardado
       setAnnuals(editedAnnuals);
+      setProjectionSaved(true);
     } catch (error) {
       console.error('Error guardando proyección:', error);
       alert('Error al guardar proyección: ' + (error instanceof Error ? error.message : 'Error desconocido'));
@@ -702,7 +703,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
             />
           </div>
 
-          {/* Tabla USALI (read-only) */}
+          {/* Tabla USALI resumida (read-only) */}
           <UsaliEditor
             calculatedData={calc.y1_mensual}
             onSave={async () => {}}
@@ -710,7 +711,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
             occupancyData={meses.map(m => ({ mes: m.mes, occ: m.occ }))}
             showSaveButton={false}
             onChange={() => {}}
-            showSummaryView={false}
+            showSummaryView={true}
             showBannerTop={false}
             feeParams={{
               base_anual: operationConfig.fee_base_anual,
