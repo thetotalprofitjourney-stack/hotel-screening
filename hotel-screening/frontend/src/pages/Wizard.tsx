@@ -7,6 +7,14 @@ import SensitivityAnalysis from '../components/SensitivityAnalysis';
 import AnnualUsaliTable from '../components/AnnualUsaliTable';
 import NumericInput from '../components/NumericInput';
 
+// Funciones de formateo de números (formato español)
+function fmtDecimal(n: number, decimals: number = 2) {
+  return n.toLocaleString('es-ES', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
+}
+
 export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:()=>void }) {
   const [config, setConfig] = useState<ProjectConfig | null>(null);
   const [configLoaded, setConfigLoaded] = useState(false);
@@ -571,13 +579,13 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                 <div className="grid grid-cols-2 gap-3 mt-3">
                   <div className="p-3 border rounded">
                     <div className="font-semibold mb-1">Unlevered</div>
-                    <div>IRR: {(vr.returns.unlevered.irr*100).toFixed(2)}%</div>
-                    <div>MOIC: {vr.returns.unlevered.moic.toFixed(2)}x</div>
+                    <div>IRR: {fmtDecimal(vr.returns.unlevered.irr*100, 2)}%</div>
+                    <div>MOIC: {fmtDecimal(vr.returns.unlevered.moic, 2)}x</div>
                   </div>
                   <div className="p-3 border rounded">
                     <div className="font-semibold mb-1">Levered</div>
-                    <div>IRR: {(vr.returns.levered.irr*100).toFixed(2)}%</div>
-                    <div>MOIC: {vr.returns.levered.moic.toFixed(2)}x</div>
+                    <div>IRR: {fmtDecimal(vr.returns.levered.irr*100, 2)}%</div>
+                    <div>MOIC: {fmtDecimal(vr.returns.levered.moic, 2)}x</div>
                   </div>
                 </div>
               </div>

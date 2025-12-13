@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import NumericInput from './NumericInput';
 
+// Funciones de formateo de números (formato español)
+function fmt(n: number) {
+  // Números absolutos (€): sin decimales, miles con punto
+  return Math.round(n).toLocaleString('es-ES');
+}
+
+function fmtDecimal(n: number, decimals: number = 2) {
+  return n.toLocaleString('es-ES', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
+}
+
 interface AnnualData {
   anio: number;
   occupancy: number;
@@ -98,7 +111,7 @@ export default function AnnualUsaliTable({ data, editable = false, onChange }: A
       );
     }
 
-    return <span>{euroPerRN.toFixed(2)}</span>;
+    return <span>{fmtDecimal(euroPerRN, 2)}</span>;
   };
 
   const renderMetricGroup = (
@@ -120,10 +133,10 @@ export default function AnnualUsaliTable({ data, editable = false, onChange }: A
             {isEditable && field && editable && row.anio >= 2 ? (
               renderEditableCell(row, field, euroValue, 'bg-yellow-50')
             ) : (
-              <span>{euroPerRN.toFixed(2)} €/RN</span>
+              <span>{fmtDecimal(euroPerRN, 2)} €/RN</span>
             )}
           </div>
-          <div className="text-gray-500">{pctTotalRev.toFixed(1)}%</div>
+          <div className="text-gray-500">{fmtDecimal(pctTotalRev, 1)}%</div>
         </div>
       </td>
     );
@@ -177,7 +190,7 @@ export default function AnnualUsaliTable({ data, editable = false, onChange }: A
 
                 {/* % Ocupación */}
                 <td className="p-2 border text-center">
-                  {(row.occupancy * 100).toFixed(1)}%
+                  {fmtDecimal(row.occupancy * 100, 1)}%
                 </td>
 
                 {/* Total Rev - Editable */}

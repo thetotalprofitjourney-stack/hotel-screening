@@ -44,6 +44,20 @@ interface UsaliEditorProps {
   onChange?: (editedData: UsaliMonthData[]) => void;
 }
 
+// Funciones de formateo de números (formato español)
+function fmt(n: number) {
+  // Números absolutos (€): sin decimales, miles con punto
+  return Math.round(n).toLocaleString('es-ES');
+}
+
+function fmtDecimal(n: number, decimals: number = 2) {
+  // Números con decimales: miles con punto, decimales con coma
+  return n.toLocaleString('es-ES', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
+}
+
 export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = false, occupancyData = [], showSaveButton = true, onChange }: UsaliEditorProps) {
   const [data, setData] = useState<UsaliMonthData[]>(calculatedData);
   const [saving, setSaving] = useState(false);
@@ -56,14 +70,14 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
 
   // Helper para cálculo seguro de porcentajes
   const safePct = (val: number, total: number) => {
-    if (!total || total === 0) return '0.0%';
-    return ((val / total) * 100).toFixed(1) + '%';
+    if (!total || total === 0) return '0,0%';
+    return fmtDecimal((val / total) * 100, 1) + '%';
   };
 
   // Helper para cálculo seguro de valor por RN
   const safePerRN = (val: number, rn: number) => {
-    if (!rn || rn === 0) return '0.00';
-    return (val / rn).toFixed(2);
+    if (!rn || rn === 0) return '0,00';
+    return fmtDecimal(val / rn, 2);
   };
 
   useEffect(() => {
@@ -199,7 +213,7 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
               return (
                 <tr key={m.mes} className="hover:bg-gray-50">
                   <td className="p-2 border text-center font-medium">{m.mes}</td>
-                  <td className="p-2 border text-center">{(occ * 100).toFixed(1)}%</td>
+                  <td className="p-2 border text-center">{fmtDecimal(occ * 100, 1)}%</td>
                   {renderStacked(m.total_rev, 'bg-blue-50')}
                   {renderStacked(m.dept_profit, 'bg-yellow-50')}
                   {renderStacked(m.gop, 'bg-green-50')}
@@ -278,7 +292,7 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
               return (
                 <tr key={m.mes} className="hover:bg-gray-50">
                   <td className="p-2 border text-center font-medium">{m.mes}</td>
-                  <td className="p-2 border text-center">{(occ * 100).toFixed(1)}%</td>
+                  <td className="p-2 border text-center">{fmtDecimal(occ * 100, 1)}%</td>
 
                   {/* Rooms - NO EDITABLE */}
                   {renderStackedReadonly(m.rooms, m.total_rev)}
@@ -365,31 +379,32 @@ function EditCell({ value, onChange, rn }: { value: number; onChange: (value: nu
   // Si rn está definido, trabajamos en modo €/RN
   const isPerRN = rn !== undefined && rn > 0;
   const displayValue = isPerRN ? (value / rn) : value;
-  const [tempValue, setTempValue] = useState(displayValue.toFixed(2));
+  const [tempValue, setTempValue] = useState(fmtDecimal(displayValue, 2));
 
   useEffect(() => {
     const newDisplayValue = isPerRN ? (value / rn!) : value;
-    setTempValue(newDisplayValue.toFixed(2));
+    setTempValue(fmtDecimal(newDisplayValue, 2));
   }, [value, rn, isPerRN]);
 
   const handleBlur = () => {
     setEditing(false);
-    const num = parseFloat(tempValue);
+    // Convertir formato español a número (reemplazar coma por punto)
+    const normalized = tempValue.replace(/\./g, '').replace(',', '.');
+    const num = parseFloat(normalized);
     if (!isNaN(num)) {
       // Si estamos en modo €/RN, convertir a € antes de guardar
       const finalValue = isPerRN ? num * rn! : num;
       onChange(finalValue);
     } else {
       const newDisplayValue = isPerRN ? (value / rn!) : value;
-      setTempValue(newDisplayValue.toFixed(2));
+      setTempValue(fmtDecimal(newDisplayValue, 2));
     }
   };
 
   if (editing) {
     return (
       <input
-        type="number"
-        step="0.01"
+        type="text"
         className="w-full px-1 py-1 text-right border border-blue-500 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-red-600 font-medium"
         value={tempValue}
         onChange={(e) => setTempValue(e.target.value)}
@@ -398,7 +413,7 @@ function EditCell({ value, onChange, rn }: { value: number; onChange: (value: nu
           if (e.key === 'Enter') handleBlur();
           if (e.key === 'Escape') {
             const newDisplayValue = isPerRN ? (value / rn!) : value;
-            setTempValue(newDisplayValue.toFixed(2));
+            setTempValue(fmtDecimal(newDisplayValue, 2));
             setEditing(false);
           }
         }}
@@ -413,18 +428,14 @@ function EditCell({ value, onChange, rn }: { value: number; onChange: (value: nu
       onClick={() => setEditing(true)}
       title="Click para editar (€/RN)"
     >
-      {displayValue.toFixed(2)}
+      {fmtDecimal(displayValue, 2)}
     </div>
   );
 }
 
-function fmt(n: number) {
-  return Math.round(n).toLocaleString('es-ES');
-}
-
 function StatTriple({ label, value, totalRN, totalRev }: { label: string; value: number; totalRN: number; totalRev: number }) {
-  const perRN = (value / Math.max(1, totalRN)).toFixed(2);
-  const pct = ((value / Math.max(1, totalRev)) * 100).toFixed(1);
+  const perRN = value / Math.max(1, totalRN);
+  const pct = (value / Math.max(1, totalRev)) * 100;
 
   return (
     <div className="text-center">
@@ -433,7 +444,7 @@ function StatTriple({ label, value, totalRN, totalRev }: { label: string; value:
         {Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value)}
       </div>
       <div className="text-xs text-gray-500 mt-1">
-        €{perRN}/RN | {pct}%
+        €{fmtDecimal(perRN, 2)}/RN | {fmtDecimal(pct, 1)}%
       </div>
     </div>
   );

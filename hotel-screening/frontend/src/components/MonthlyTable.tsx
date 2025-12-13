@@ -82,7 +82,7 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
     <div className="space-y-4">
       {/* KPIs Anuales */}
       <div className="grid grid-cols-5 gap-3 p-4 bg-gray-50 rounded-lg">
-        <Stat label="Ocupación" value={`${(annual.ocupacion * 100).toFixed(1)}%`} />
+        <Stat label="Ocupación" value={`${(annual.ocupacion * 100).toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`} />
         <Stat label="ADR" value={fmt(annual.adr)} />
         <Stat label="Roomnights" value={annual.roomnights.toLocaleString('es-ES')} />
         <Stat label="Rooms Rev" value={fmt(annual.roomsRev)} />
