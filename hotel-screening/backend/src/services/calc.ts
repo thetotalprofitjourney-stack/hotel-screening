@@ -28,7 +28,7 @@ export function buildCommercialY1(
 export function calcUsaliY1Monthly(
   comm: Y1Month[],
   ratios: any,
-  fees: { base_anual?:number; pct_gop?:number; incentive_pct?:number; hurdle_gop_margin?:number } | null,
+  fees: { base_anual?:number; pct_total_rev?:number; pct_gop?:number; incentive_pct?:number; hurdle_gop_margin?:number } | null,
   nonopAnnual: { taxes?:number; insurance?:number; rent?:number; other?:number } | null,
   ffe_pct: number
 ) {
@@ -99,10 +99,11 @@ export function calcUsaliY1Monthly(
     const gop = dept_profit - und_total;
 
     // Fees
+    const fee_total_rev = fees?.pct_total_rev ? (fees.pct_total_rev * total_rev) : 0;
     const var_fee = fees?.pct_gop ? (fees.pct_gop * gop) : 0;
     const inc_fee = (fees?.incentive_pct && fees?.hurdle_gop_margin && (gop/total_rev >= fees.hurdle_gop_margin))
       ? (fees.incentive_pct * gop) : 0;
-    const fees_total = base_m + var_fee + inc_fee;
+    const fees_total = base_m + fee_total_rev + var_fee + inc_fee;
 
     const income_before_nonop = gop - fees_total;
 

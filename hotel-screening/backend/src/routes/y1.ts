@@ -164,7 +164,7 @@ router.post('/v1/projects/:id/y1/calc', async (req, res) => {
   // Defaults de ffe/nonop/fees leídos desde tablas del proyecto
   const [[prj]]: any = await pool.query(
     `SELECT p.segmento, p.categoria, p.habitaciones, ps.ffe,
-            oc.operacion_tipo, oc.fee_base_anual, oc.fee_pct_gop, oc.fee_incentive_pct, oc.fee_hurdle_gop_margin,
+            oc.operacion_tipo, oc.fee_base_anual, oc.fee_pct_total_rev, oc.fee_pct_gop, oc.fee_incentive_pct, oc.fee_hurdle_gop_margin,
             no.nonop_taxes_anual, no.nonop_insurance_anual, no.nonop_rent_anual, no.nonop_other_anual
        FROM projects p
        JOIN project_settings ps ON ps.project_id=p.project_id
@@ -191,6 +191,7 @@ router.post('/v1/projects/:id/y1/calc', async (req, res) => {
   const fees = prj.operacion_tipo === 'operador'
     ? {
         base_anual: prj.fee_base_anual ?? 0,
+        pct_total_rev: prj.fee_pct_total_rev ?? 0,
         pct_gop: prj.fee_pct_gop ?? 0,
         incentive_pct: prj.fee_incentive_pct ?? 0,
         hurdle_gop_margin: prj.fee_hurdle_gop_margin ?? 0
