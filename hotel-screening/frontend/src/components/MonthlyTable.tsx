@@ -124,8 +124,8 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
                   </td>
                   <td className="p-2 text-center">
                     <input className="w-24 border px-2 py-1 rounded text-right"
-                      type="number" min={0} max={100} step={0.1}
-                      value={(ocupacion * 100).toFixed(1)}
+                      type="number" step="any"
+                      value={ocupacion * 100}
                       onChange={e=>upd(i,'occ', Number(e.target.value))}
                       onFocus={e => e.target.select()}
                     />

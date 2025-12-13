@@ -280,7 +280,7 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
               className="border px-3 py-2 rounded"
               type="number"
               step="any"
-              value={(config.ltv * 100).toFixed(1)}
+              value={config.ltv * 100}
               onChange={e => updateField('ltv', Number(e.target.value) / 100)}
               onFocus={e => e.target.select()}
             />
@@ -293,7 +293,7 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
               className="border px-3 py-2 rounded"
               type="number"
               step="any"
-              value={(config.interes * 100).toFixed(2)}
+              value={config.interes * 100}
               onChange={e => updateField('interes', Number(e.target.value) / 100)}
               onFocus={e => e.target.select()}
             />
@@ -362,7 +362,7 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
                   className="border px-3 py-2 rounded"
                   type="number"
                   step="any"
-                  value={config.fee_pct_total_rev !== null ? (config.fee_pct_total_rev * 100).toFixed(2) : ''}
+                  value={config.fee_pct_total_rev !== null ? config.fee_pct_total_rev * 100 : ''}
                   onChange={e => updateField('fee_pct_total_rev', e.target.value ? Number(e.target.value) / 100 : null)}
                   onFocus={e => e.target.select()}
                 />
@@ -374,7 +374,7 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
                   className="border px-3 py-2 rounded"
                   type="number"
                   step="any"
-                  value={config.fee_pct_gop !== null ? (config.fee_pct_gop * 100).toFixed(2) : ''}
+                  value={config.fee_pct_gop !== null ? config.fee_pct_gop * 100 : ''}
                   onChange={e => updateField('fee_pct_gop', e.target.value ? Number(e.target.value) / 100 : null)}
                   onFocus={e => e.target.select()}
                 />
@@ -386,7 +386,7 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
                   className="border px-3 py-2 rounded"
                   type="number"
                   step="any"
-                  value={config.fee_incentive_pct !== null ? (config.fee_incentive_pct * 100).toFixed(2) : ''}
+                  value={config.fee_incentive_pct !== null ? config.fee_incentive_pct * 100 : ''}
                   onChange={e => updateField('fee_incentive_pct', e.target.value ? Number(e.target.value) / 100 : null)}
                   onFocus={e => e.target.select()}
                 />
@@ -398,7 +398,7 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
                   className="border px-3 py-2 rounded"
                   type="number"
                   step="any"
-                  value={config.fee_hurdle_gop_margin !== null ? (config.fee_hurdle_gop_margin * 100).toFixed(2) : ''}
+                  value={config.fee_hurdle_gop_margin !== null ? config.fee_hurdle_gop_margin * 100 : ''}
                   onChange={e => updateField('fee_hurdle_gop_margin', e.target.value ? Number(e.target.value) / 100 : null)}
                   onFocus={e => e.target.select()}
                 />
@@ -419,7 +419,7 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
               className="border px-3 py-2 rounded"
               type="number"
               step="any"
-              value={(config.ffe * 100).toFixed(2)}
+              value={config.ffe * 100}
               onChange={e => updateField('ffe', Number(e.target.value) / 100)}
               onFocus={e => e.target.select()}
             />
@@ -446,7 +446,7 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
                 type="number"
                 step="any"
                 required
-                value={config.cap_rate_salida !== null ? (config.cap_rate_salida * 100).toFixed(2) : ''}
+                value={config.cap_rate_salida !== null ? config.cap_rate_salida * 100 : ''}
                 onChange={e => updateField('cap_rate_salida', e.target.value ? Number(e.target.value) / 100 : null)}
                 onFocus={e => e.target.select()}
               />
@@ -473,7 +473,7 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
               className="border px-3 py-2 rounded"
               type="number"
               step="any"
-              value={config.coste_tx_compra_pct !== null ? (config.coste_tx_compra_pct * 100).toFixed(2) : ''}
+              value={config.coste_tx_compra_pct !== null ? config.coste_tx_compra_pct * 100 : ''}
               onChange={e => updateField('coste_tx_compra_pct', e.target.value ? Number(e.target.value) / 100 : null)}
               onFocus={e => e.target.select()}
             />
@@ -486,7 +486,7 @@ export default function ProjectConfigForm({ initialData, onSubmit, onCancel }: P
               className="border px-3 py-2 rounded"
               type="number"
               step="any"
-              value={(config.coste_tx_venta_pct * 100).toFixed(2)}
+              value={config.coste_tx_venta_pct * 100}
               onChange={e => updateField('coste_tx_venta_pct', Number(e.target.value) / 100)}
               onFocus={e => e.target.select()}
             />
