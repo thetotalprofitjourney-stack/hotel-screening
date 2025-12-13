@@ -159,68 +159,43 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
         <StatTriple label="EBITDA-FF&E" value={annual.ebitda_less_ffe} totalRN={annual.total_rn} totalRev={annual.total_rev} />
       </div>
 
-      {/* Vista Resumida */}
+      {/* Vista Resumida - Datos apilados */}
       <div className="overflow-auto border rounded-lg">
         <h5 className="font-semibold p-3 bg-gray-100 border-b">Vista Resumida</h5>
         <table className="w-full text-sm border-collapse">
           <thead className="bg-gray-100">
             <tr>
-              <th className="p-2 border" rowSpan={2}>Mes</th>
-              <th className="p-2 border" rowSpan={2}>% Occ</th>
-              <th className="p-2 border bg-blue-50" colSpan={3}>Total Rev</th>
-              <th className="p-2 border bg-yellow-50" colSpan={3}>Dept Profit</th>
-              <th className="p-2 border bg-green-50" colSpan={3}>GOP</th>
-              {!isGestionPropia && <th className="p-2 border bg-pink-50" colSpan={3}>Fees Operador</th>}
-              <th className="p-2 border bg-purple-50" colSpan={3}>EBITDA</th>
-            </tr>
-            <tr>
-              <th className="p-1 border text-xs bg-blue-50">€</th>
-              <th className="p-1 border text-xs bg-blue-50">€/RN</th>
-              <th className="p-1 border text-xs bg-blue-50">%</th>
-              <th className="p-1 border text-xs bg-yellow-50">€</th>
-              <th className="p-1 border text-xs bg-yellow-50">€/RN</th>
-              <th className="p-1 border text-xs bg-yellow-50">%</th>
-              <th className="p-1 border text-xs bg-green-50">€</th>
-              <th className="p-1 border text-xs bg-green-50">€/RN</th>
-              <th className="p-1 border text-xs bg-green-50">%</th>
-              {!isGestionPropia && (
-                <>
-                  <th className="p-1 border text-xs bg-pink-50">€</th>
-                  <th className="p-1 border text-xs bg-pink-50">€/RN</th>
-                  <th className="p-1 border text-xs bg-pink-50">%</th>
-                </>
-              )}
-              <th className="p-1 border text-xs bg-purple-50">€</th>
-              <th className="p-1 border text-xs bg-purple-50">€/RN</th>
-              <th className="p-1 border text-xs bg-purple-50">%</th>
+              <th className="p-2 border">Mes</th>
+              <th className="p-2 border">% Occ</th>
+              <th className="p-2 border bg-blue-50">Total Rev<br/><span className="text-xs font-normal">€ | €/RN | %</span></th>
+              <th className="p-2 border bg-yellow-50">Dept Profit<br/><span className="text-xs font-normal">€ | €/RN | %</span></th>
+              <th className="p-2 border bg-green-50">GOP<br/><span className="text-xs font-normal">€ | €/RN | %</span></th>
+              {!isGestionPropia && <th className="p-2 border bg-pink-50">Fees Operador<br/><span className="text-xs font-normal">€ | €/RN | %</span></th>}
+              <th className="p-2 border bg-purple-50">EBITDA<br/><span className="text-xs font-normal">€ | €/RN | %</span></th>
             </tr>
           </thead>
           <tbody>
             {data.map((m) => {
               const occ = getOccupancy(m.mes);
+              const renderStacked = (value: number, bgClass: string) => (
+                <td className={`border ${bgClass}`}>
+                  <div className="flex flex-col items-end text-xs p-1 space-y-0.5">
+                    <div className="font-semibold">{fmt(value)}</div>
+                    <div className="text-gray-600">{safePerRN(value, m.rn)} €/RN</div>
+                    <div className="text-gray-500">{safePct(value, m.total_rev)}</div>
+                  </div>
+                </td>
+              );
+
               return (
                 <tr key={m.mes} className="hover:bg-gray-50">
                   <td className="p-2 border text-center font-medium">{m.mes}</td>
-                  <td className="p-2 border text-center text-xs">{(occ * 100).toFixed(1)}%</td>
-                  <td className="p-2 border text-right bg-blue-50 font-semibold">{fmt(m.total_rev)}</td>
-                  <td className="p-2 border text-right bg-blue-50 text-xs">{safePerRN(m.total_rev, m.rn)}</td>
-                  <td className="p-2 border text-right bg-blue-50 text-xs">{safePct(m.total_rev, m.total_rev)}</td>
-                  <td className="p-2 border text-right bg-yellow-50 font-semibold">{fmt(m.dept_profit)}</td>
-                  <td className="p-2 border text-right bg-yellow-50 text-xs">{safePerRN(m.dept_profit, m.rn)}</td>
-                  <td className="p-2 border text-right bg-yellow-50 text-xs">{safePct(m.dept_profit, m.total_rev)}</td>
-                  <td className="p-2 border text-right bg-green-50 font-semibold">{fmt(m.gop)}</td>
-                  <td className="p-2 border text-right bg-green-50 text-xs">{safePerRN(m.gop, m.rn)}</td>
-                  <td className="p-2 border text-right bg-green-50 text-xs">{safePct(m.gop, m.total_rev)}</td>
-                  {!isGestionPropia && (
-                    <>
-                      <td className="p-2 border text-right bg-pink-50 font-semibold">{fmt(m.fees_total)}</td>
-                      <td className="p-2 border text-right bg-pink-50 text-xs">{safePerRN(m.fees_total, m.rn)}</td>
-                      <td className="p-2 border text-right bg-pink-50 text-xs">{safePct(m.fees_total, m.total_rev)}</td>
-                    </>
-                  )}
-                  <td className="p-2 border text-right bg-purple-50 font-semibold">{fmt(m.ebitda)}</td>
-                  <td className="p-2 border text-right bg-purple-50 text-xs">{safePerRN(m.ebitda, m.rn)}</td>
-                  <td className="p-2 border text-right bg-purple-50 text-xs">{safePct(m.ebitda, m.total_rev)}</td>
+                  <td className="p-2 border text-center">{(occ * 100).toFixed(1)}%</td>
+                  {renderStacked(m.total_rev, 'bg-blue-50')}
+                  {renderStacked(m.dept_profit, 'bg-yellow-50')}
+                  {renderStacked(m.gop, 'bg-green-50')}
+                  {!isGestionPropia && renderStacked(m.fees_total, 'bg-pink-50')}
+                  {renderStacked(m.ebitda, 'bg-purple-50')}
                 </tr>
               );
             })}
@@ -228,179 +203,126 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
         </table>
       </div>
 
-      {/* Vista Detallada - Tabla única con 3 valores por columna */}
+      {/* Vista Detallada - Datos apilados y editables */}
       <div className="overflow-auto border rounded-lg">
         <h5 className="font-semibold p-3 bg-gray-100 border-b">Vista Detallada (Editable)</h5>
         <table className="w-full text-xs border-collapse">
           <thead className="bg-gray-100 sticky top-0">
             <tr>
-              <th className="p-2 border text-left" rowSpan={2}>Mes</th>
-              <th className="p-2 border text-center" rowSpan={2}>% Occ</th>
-              <th className="p-1 border" colSpan={3}>Rooms Rev</th>
-              <th className="p-1 border" colSpan={3}>F&B Rev</th>
-              <th className="p-1 border" colSpan={3}>Other Op</th>
-              <th className="p-1 border" colSpan={3}>Misc</th>
-              <th className="p-1 border bg-blue-50" colSpan={3}>Total Rev</th>
-              <th className="p-1 border" colSpan={3}>Dept Rooms</th>
-              <th className="p-1 border" colSpan={3}>Dept F&B</th>
-              <th className="p-1 border" colSpan={3}>Dept Other</th>
-              <th className="p-1 border bg-yellow-50" colSpan={3}>Dept Profit</th>
-              <th className="p-1 border" colSpan={3}>Und AG</th>
-              <th className="p-1 border" colSpan={3}>Und IT</th>
-              <th className="p-1 border" colSpan={3}>Und SM</th>
-              <th className="p-1 border" colSpan={3}>Und POM</th>
-              <th className="p-1 border" colSpan={3}>Und EWW</th>
-              <th className="p-1 border bg-green-50" colSpan={3}>GOP</th>
+              <th className="p-2 border">Mes</th>
+              <th className="p-2 border">% Occ</th>
+              <th className="p-1 border">Rooms<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+              <th className="p-1 border">F&B<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+              <th className="p-1 border">Other<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+              <th className="p-1 border">Misc<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+              <th className="p-1 border bg-blue-50">Total Rev<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+              <th className="p-1 border">D.Rooms<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+              <th className="p-1 border">D.F&B<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+              <th className="p-1 border">D.Other<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+              <th className="p-1 border bg-yellow-50">D.Profit<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+              <th className="p-1 border">U.AG<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+              <th className="p-1 border">U.IT<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+              <th className="p-1 border">U.SM<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+              <th className="p-1 border">U.POM<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+              <th className="p-1 border">U.EWW<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+              <th className="p-1 border bg-green-50">GOP<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
               {!isGestionPropia && (
                 <>
-                  <th className="p-1 border" colSpan={3}>Fees Base</th>
-                  <th className="p-1 border" colSpan={3}>Fees Var</th>
-                  <th className="p-1 border" colSpan={3}>Fees Inc</th>
-                  <th className="p-1 border bg-pink-50" colSpan={3}>Fees Total</th>
+                  <th className="p-1 border">F.Base<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+                  <th className="p-1 border">F.Var<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+                  <th className="p-1 border">F.Inc<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+                  <th className="p-1 border bg-pink-50">F.Total<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
                 </>
               )}
-              <th className="p-1 border" colSpan={3}>Non-op</th>
-              <th className="p-1 border bg-purple-50" colSpan={3}>EBITDA</th>
-              <th className="p-1 border" colSpan={3}>FF&E</th>
-              <th className="p-1 border bg-orange-50" colSpan={3}>EBITDA-FF&E</th>
-            </tr>
-            <tr>
-              {/* Repetir para cada columna: €/RN, %, € */}
-              {Array(isGestionPropia ? 19 : 23).fill(null).map((_, i) => (
-                <React.Fragment key={i}>
-                  <th className="p-1 border text-xs">€/RN</th>
-                  <th className="p-1 border text-xs">%</th>
-                  <th className="p-1 border text-xs">€</th>
-                </React.Fragment>
-              ))}
+              <th className="p-1 border">Non-op<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+              <th className="p-1 border bg-purple-50">EBITDA<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+              <th className="p-1 border">FF&E<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
+              <th className="p-1 border bg-orange-50">EBITDA-FF&E<br/><span className="text-[10px] font-normal">€ | €/RN | %</span></th>
             </tr>
           </thead>
           <tbody>
             {data.map((m, idx) => {
               const occ = getOccupancy(m.mes);
+
+              const renderStackedEditable = (value: number, field: keyof UsaliMonthData, pctBase: number, bgClass: string = '') => (
+                <td className={`border ${bgClass}`}>
+                  <div className="flex flex-col items-end p-1 space-y-0.5">
+                    <div className="text-[10px] font-semibold">{fmt(value)}</div>
+                    <div className="text-[10px] bg-red-50 px-1 rounded">
+                      <EditCell value={value} onChange={(v) => updateField(idx, field, v)} rn={m.rn} />
+                    </div>
+                    <div className="text-[10px] text-gray-500">{safePct(value, pctBase)}</div>
+                  </div>
+                </td>
+              );
+
+              const renderStackedReadonly = (value: number, pctBase: number, bgClass: string = '') => (
+                <td className={`border ${bgClass}`}>
+                  <div className="flex flex-col items-end text-[10px] p-1 space-y-0.5">
+                    <div className="font-semibold">{fmt(value)}</div>
+                    <div className="text-gray-600">{safePerRN(value, m.rn)} €/RN</div>
+                    <div className="text-gray-500">{safePct(value, pctBase)}</div>
+                  </div>
+                </td>
+              );
+
               return (
                 <tr key={m.mes} className="hover:bg-gray-50">
                   <td className="p-2 border text-center font-medium">{m.mes}</td>
-                  <td className="p-2 border text-center text-xs">{(occ * 100).toFixed(1)}%</td>
+                  <td className="p-2 border text-center">{(occ * 100).toFixed(1)}%</td>
 
-                  {/* Rooms Rev - NO EDITABLE (viene del Y1 comercial) */}
-                  <td className="p-1 border text-right text-xs">{safePerRN(m.rooms, m.rn)}</td>
-                  <td className="p-1 border text-right text-xs">{safePct(m.rooms, m.total_rev)}</td>
-                  <td className="p-2 border text-right font-semibold">{fmt(m.rooms)}</td>
+                  {/* Rooms - NO EDITABLE */}
+                  {renderStackedReadonly(m.rooms, m.total_rev)}
 
-                  {/* F&B Rev */}
-                  <td className="p-1 border bg-gray-100"><EditCell value={m.fb} onChange={(v) => updateField(idx, 'fb', v)} rn={m.rn} /></td>
-                  <td className="p-1 border text-right text-xs">{safePct(m.fb, m.total_rev)}</td>
-                  <td className="p-1 border text-right text-xs">{fmt(m.fb)}</td>
+                  {/* Revenues - EDITABLES */}
+                  {renderStackedEditable(m.fb, 'fb', m.total_rev)}
+                  {renderStackedEditable(m.other_operated, 'other_operated', m.total_rev)}
+                  {renderStackedEditable(m.misc_income, 'misc_income', m.total_rev)}
 
-                  {/* Other Op */}
-                  <td className="p-1 border bg-gray-100"><EditCell value={m.other_operated} onChange={(v) => updateField(idx, 'other_operated', v)} rn={m.rn} /></td>
-                  <td className="p-1 border text-right text-xs">{safePct(m.other_operated, m.total_rev)}</td>
-                  <td className="p-1 border text-right text-xs">{fmt(m.other_operated)}</td>
+                  {/* Total Rev - NO EDITABLE */}
+                  {renderStackedReadonly(m.total_rev, m.total_rev, 'bg-blue-50')}
 
-                  {/* Misc */}
-                  <td className="p-1 border bg-gray-100"><EditCell value={m.misc_income} onChange={(v) => updateField(idx, 'misc_income', v)} rn={m.rn} /></td>
-                  <td className="p-1 border text-right text-xs">{safePct(m.misc_income, m.total_rev)}</td>
-                  <td className="p-1 border text-right text-xs">{fmt(m.misc_income)}</td>
+                  {/* Dept - EDITABLES */}
+                  {renderStackedEditable(m.dept_rooms, 'dept_rooms', m.rooms)}
+                  {renderStackedEditable(m.dept_fb, 'dept_fb', m.fb)}
+                  {renderStackedEditable(m.dept_other, 'dept_other', m.other_operated + m.misc_income)}
 
-                  {/* Total Rev */}
-                  <td className="p-1 border text-right bg-blue-50 text-xs">{safePerRN(m.total_rev, m.rn)}</td>
-                  <td className="p-1 border text-right bg-blue-50 text-xs">{safePct(m.total_rev, m.total_rev)}</td>
-                  <td className="p-2 border text-right bg-blue-50 font-semibold">{fmt(m.total_rev)}</td>
+                  {/* Dept Profit - NO EDITABLE */}
+                  {renderStackedReadonly(m.dept_profit, m.total_rev, 'bg-yellow-50')}
 
-                  {/* Dept Rooms */}
-                  <td className="p-1 border bg-gray-100"><EditCell value={m.dept_rooms} onChange={(v) => updateField(idx, 'dept_rooms', v)} rn={m.rn} /></td>
-                  <td className="p-1 border text-right text-xs">{safePct(m.dept_rooms, m.rooms)}</td>
-                  <td className="p-1 border text-right text-xs">{fmt(m.dept_rooms)}</td>
+                  {/* Undistributed - EDITABLES */}
+                  {renderStackedEditable(m.und_ag, 'und_ag', m.total_rev)}
+                  {renderStackedEditable(m.und_it, 'und_it', m.total_rev)}
+                  {renderStackedEditable(m.und_sm, 'und_sm', m.total_rev)}
+                  {renderStackedEditable(m.und_pom, 'und_pom', m.total_rev)}
+                  {renderStackedEditable(m.und_eww, 'und_eww', m.total_rev)}
 
-                  {/* Dept F&B */}
-                  <td className="p-1 border bg-gray-100"><EditCell value={m.dept_fb} onChange={(v) => updateField(idx, 'dept_fb', v)} rn={m.rn} /></td>
-                  <td className="p-1 border text-right text-xs">{safePct(m.dept_fb, m.fb)}</td>
-                  <td className="p-1 border text-right text-xs">{fmt(m.dept_fb)}</td>
-
-                  {/* Dept Other */}
-                  <td className="p-1 border bg-gray-100"><EditCell value={m.dept_other} onChange={(v) => updateField(idx, 'dept_other', v)} rn={m.rn} /></td>
-                  <td className="p-1 border text-right text-xs">{safePct(m.dept_other, m.other_operated + m.misc_income)}</td>
-                  <td className="p-1 border text-right text-xs">{fmt(m.dept_other)}</td>
-
-                  {/* Dept Profit */}
-                  <td className="p-1 border text-right bg-yellow-50 text-xs">{safePerRN(m.dept_profit, m.rn)}</td>
-                  <td className="p-1 border text-right bg-yellow-50 text-xs">{safePct(m.dept_profit, m.total_rev)}</td>
-                  <td className="p-2 border text-right bg-yellow-50 font-semibold">{fmt(m.dept_profit)}</td>
-
-                  {/* Und AG */}
-                  <td className="p-1 border bg-gray-100"><EditCell value={m.und_ag} onChange={(v) => updateField(idx, 'und_ag', v)} rn={m.rn} /></td>
-                  <td className="p-1 border text-right text-xs">{safePct(m.und_ag, m.total_rev)}</td>
-                  <td className="p-1 border text-right text-xs">{fmt(m.und_ag)}</td>
-
-                  {/* Und IT */}
-                  <td className="p-1 border bg-gray-100"><EditCell value={m.und_it} onChange={(v) => updateField(idx, 'und_it', v)} rn={m.rn} /></td>
-                  <td className="p-1 border text-right text-xs">{safePct(m.und_it, m.total_rev)}</td>
-                  <td className="p-1 border text-right text-xs">{fmt(m.und_it)}</td>
-
-                  {/* Und SM */}
-                  <td className="p-1 border bg-gray-100"><EditCell value={m.und_sm} onChange={(v) => updateField(idx, 'und_sm', v)} rn={m.rn} /></td>
-                  <td className="p-1 border text-right text-xs">{safePct(m.und_sm, m.total_rev)}</td>
-                  <td className="p-1 border text-right text-xs">{fmt(m.und_sm)}</td>
-
-                  {/* Und POM */}
-                  <td className="p-1 border bg-gray-100"><EditCell value={m.und_pom} onChange={(v) => updateField(idx, 'und_pom', v)} rn={m.rn} /></td>
-                  <td className="p-1 border text-right text-xs">{safePct(m.und_pom, m.total_rev)}</td>
-                  <td className="p-1 border text-right text-xs">{fmt(m.und_pom)}</td>
-
-                  {/* Und EWW */}
-                  <td className="p-1 border bg-gray-100"><EditCell value={m.und_eww} onChange={(v) => updateField(idx, 'und_eww', v)} rn={m.rn} /></td>
-                  <td className="p-1 border text-right text-xs">{safePct(m.und_eww, m.total_rev)}</td>
-                  <td className="p-1 border text-right text-xs">{fmt(m.und_eww)}</td>
-
-                  {/* GOP */}
-                  <td className="p-1 border text-right bg-green-50 text-xs">{safePerRN(m.gop, m.rn)}</td>
-                  <td className="p-1 border text-right bg-green-50 text-xs">{safePct(m.gop, m.total_rev)}</td>
-                  <td className="p-2 border text-right bg-green-50 font-semibold">{fmt(m.gop)}</td>
+                  {/* GOP - NO EDITABLE */}
+                  {renderStackedReadonly(m.gop, m.total_rev, 'bg-green-50')}
 
                   {!isGestionPropia && (
                     <>
-                      {/* Fees Base */}
-                      <td className="p-1 border bg-gray-100"><EditCell value={m.fees_base} onChange={(v) => updateField(idx, 'fees_base', v)} rn={m.rn} /></td>
-                      <td className="p-1 border text-right text-xs">{safePct(m.fees_base, m.total_rev)}</td>
-                      <td className="p-1 border text-right text-xs">{fmt(m.fees_base)}</td>
+                      {/* Fees - EDITABLES */}
+                      {renderStackedEditable(m.fees_base, 'fees_base', m.total_rev)}
+                      {renderStackedEditable(m.fees_variable, 'fees_variable', m.total_rev)}
+                      {renderStackedEditable(m.fees_incentive, 'fees_incentive', m.total_rev)}
 
-                      {/* Fees Var */}
-                      <td className="p-1 border bg-gray-100"><EditCell value={m.fees_variable} onChange={(v) => updateField(idx, 'fees_variable', v)} rn={m.rn} /></td>
-                      <td className="p-1 border text-right text-xs">{safePct(m.fees_variable, m.total_rev)}</td>
-                      <td className="p-1 border text-right text-xs">{fmt(m.fees_variable)}</td>
-
-                      {/* Fees Inc */}
-                      <td className="p-1 border bg-gray-100"><EditCell value={m.fees_incentive} onChange={(v) => updateField(idx, 'fees_incentive', v)} rn={m.rn} /></td>
-                      <td className="p-1 border text-right text-xs">{safePct(m.fees_incentive, m.total_rev)}</td>
-                      <td className="p-1 border text-right text-xs">{fmt(m.fees_incentive)}</td>
-
-                      {/* Fees Total */}
-                      <td className="p-1 border text-right bg-pink-50 text-xs">{safePerRN(m.fees_total, m.rn)}</td>
-                      <td className="p-1 border text-right bg-pink-50 text-xs">{safePct(m.fees_total, m.total_rev)}</td>
-                      <td className="p-2 border text-right bg-pink-50 font-semibold">{fmt(m.fees_total)}</td>
+                      {/* Fees Total - NO EDITABLE */}
+                      {renderStackedReadonly(m.fees_total, m.total_rev, 'bg-pink-50')}
                     </>
                   )}
 
-                  {/* Non-op */}
-                  <td className="p-1 border bg-gray-100"><EditCell value={m.nonop_total} onChange={(v) => updateField(idx, 'nonop_total', v)} rn={m.rn} /></td>
-                  <td className="p-1 border text-right text-xs">{safePct(m.nonop_total, m.total_rev)}</td>
-                  <td className="p-1 border text-right text-xs">{fmt(m.nonop_total)}</td>
+                  {/* Non-op - EDITABLE */}
+                  {renderStackedEditable(m.nonop_total, 'nonop_total', m.total_rev)}
 
-                  {/* EBITDA */}
-                  <td className="p-1 border text-right bg-purple-50 text-xs">{safePerRN(m.ebitda, m.rn)}</td>
-                  <td className="p-1 border text-right bg-purple-50 text-xs">{safePct(m.ebitda, m.total_rev)}</td>
-                  <td className="p-2 border text-right bg-purple-50 font-semibold">{fmt(m.ebitda)}</td>
+                  {/* EBITDA - NO EDITABLE */}
+                  {renderStackedReadonly(m.ebitda, m.total_rev, 'bg-purple-50')}
 
-                  {/* FF&E */}
-                  <td className="p-1 border bg-gray-100"><EditCell value={m.ffe_amount} onChange={(v) => updateField(idx, 'ffe_amount', v)} rn={m.rn} /></td>
-                  <td className="p-1 border text-right text-xs">{safePct(m.ffe_amount, m.total_rev)}</td>
-                  <td className="p-1 border text-right text-xs">{fmt(m.ffe_amount)}</td>
+                  {/* FF&E - EDITABLE */}
+                  {renderStackedEditable(m.ffe_amount, 'ffe_amount', m.total_rev)}
 
-                  {/* EBITDA-FF&E */}
-                  <td className="p-1 border text-right bg-orange-50 text-xs">{safePerRN(m.ebitda_less_ffe, m.rn)}</td>
-                  <td className="p-1 border text-right bg-orange-50 text-xs">{safePct(m.ebitda_less_ffe, m.total_rev)}</td>
-                  <td className="p-2 border text-right bg-orange-50 font-semibold">{fmt(m.ebitda_less_ffe)}</td>
+                  {/* EBITDA-FF&E - NO EDITABLE */}
+                  {renderStackedReadonly(m.ebitda_less_ffe, m.total_rev, 'bg-orange-50')}
                 </tr>
               );
             })}

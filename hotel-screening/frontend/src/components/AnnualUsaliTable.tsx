@@ -93,7 +93,7 @@ export default function AnnualUsaliTable({ data, editable = false, onChange }: A
           step="0.01"
           value={euroPerRN.toFixed(2)}
           onChange={(e) => updateValue(row.anio, field, parseFloat(e.target.value) || 0)}
-          className={`w-20 px-1 py-0.5 text-right border rounded ${bgClass}`}
+          className="w-20 px-1 py-0.5 text-right border rounded bg-red-50"
         />
       );
     }
