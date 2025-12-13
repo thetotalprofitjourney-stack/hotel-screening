@@ -82,11 +82,11 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
     <div className="space-y-4">
       {/* KPIs Anuales */}
       <div className="grid grid-cols-5 gap-3 p-4 bg-gray-50 rounded-lg">
-        <Stat label="Ocupación" value={`${(annual.ocupacion * 100).toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`} />
+        <Stat label="Ocupación" value={`${fmtDecimal(annual.ocupacion * 100, 1)}%`} />
         <Stat label="ADR" value={fmt(annual.adr)} />
-        <Stat label="Roomnights" value={annual.roomnights.toLocaleString('es-ES')} />
+        <Stat label="Roomnights" value={fmtNumber(annual.roomnights)} />
         <Stat label="Rooms Rev" value={fmt(annual.roomsRev)} />
-        <Stat label="RevPAR" value={fmt(annual.revpar)} />
+        <Stat label="RevPAR" value={fmtDecimal(annual.revpar, 2)} />
       </div>
 
       {/* Tabla Mensual */}
@@ -140,13 +140,13 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
                     />
                   </td>
                   <td className="p-2 text-right bg-blue-50 font-semibold">
-                    {roomnights.toLocaleString('es-ES')}
+                    {fmtNumber(roomnights)}
                   </td>
                   <td className="p-2 text-right bg-green-50 font-semibold">
-                    {roomsRev.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                    {fmt(roomsRev)}
                   </td>
                   <td className="p-2 text-right bg-purple-50 font-semibold">
-                    {revpar.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 })}
+                    {fmtDecimal(revpar, 2)}
                   </td>
                 </tr>
               );
@@ -159,7 +159,47 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
 }
 
 function fmt(n: number) {
-  return Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n ?? 0);
+  const rounded = Math.round(n ?? 0);
+  const str = Math.abs(rounded).toString();
+  const parts = [];
+  for (let i = str.length; i > 0; i -= 3) {
+    const start = Math.max(0, i - 3);
+    parts.unshift(str.substring(start, i));
+  }
+  const formatted = parts.join('.');
+  return rounded < 0 ? '-' + formatted : formatted;
+}
+
+function fmtNumber(n: number) {
+  const rounded = Math.round(n);
+  const str = Math.abs(rounded).toString();
+  const parts = [];
+  for (let i = str.length; i > 0; i -= 3) {
+    const start = Math.max(0, i - 3);
+    parts.unshift(str.substring(start, i));
+  }
+  const formatted = parts.join('.');
+  return rounded < 0 ? '-' + formatted : formatted;
+}
+
+function fmtDecimal(n: number, decimals: number = 2) {
+  // Separar parte entera y decimal
+  const parts = n.toFixed(decimals).split('.');
+  const intPart = parseInt(parts[0]);
+  const decPart = parts[1];
+
+  // Formatear parte entera con separador de miles
+  const intStr = Math.abs(intPart).toString();
+  const intGroups = [];
+  for (let i = intStr.length; i > 0; i -= 3) {
+    const start = Math.max(0, i - 3);
+    intGroups.unshift(intStr.substring(start, i));
+  }
+  const formattedInt = intGroups.join('.');
+  const signedInt = intPart < 0 ? '-' + formattedInt : formattedInt;
+
+  // Combinar con parte decimal usando coma
+  return decPart ? `${signedInt},${decPart}` : signedInt;
 }
 
 function Stat({ label, value }: { label: string; value: string | number }) {
@@ -167,7 +207,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
     <div className="text-center">
       <div className="text-xs text-gray-600 mb-1">{label}</div>
       <div className="text-lg font-semibold">
-        {typeof value === 'string' ? value : value.toLocaleString('es-ES')}
+        {typeof value === 'string' ? value : fmtNumber(value)}
       </div>
     </div>
   );
