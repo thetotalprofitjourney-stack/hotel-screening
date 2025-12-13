@@ -344,9 +344,9 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         body: JSON.stringify(configData)
       });
 
-      setFinancingConfigSaved(true);
-      // Calcular deuda automáticamente
+      // Calcular deuda automáticamente ANTES de marcar como guardado
       await doDebt();
+      setFinancingConfigSaved(true);
     } catch (error) {
       console.error('Error guardando configuración de financiación:', error);
       alert('Error al guardar la configuración de financiación');
@@ -904,10 +904,10 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         </section>
       )}
 
-      {/* Formulario de Valoración (aparece después de guardar Paso 4) */}
+      {/* PASO 5: Valoración y Retornos (formulario antes de calcular) */}
       {accepted && calc && usaliSaved && projectionSaved && financingConfigSaved && !vr && (
         <section>
-          <h3 className="text-lg font-semibold mb-4">Configuración de Valoración</h3>
+          <h3 className="text-lg font-semibold mb-2">Paso 5 — Valoración y Retornos</h3>
           <ValuationForm
             data={valuationConfig}
             onChange={setValuationConfig}
@@ -916,7 +916,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         </section>
       )}
 
-      {/* PASO 5: Valoración y Retornos */}
+      {/* PASO 5 guardado: Valoración y Retornos */}
       {accepted && calc && usaliSaved && projectionSaved && financingConfigSaved && vr && (
         <section>
           <h3 className="text-lg font-semibold mb-2">Paso 5 — Valoración & Retornos</h3>
