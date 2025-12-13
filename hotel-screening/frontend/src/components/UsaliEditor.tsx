@@ -417,11 +417,6 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
       {/* Banner abajo (si no se muestra arriba) */}
       {!showBannerTop && <BannerKPIs />}
 
-      {/* Nota informativa */}
-      <div className="text-sm bg-yellow-50 p-3 rounded border border-yellow-200">
-        <strong>Nota:</strong> Los campos editables se muestran sobre fondo rojo y modifican en €/RN. Los valores de Fees, Non-op y FF&E se configuran desde el formulario de arriba. El resto de campos se recalculan automáticamente.
-      </div>
-
       {/* Botón Guardar debajo de la tabla detallada (opcional) */}
       {showSaveButton && (
         <div className="flex justify-start">
