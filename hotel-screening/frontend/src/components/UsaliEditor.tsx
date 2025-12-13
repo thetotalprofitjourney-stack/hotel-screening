@@ -40,9 +40,11 @@ interface UsaliEditorProps {
   onSave: (editedData: UsaliMonthData[]) => Promise<void>;
   isGestionPropia?: boolean;
   occupancyData?: Array<{ mes: number; occ: number }>;
+  showSaveButton?: boolean;
+  onChange?: (editedData: UsaliMonthData[]) => void;
 }
 
-export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = false, occupancyData = [] }: UsaliEditorProps) {
+export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = false, occupancyData = [], showSaveButton = true, onChange }: UsaliEditorProps) {
   const [data, setData] = useState<UsaliMonthData[]>(calculatedData);
   const [saving, setSaving] = useState(false);
 
@@ -67,6 +69,13 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
   useEffect(() => {
     setData(calculatedData);
   }, [calculatedData]);
+
+  // Notificar cambios al padre
+  useEffect(() => {
+    if (onChange) {
+      onChange(data);
+    }
+  }, [data]);
 
   const updateField = (mesIndex: number, field: keyof UsaliMonthData, value: number) => {
     // Validar que el valor sea un número válido
@@ -179,10 +188,10 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
               const occ = getOccupancy(m.mes);
               const renderStacked = (value: number, bgClass: string) => (
                 <td className={`border ${bgClass}`}>
-                  <div className="flex flex-col items-end text-xs p-1 space-y-0.5">
-                    <div className="font-semibold">{fmt(value)}</div>
-                    <div className="text-gray-600">{safePerRN(value, m.rn)} €/RN</div>
-                    <div className="text-gray-500">{safePct(value, m.total_rev)}</div>
+                  <div className="flex flex-col items-end p-1 space-y-0.5">
+                    <div className="text-base font-semibold">{fmt(value)}</div>
+                    <div className="text-xs text-gray-600">{safePerRN(value, m.rn)} €/RN</div>
+                    <div className="text-xs text-gray-500">{safePct(value, m.total_rev)}</div>
                   </div>
                 </td>
               );
@@ -245,23 +254,23 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
               const occ = getOccupancy(m.mes);
 
               const renderStackedEditable = (value: number, field: keyof UsaliMonthData, pctBase: number, bgClass: string = '') => (
-                <td className={`border ${bgClass}`}>
-                  <div className="flex flex-col items-end p-1 space-y-0.5">
-                    <div className="text-[10px] font-semibold">{fmt(value)}</div>
-                    <div className="text-[10px] bg-red-50 px-1 rounded">
+                <td className={`border ${bgClass} min-w-[100px]`}>
+                  <div className="flex flex-col items-end p-2 space-y-0.5">
+                    <div className="text-xs font-semibold whitespace-nowrap">{fmt(value)}</div>
+                    <div className="text-xs bg-red-50 px-1 rounded w-full">
                       <EditCell value={value} onChange={(v) => updateField(idx, field, v)} rn={m.rn} />
                     </div>
-                    <div className="text-[10px] text-gray-500">{safePct(value, pctBase)}</div>
+                    <div className="text-xs text-gray-500 whitespace-nowrap">{safePct(value, pctBase)}</div>
                   </div>
                 </td>
               );
 
               const renderStackedReadonly = (value: number, pctBase: number, bgClass: string = '') => (
-                <td className={`border ${bgClass}`}>
-                  <div className="flex flex-col items-end text-[10px] p-1 space-y-0.5">
-                    <div className="font-semibold">{fmt(value)}</div>
-                    <div className="text-gray-600">{safePerRN(value, m.rn)} €/RN</div>
-                    <div className="text-gray-500">{safePct(value, pctBase)}</div>
+                <td className={`border ${bgClass} min-w-[100px]`}>
+                  <div className="flex flex-col items-end text-xs p-2 space-y-0.5">
+                    <div className="font-semibold whitespace-nowrap">{fmt(value)}</div>
+                    <div className="text-gray-600 whitespace-nowrap">{safePerRN(value, m.rn)} €/RN</div>
+                    <div className="text-gray-500 whitespace-nowrap">{safePct(value, pctBase)}</div>
                   </div>
                 </td>
               );
@@ -330,16 +339,23 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
         </table>
       </div>
 
-      {/* Botón Guardar debajo de la tabla detallada */}
-      <div className="flex justify-start">
-        <button
-          className="px-4 py-2 bg-black text-white rounded disabled:bg-gray-400"
-          onClick={handleSave}
-          disabled={saving}
-        >
-          {saving ? 'Guardando...' : 'Guardar USALI Y1'}
-        </button>
+      {/* Nota informativa */}
+      <div className="text-sm bg-yellow-50 p-3 rounded border border-yellow-200">
+        <strong>Nota:</strong> Los campos editables se muestran sobre fondo rojo y modifican en €/RN. El resto de campos se recalculan automáticamente.
       </div>
+
+      {/* Botón Guardar debajo de la tabla detallada (opcional) */}
+      {showSaveButton && (
+        <div className="flex justify-start">
+          <button
+            className="px-4 py-2 bg-black text-white rounded disabled:bg-gray-400"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? 'Guardando...' : 'Guardar USALI Y1'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
