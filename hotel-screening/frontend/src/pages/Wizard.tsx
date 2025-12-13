@@ -446,16 +446,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   // Calcular deuda automáticamente al abrir Paso 4 o cuando cambia financingConfig
   useEffect(() => {
     if (accepted && calc && usaliSaved && projectionSaved && !financingConfigSaved) {
-      // Guardar configuración y recalcular deuda
-      const recalculate = async () => {
-        try {
-          await saveFinancingConfig();
-          await doDebt();
-        } catch (error) {
-          console.error('Error recalculando deuda:', error);
-        }
-      };
-      recalculate();
+      // Solo recalcular deuda (NO guardar configuración automáticamente)
+      doDebt();
     }
   }, [accepted, calc, usaliSaved, projectionSaved, financingConfig, financingConfigSaved, projectId]);
 
@@ -742,7 +734,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       {/* PASO 3: Proyección 2..N (aparece después de guardar Paso 2, antes de guardar Paso 3) */}
       {accepted && calc && usaliSaved && !projectionSaved && (
         <section>
-          <h3 className="text-lg font-semibold mb-2">Paso 3 — Proyección {projectionAssumptions.horizonte > 2 ? '2..' + projectionAssumptions.horizonte : ''}</h3>
+          <h3 className="text-lg font-semibold mb-2">Paso 3 — Proyección años 1 a {projectionAssumptions.horizonte}</h3>
 
           {/* Formulario de Supuestos */}
           <ProjectionAssumptionsForm
@@ -765,7 +757,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
               <div className="mt-3">
                 <button
-                  className="px-4 py-2 bg-green-600 text-white rounded disabled:bg-gray-400 font-semibold"
+                  className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
                   onClick={() => saveProjection(annuals)}
                   disabled={loading.save_projection}
                 >
@@ -852,7 +844,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
               <div className="mt-3">
                 <button
-                  className="px-4 py-2 bg-green-600 text-white rounded disabled:bg-gray-400 font-semibold"
+                  className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
                   onClick={saveFinancingConfig}
                 >
                   Guardar Paso 4 (DEUDA)
@@ -912,8 +904,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         </section>
       )}
 
-      {/* Formulario de Valoración (aparece después de calcular deuda) */}
-      {accepted && calc && usaliSaved && projectionSaved && debt && !vr && (
+      {/* Formulario de Valoración (aparece después de guardar Paso 4) */}
+      {accepted && calc && usaliSaved && projectionSaved && financingConfigSaved && !vr && (
         <section>
           <h3 className="text-lg font-semibold mb-4">Configuración de Valoración</h3>
           <ValuationForm
@@ -925,7 +917,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       )}
 
       {/* PASO 5: Valoración y Retornos */}
-      {accepted && calc && usaliSaved && projectionSaved && debt && vr && (
+      {accepted && calc && usaliSaved && projectionSaved && financingConfigSaved && vr && (
         <section>
           <h3 className="text-lg font-semibold mb-2">Paso 5 — Valoración & Retornos</h3>
 
