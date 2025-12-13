@@ -5,6 +5,7 @@ import ProjectConfigForm, { ProjectConfig } from '../components/ProjectConfigFor
 import UsaliEditor from '../components/UsaliEditor';
 import SensitivityAnalysis from '../components/SensitivityAnalysis';
 import AnnualUsaliTable from '../components/AnnualUsaliTable';
+import NumericInput from '../components/NumericInput';
 
 export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:()=>void }) {
   const [config, setConfig] = useState<ProjectConfig | null>(null);
@@ -407,10 +408,12 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                 value={ass.years} onChange={e=>setAss({...ass, years:Number(e.target.value)})}/>
             </label>
             <label>ADR crecimiento %
-              <input className="input" type="number" step="any"
+              <NumericInput
+                className="input"
                 value={ass.adr_growth_pct * 100}
-                onChange={e=>setAss({...ass, adr_growth_pct:Number(e.target.value) / 100})}
-                onFocus={e => e.target.select()}/>
+                onChange={val=>setAss({...ass, adr_growth_pct: val / 100})}
+                decimals={2}
+              />
             </label>
             <label>Δ Ocupación (pp/año)
               <input className="input" type="number" step="0.1"
@@ -419,39 +422,49 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                 onFocus={e => e.target.select()}/>
             </label>
             <label>Tope ocupación %
-              <input className="input" type="number" step="any"
+              <NumericInput
+                className="input"
                 value={ass.occ_cap * 100}
-                onChange={e=>setAss({...ass, occ_cap:Number(e.target.value) / 100})}
-                onFocus={e => e.target.select()}/>
+                onChange={val=>setAss({...ass, occ_cap: val / 100})}
+                decimals={2}
+              />
             </label>
 
             <label>Inflación costes dept. (%)
-              <input className="input" type="number" step="any"
+              <NumericInput
+                className="input"
                 value={ass.cost_inflation_pct * 100}
-                onChange={e=>setAss({...ass, cost_inflation_pct:Number(e.target.value) / 100})}
-                onFocus={e => e.target.select()}/>
+                onChange={val=>setAss({...ass, cost_inflation_pct: val / 100})}
+                decimals={2}
+              />
             </label>
             <label>Inflación undistributed (%)
-              <input className="input" type="number" step="any"
+              <NumericInput
+                className="input"
                 value={ass.undistributed_inflation_pct * 100}
-                onChange={e=>setAss({...ass, undistributed_inflation_pct:Number(e.target.value) / 100})}
-                onFocus={e => e.target.select()}/>
+                onChange={val=>setAss({...ass, undistributed_inflation_pct: val / 100})}
+                decimals={2}
+              />
             </label>
             <label>Inflación non-op (%)
-              <input className="input" type="number" step="any"
+              <NumericInput
+                className="input"
                 value={ass.nonop_inflation_pct * 100}
-                onChange={e=>setAss({...ass, nonop_inflation_pct:Number(e.target.value) / 100})}
-                onFocus={e => e.target.select()}/>
+                onChange={val=>setAss({...ass, nonop_inflation_pct: val / 100})}
+                decimals={2}
+              />
             </label>
             <label>Indexación fee base (% opcional)
-              <input className="input" type="number" step="any"
+              <NumericInput
+                className="input"
                 placeholder="usa contrato si vacío"
                 value={ass.fees_indexation_pct !== null ? ass.fees_indexation_pct * 100 : ''}
-                onChange={e=>{
-                  const v = e.target.value === '' ? null : Number(e.target.value) / 100;
+                onChange={val=>{
+                  const v = val === 0 && !ass.fees_indexation_pct ? null : val / 100;
                   setAss({...ass, fees_indexation_pct: v});
                 }}
-                onFocus={e => e.target.select()}/>
+                decimals={2}
+              />
             </label>
           </div>
 
