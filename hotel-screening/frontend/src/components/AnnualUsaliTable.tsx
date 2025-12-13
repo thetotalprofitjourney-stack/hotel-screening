@@ -3,8 +3,18 @@ import NumericInput from './NumericInput';
 
 // Funciones de formateo de números (formato español)
 function fmt(n: number) {
-  // Números absolutos (€): sin decimales, miles con punto
-  return Math.round(n).toLocaleString('es-ES');
+  // Números absolutos (€): sin decimales, miles con punto (siempre desde 1.000)
+  const rounded = Math.round(n);
+  const str = Math.abs(rounded).toString();
+  const parts = [];
+
+  for (let i = str.length; i > 0; i -= 3) {
+    const start = Math.max(0, i - 3);
+    parts.unshift(str.substring(start, i));
+  }
+
+  const formatted = parts.join('.');
+  return rounded < 0 ? '-' + formatted : formatted;
 }
 
 function fmtDecimal(n: number, decimals: number = 2) {
