@@ -42,7 +42,8 @@ export default function NumericInput({
       } else {
         const numValue = typeof value === 'number' ? value : parseFloat(value);
         if (!isNaN(numValue)) {
-          setDisplayValue(numValue.toFixed(decimals));
+          // Formato español: usar coma como separador decimal
+          setDisplayValue(numValue.toFixed(decimals).replace('.', ','));
         } else {
           setDisplayValue('');
         }
