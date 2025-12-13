@@ -260,11 +260,11 @@ CREATE TABLE valuations (
 
 CREATE TABLE returns (
   project_id         CHAR(36) PRIMARY KEY,
-  irr_unlevered      DECIMAL(8,5) NULL,
-  moic_unlevered     DECIMAL(8,5) NULL,
-  yield_on_cost_y1   DECIMAL(8,5) NULL,
-  irr_levered        DECIMAL(8,5) NULL,
-  moic_levered       DECIMAL(8,5) NULL,
+  irr_unlevered      DECIMAL(12,4) NULL,
+  moic_unlevered     DECIMAL(12,4) NULL,
+  yield_on_cost_y1   DECIMAL(12,4) NULL,
+  irr_levered        DECIMAL(12,4) NULL,
+  moic_levered       DECIMAL(12,4) NULL,
   payback_anios      DECIMAL(8,3) NULL,
   fcfe_json          JSON NULL,
   created_at         DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
