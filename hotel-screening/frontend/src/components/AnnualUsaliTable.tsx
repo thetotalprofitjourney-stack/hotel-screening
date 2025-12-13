@@ -90,9 +90,10 @@ export default function AnnualUsaliTable({ data, editable = false, onChange }: A
       return (
         <input
           type="number"
-          step="0.01"
-          value={euroPerRN.toFixed(2)}
+          step="any"
+          value={euroPerRN}
           onChange={(e) => updateValue(row.anio, field, parseFloat(e.target.value) || 0)}
+          onFocus={(e) => e.target.select()}
           className="w-20 px-1 py-0.5 text-right border rounded bg-red-50 text-red-600 font-medium"
         />
       );
