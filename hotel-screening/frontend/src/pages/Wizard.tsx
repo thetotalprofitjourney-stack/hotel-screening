@@ -409,6 +409,17 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     }
   }, [anio, projectId, basicInfoSaved]);
 
+  // Calcular USALI automáticamente al abrir Paso 2 o cuando cambia operationConfig
+  useEffect(() => {
+    if (accepted && !usaliSaved) {
+      // Guardar configuración primero en el backend
+      saveOperationConfig().then(() => {
+        // Luego calcular USALI
+        calcY1();
+      }).catch(console.error);
+    }
+  }, [accepted, operationConfig, usaliSaved]);
+
   async function accept() {
     await api(`/v1/projects/${projectId}/y1/benchmark/accept`, {
       method:'POST',
@@ -587,22 +598,21 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         </section>
       )}
 
-      {/* Formulario de Operación (aparece después de guardar Paso 1 y antes de USALI) */}
+      {/* PASO 2: USALI Y1 (aparece después de guardar Paso 1, incluye formulario + tabla) */}
       {accepted && !usaliSaved && (
         <section>
-          <h3 className="text-lg font-semibold mb-4">Configuración de Operación y Costes</h3>
-          <OperationConfigForm
-            data={operationConfig}
-            onChange={setOperationConfig}
-            onSubmit={saveOperationConfig}
-          />
-        </section>
-      )}
+          <h3 className="text-lg font-semibold mb-4">Paso 2 — USALI Y1</h3>
 
-      {/* PASO 2: USALI Y1 (aparece después de guardar config de operación) */}
-      {accepted && operationConfigSaved && (
-        <section>
-          <h3 className="text-lg font-semibold mb-2">Paso 2 — USALI Y1</h3>
+          {/* Formulario de Configuración (incluido en Paso 2) */}
+          <div className="mb-6">
+            <OperationConfigForm
+              data={operationConfig}
+              onChange={setOperationConfig}
+              onSubmit={() => {}}
+              showSubmitButton={false}
+            />
+          </div>
+
           <div className="space-y-3">
             {calc && (
               <UsaliEditor
@@ -615,27 +625,45 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               />
             )}
 
-            <div className="flex gap-3">
-              <button
-                className="px-3 py-2 bg-black text-white rounded"
-                onClick={() => {
-                  setUsaliSaved(false);
-                  calcY1();
-                }}
-              >
-                {calc ? 'RECALCULAR USALI' : 'CALCULAR USALI con ratios de mercado'}
-              </button>
-
-              {calc && (
+            {/* Botón para guardar Paso 2 */}
+            {calc && (
+              <div className="mt-4">
                 <button
                   className="px-4 py-2 bg-black text-white rounded"
                   onClick={() => saveUsali(editedUsaliData.length > 0 ? editedUsaliData : calc.y1_mensual)}
                 >
                   Guardar Paso 2 (USALI Y1)
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
+        </section>
+      )}
+
+      {/* PASO 2 guardado (read-only) */}
+      {accepted && calc && usaliSaved && (
+        <section>
+          <h3 className="text-lg font-semibold mb-4">Paso 2 — Validación USALI Y1 ✓</h3>
+
+          {/* Formulario de Configuración (read-only) */}
+          <div className="mb-6 opacity-75 pointer-events-none">
+            <OperationConfigForm
+              data={operationConfig}
+              onChange={() => {}}
+              onSubmit={() => {}}
+              showSubmitButton={false}
+            />
+          </div>
+
+          {/* Tabla USALI (read-only) */}
+          <UsaliEditor
+            calculatedData={calc.y1_mensual}
+            onSave={async () => {}}
+            isGestionPropia={operationConfig.operacion_tipo === 'gestion_propia'}
+            occupancyData={meses.map(m => ({ mes: m.mes, occ: m.occ }))}
+            showSaveButton={false}
+            onChange={() => {}}
+          />
         </section>
       )}
 

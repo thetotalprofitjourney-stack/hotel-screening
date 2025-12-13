@@ -25,9 +25,10 @@ interface OperationConfigFormProps {
   data: OperationConfig;
   onChange: (data: OperationConfig) => void;
   onSubmit: () => void;
+  showSubmitButton?: boolean;
 }
 
-export default function OperationConfigForm({ data, onChange, onSubmit }: OperationConfigFormProps) {
+export default function OperationConfigForm({ data, onChange, onSubmit, showSubmitButton = true }: OperationConfigFormProps) {
   function updateField<K extends keyof OperationConfig>(field: K, value: OperationConfig[K]) {
     onChange({ ...data, [field]: value });
   }
@@ -201,14 +202,16 @@ export default function OperationConfigForm({ data, onChange, onSubmit }: Operat
         </div>
       </section>
 
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          className="px-6 py-2 bg-black text-white rounded hover:bg-gray-800"
-        >
-          Guardar configuración
-        </button>
-      </div>
+      {showSubmitButton && (
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            className="px-6 py-2 bg-black text-white rounded hover:bg-gray-800"
+          >
+            Guardar configuración
+          </button>
+        </div>
+      )}
     </form>
   );
 }

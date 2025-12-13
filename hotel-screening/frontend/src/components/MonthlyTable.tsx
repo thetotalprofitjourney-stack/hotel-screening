@@ -31,14 +31,20 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
 
   // Calcular Roomnights y Rooms Rev para cada mes
   const calcRoomnights = (dias: number, ocupacion: number) => {
+    // Si días = 0 (hotel cerrado), roomnights = 0
+    if (dias === 0) return 0;
     return Math.round(habitaciones * dias * ocupacion);
   };
 
-  const calcRoomsRev = (roomnights: number, adr: number) => {
+  const calcRoomsRev = (roomnights: number, adr: number, dias: number) => {
+    // Si días = 0 (hotel cerrado), rooms rev = 0
+    if (dias === 0) return 0;
     return roomnights * adr;
   };
 
-  const calcRevPAR = (ocupacion: number, adr: number) => {
+  const calcRevPAR = (ocupacion: number, adr: number, dias: number) => {
+    // Si días = 0 (hotel cerrado), revpar = 0
+    if (dias === 0) return 0;
     return ocupacion * adr;
   };
 
@@ -50,9 +56,9 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
 
     rows.forEach((r) => {
       const ocupacion = normalizeOcc(r.occ);
-      const dias = r.dias || getDaysInMonth(r.mes || 1, currentYear);
+      const dias = r.dias !== undefined && r.dias !== null ? r.dias : getDaysInMonth(r.mes || 1, currentYear);
       const roomnights = calcRoomnights(dias, ocupacion);
-      const roomsRev = calcRoomsRev(roomnights, r.adr);
+      const roomsRev = calcRoomsRev(roomnights, r.adr, dias);
       const availableRooms = habitaciones * dias;
 
       totalRoomnights += roomnights;
@@ -107,17 +113,17 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
             {rows.map((r,i)=>{
               // Normalizar ocupación a decimal (0-1) independientemente del formato de entrada
               const ocupacion = normalizeOcc(r.occ);
-              const dias = r.dias || getDaysInMonth(r.mes || (i + 1), currentYear);
+              const dias = r.dias !== undefined && r.dias !== null ? r.dias : getDaysInMonth(r.mes || (i + 1), currentYear);
               const roomnights = calcRoomnights(dias, ocupacion);
-              const roomsRev = calcRoomsRev(roomnights, r.adr);
-              const revpar = calcRevPAR(ocupacion, r.adr);
+              const roomsRev = calcRoomsRev(roomnights, r.adr, dias);
+              const revpar = calcRevPAR(ocupacion, r.adr, dias);
 
               return (
                 <tr key={r.mes} className="border-t">
                   <td className="p-2 text-center font-medium">{r.mes}</td>
                   <td className="p-2 text-center">
                     <input className="w-16 border px-2 py-1 rounded text-right"
-                      type="number" min={1} max={31} step={1}
+                      type="number" min={0} max={31} step={1}
                       value={dias}
                       onChange={e=>upd(i,'dias', Number(e.target.value))}
                       onFocus={e => e.target.select()}

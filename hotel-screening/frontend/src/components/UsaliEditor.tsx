@@ -335,24 +335,24 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
 
                   {!isGestionPropia && (
                     <>
-                      {/* Fees - EDITABLES */}
-                      {renderStackedEditable(m.fees_base, 'fees_base', m.total_rev)}
-                      {renderStackedEditable(m.fees_variable, 'fees_variable', m.total_rev)}
-                      {renderStackedEditable(m.fees_incentive, 'fees_incentive', m.total_rev)}
+                      {/* Fees - NO EDITABLES (se calculan desde formulario) */}
+                      {renderStackedReadonly(m.fees_base, m.total_rev)}
+                      {renderStackedReadonly(m.fees_variable, m.total_rev)}
+                      {renderStackedReadonly(m.fees_incentive, m.total_rev)}
 
                       {/* Fees Total - NO EDITABLE */}
                       {renderStackedReadonly(m.fees_total, m.total_rev, 'bg-pink-50')}
                     </>
                   )}
 
-                  {/* Non-op - EDITABLE */}
-                  {renderStackedEditable(m.nonop_total, 'nonop_total', m.total_rev)}
+                  {/* Non-op - NO EDITABLE (se calcula desde formulario) */}
+                  {renderStackedReadonly(m.nonop_total, m.total_rev)}
 
                   {/* EBITDA - NO EDITABLE */}
                   {renderStackedReadonly(m.ebitda, m.total_rev, 'bg-purple-50')}
 
-                  {/* FF&E - EDITABLE */}
-                  {renderStackedEditable(m.ffe_amount, 'ffe_amount', m.total_rev)}
+                  {/* FF&E - NO EDITABLE (se calcula desde formulario) */}
+                  {renderStackedReadonly(m.ffe_amount, m.total_rev)}
 
                   {/* EBITDA-FF&E - NO EDITABLE */}
                   {renderStackedReadonly(m.ebitda_less_ffe, m.total_rev, 'bg-orange-50')}
@@ -365,7 +365,7 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
 
       {/* Nota informativa */}
       <div className="text-sm bg-yellow-50 p-3 rounded border border-yellow-200">
-        <strong>Nota:</strong> Los campos editables se muestran sobre fondo rojo y modifican en €/RN. El resto de campos se recalculan automáticamente.
+        <strong>Nota:</strong> Los campos editables se muestran sobre fondo rojo y modifican en €/RN. Los valores de Fees, Non-op y FF&E se configuran desde el formulario de arriba. El resto de campos se recalculan automáticamente.
       </div>
 
       {/* Botón Guardar debajo de la tabla detallada (opcional) */}
