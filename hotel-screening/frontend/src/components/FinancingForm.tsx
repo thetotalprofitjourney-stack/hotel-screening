@@ -15,9 +15,10 @@ interface FinancingFormProps {
   data: FinancingConfig;
   onChange: (data: FinancingConfig) => void;
   onSubmit: () => void;
+  showSubmitButton?: boolean;
 }
 
-export default function FinancingForm({ data, onChange, onSubmit }: FinancingFormProps) {
+export default function FinancingForm({ data, onChange, onSubmit, showSubmitButton = true }: FinancingFormProps) {
   function updateField<K extends keyof FinancingConfig>(field: K, value: FinancingConfig[K]) {
     onChange({ ...data, [field]: value });
   }
@@ -28,10 +29,10 @@ export default function FinancingForm({ data, onChange, onSubmit }: FinancingFor
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <section className="border rounded-lg p-6">
-        <h3 className="text-xl font-semibold mb-4">Financiación</h3>
-        <div className="grid grid-cols-2 gap-4">
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <section className="border rounded-lg p-3">
+        <h3 className="text-base font-semibold mb-2">Financiación</h3>
+        <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col">
             <span className="text-sm font-medium mb-1">Precio de compra (€) *</span>
             <input
@@ -115,14 +116,16 @@ export default function FinancingForm({ data, onChange, onSubmit }: FinancingFor
         </div>
       </section>
 
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          className="px-6 py-2 bg-black text-white rounded hover:bg-gray-800"
-        >
-          Calcular Deuda
-        </button>
-      </div>
+      {showSubmitButton && (
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            className="px-6 py-2 bg-black text-white rounded hover:bg-gray-800"
+          >
+            Calcular Deuda
+          </button>
+        </div>
+      )}
     </form>
   );
 }
