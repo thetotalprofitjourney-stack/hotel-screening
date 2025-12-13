@@ -44,6 +44,17 @@ interface UsaliEditorProps {
   onChange?: (editedData: UsaliMonthData[]) => void;
   showSummaryView?: boolean;
   showBannerTop?: boolean; // Si true, muestra banner arriba; si false, abajo
+  // Parámetros para recálculo de fees
+  feeParams?: {
+    base_anual: number | null;
+    pct_total_rev: number | null;
+    pct_gop: number | null;
+    incentive_pct: number | null;
+    hurdle_gop_margin: number | null;
+    gop_ajustado: boolean;
+  };
+  nonopTotal?: number; // Total anual de non-operating
+  ffePercent?: number; // FF&E como porcentaje (0-1)
 }
 
 // Funciones de formateo de números (formato español)
@@ -70,7 +81,7 @@ function fmtDecimal(n: number, decimals: number = 2) {
   });
 }
 
-export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = false, occupancyData = [], showSaveButton = true, onChange, showSummaryView = true, showBannerTop = true }: UsaliEditorProps) {
+export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = false, occupancyData = [], showSaveButton = true, onChange, showSummaryView = true, showBannerTop = true, feeParams, nonopTotal = 0, ffePercent = 0 }: UsaliEditorProps) {
   const [data, setData] = useState<UsaliMonthData[]>(calculatedData);
   const [saving, setSaving] = useState(false);
 
@@ -129,8 +140,39 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
     // GOP
     m.gop = m.dept_profit - m.und_total;
 
-    // Fees total
-    m.fees_total = m.fees_base + m.fees_variable + m.fees_incentive;
+    // FF&E amount (recalcular con el nuevo total_rev)
+    m.ffe_amount = ffePercent * m.total_rev;
+
+    // RECALCULAR FEES (usando los parámetros del formulario)
+    if (!isGestionPropia && feeParams) {
+      const nonop_m = nonopTotal / 12;
+      const base_m = feeParams.base_anual ? (feeParams.base_anual / 12) : 0;
+
+      // GOP para cálculo de fees (GOP estándar o GOP ajustado)
+      const gop_for_fees = feeParams.gop_ajustado ? (m.gop - m.ffe_amount) : m.gop;
+
+      // Calcular fees
+      const fee_total_rev = feeParams.pct_total_rev ? (feeParams.pct_total_rev * m.total_rev) : 0;
+      const var_fee = feeParams.pct_gop ? (feeParams.pct_gop * gop_for_fees) : 0;
+      const inc_fee = (feeParams.incentive_pct && feeParams.hurdle_gop_margin && (gop_for_fees / m.total_rev >= feeParams.hurdle_gop_margin))
+        ? (feeParams.incentive_pct * gop_for_fees) : 0;
+
+      // F.Base incluye Fee Base € + Fee % sobre TOTAL REV
+      m.fees_base = base_m + fee_total_rev;
+      m.fees_variable = var_fee;
+      m.fees_incentive = inc_fee;
+      m.fees_total = m.fees_base + m.fees_variable + m.fees_incentive;
+
+      // Recalcular nonop_total mensual
+      m.nonop_total = nonop_m;
+    } else {
+      // Si es gestión propia, fees = 0
+      m.fees_base = 0;
+      m.fees_variable = 0;
+      m.fees_incentive = 0;
+      m.fees_total = 0;
+      m.nonop_total = nonopTotal / 12;
+    }
 
     // Income before nonop
     m.income_before_nonop = m.gop - m.fees_total;
