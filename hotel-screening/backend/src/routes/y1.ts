@@ -51,7 +51,7 @@ router.post('/v1/projects/:id/y1/benchmark/accept', async (req, res) => {
   const schema = z.object({
     meses: z.array(z.object({
       mes: z.number().int().min(1).max(12),
-      dias: z.number().int().min(1).max(31),
+      dias: z.number().int().min(0).max(31), // Permitir 0 (hotel cerrado)
       occ: z.number().min(0).max(1),
       adr: z.number().min(0)
     })).length(12)
