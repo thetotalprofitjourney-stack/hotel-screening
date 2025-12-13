@@ -237,14 +237,6 @@ export default function AnnualUsaliTable({ data, editable = false, onChange }: A
           </tbody>
         </table>
       </div>
-
-      {editable && (
-        <div className="text-sm text-gray-600 bg-yellow-50 p-3 rounded border border-yellow-200">
-          <strong>Nota:</strong> Los campos editables (Total Rev, Dept Cost, Undistributed, FEES, NON-OP, FF&E)
-          se modifican en <strong>€/RN</strong>. Los campos calculados (Dept Profit, GOP, EBITDA, EBITDA-FF&E)
-          se actualizan automáticamente.
-        </div>
-      )}
     </div>
   );
 }
