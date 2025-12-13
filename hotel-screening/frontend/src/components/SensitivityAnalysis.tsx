@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
 import { api } from '../api';
 
+// Funciones de formateo de números (formato español)
+function fmtDecimal(n: number, decimals: number = 2) {
+  return n.toLocaleString('es-ES', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
+}
+
 interface SensitivityAnalysisProps {
   projectId: string;
   baseAssumptions: {
@@ -213,10 +221,10 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
                   <div className="flex-1">
                     <span className="font-medium">{scenario.name}</span>
                     <span className="text-sm text-gray-600 ml-3">
-                      ADR: {scenario.adr_delta_pct >= 0 ? '+' : ''}{(scenario.adr_delta_pct * 100).toFixed(1)}%
+                      ADR: {scenario.adr_delta_pct >= 0 ? '+' : ''}{fmtDecimal(scenario.adr_delta_pct * 100, 1)}%
                     </span>
                     <span className="text-sm text-gray-600 ml-2">
-                      Ocupación: {scenario.occ_delta_pp >= 0 ? '+' : ''}{scenario.occ_delta_pp.toFixed(1)}pp
+                      Ocupación: {scenario.occ_delta_pp >= 0 ? '+' : ''}{fmtDecimal(scenario.occ_delta_pp, 1)}pp
                     </span>
                   </div>
                   <button
@@ -323,19 +331,19 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
                         {fmt(r.ebitda)}
                       </td>
                       <td className="p-3 border text-center">
-                        {(r.adr_growth_pct * 100).toFixed(2)}%
+                        {fmtDecimal(r.adr_growth_pct * 100, 2)}%
                       </td>
                       <td className="p-3 border text-center">
-                        {r.occ_delta_pp >= 0 ? '+' : ''}{r.occ_delta_pp.toFixed(2)}pp
+                        {r.occ_delta_pp >= 0 ? '+' : ''}{fmtDecimal(r.occ_delta_pp, 2)}pp
                       </td>
                       <td className="p-3 border text-right">
-                        {(r.irr_levered * 100).toFixed(2)}%
+                        {fmtDecimal(r.irr_levered * 100, 2)}%
                       </td>
                       <td className="p-3 border text-right">
-                        {(r.irr_unlevered * 100).toFixed(2)}%
+                        {fmtDecimal(r.irr_unlevered * 100, 2)}%
                       </td>
                       <td className={`p-3 border text-right ${getDeltaColorClass(r.delta_vs_base)}`}>
-                        {r.delta_vs_base >= 0 ? '+' : ''}{(r.delta_vs_base * 100).toFixed(2)}pp
+                        {r.delta_vs_base >= 0 ? '+' : ''}{fmtDecimal(r.delta_vs_base * 100, 2)}pp
                       </td>
                     </tr>
                   );
@@ -365,7 +373,7 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
                         }`}
                         style={{ width: `${barWidth}%` }}
                       >
-                        {(r.irr_levered * 100).toFixed(2)}%
+                        {fmtDecimal(r.irr_levered * 100, 2)}%
                       </div>
                     </div>
                   </div>
@@ -379,10 +387,10 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
             <strong>Insights:</strong>
             <ul className="mt-2 space-y-1 list-disc list-inside">
               <li>
-                Rango de IRR levered: {(Math.min(...results.map(r => r.irr_levered)) * 100).toFixed(2)}% - {(Math.max(...results.map(r => r.irr_levered)) * 100).toFixed(2)}%
+                Rango de IRR levered: {fmtDecimal(Math.min(...results.map(r => r.irr_levered)) * 100, 2)}% - {fmtDecimal(Math.max(...results.map(r => r.irr_levered)) * 100, 2)}%
               </li>
               <li>
-                Volatilidad máxima del IRR: ±{(Math.max(...results.map(r => Math.abs(r.delta_vs_base))) * 100).toFixed(2)}pp
+                Volatilidad máxima del IRR: ±{fmtDecimal(Math.max(...results.map(r => Math.abs(r.delta_vs_base))) * 100, 2)}pp
               </li>
               <li>
                 Escenarios analizados: {results.length} (combinando variaciones de ADR y Ocupación)
