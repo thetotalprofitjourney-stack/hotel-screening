@@ -122,14 +122,14 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
           fee_pct_gop: data.fee_pct_gop ?? null,
           fee_incentive_pct: data.fee_incentive_pct ?? null,
           fee_hurdle_gop_margin: data.fee_hurdle_gop_margin ?? null,
-          gop_ajustado: data.gop_ajustado ?? false,
+          gop_ajustado: Boolean(data.gop_ajustado), // Convertir a booleano
           ffe: data.ffe ?? 0.04,
           nonop_taxes_anual: data.nonop_taxes_anual ?? 0,
           nonop_insurance_anual: data.nonop_insurance_anual ?? 0,
           nonop_rent_anual: data.nonop_rent_anual ?? 0,
           nonop_other_anual: data.nonop_other_anual ?? 0
         });
-        setOperationConfigSaved(true);
+        // No marcar como guardado aquí, dejar que la lógica de estado del proyecto lo determine
       }
 
       // Cargar supuestos de proyección
@@ -181,6 +181,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         if (project.estado === 'y1_usali' || project.estado === 'projection_2n' || project.estado === 'finalized') {
           calcY1();
           setUsaliSaved(true);
+          setOperationConfigSaved(true); // Si tiene USALI guardado, también tiene config de operación
         }
         if (project.estado === 'projection_2n' || project.estado === 'finalized') {
           setProjectionSaved(true);
@@ -625,8 +626,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         </section>
       )}
 
-      {/* Formulario de Operación (aparece después de guardar Paso 1) */}
-      {accepted && !operationConfigSaved && (
+      {/* Formulario de Operación (aparece después de guardar Paso 1 y antes de USALI) */}
+      {accepted && !usaliSaved && (
         <section>
           <h3 className="text-lg font-semibold mb-4">Configuración de Operación y Costes</h3>
           <OperationConfigForm
@@ -637,7 +638,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         </section>
       )}
 
-      {/* PASO 2: USALI Y1 */}
+      {/* PASO 2: USALI Y1 (aparece después de guardar config de operación) */}
       {accepted && operationConfigSaved && (
         <section>
           <h3 className="text-lg font-semibold mb-2">Paso 2 — USALI Y1</h3>
