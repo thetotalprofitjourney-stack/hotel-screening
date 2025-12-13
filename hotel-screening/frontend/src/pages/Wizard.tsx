@@ -361,18 +361,26 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       {accepted && (
         <section>
           <h3 className="text-lg font-semibold mb-2">Paso 2 — Cálculo USALI Y1</h3>
-          {!calc ? (
-            <button className="px-3 py-2 bg-black text-white rounded" onClick={calcY1}>
-              Calcular USALI con ratios de mercado
+          <div className="space-y-3">
+            <button
+              className="px-3 py-2 bg-black text-white rounded"
+              onClick={() => {
+                setUsaliSaved(false); // Resetear estado al recalcular
+                calcY1();
+              }}
+            >
+              {calc ? 'Recalcular USALI' : 'Calcular USALI con ratios de mercado'}
             </button>
-          ) : (
-            <UsaliEditor
-              calculatedData={calc.y1_mensual}
-              onSave={saveUsali}
-              isGestionPropia={config?.operacion_tipo === 'gestion_propia'}
-              occupancyData={meses.map(m => ({ mes: m.mes, occ: m.occ }))}
-            />
-          )}
+
+            {calc && (
+              <UsaliEditor
+                calculatedData={calc.y1_mensual}
+                onSave={saveUsali}
+                isGestionPropia={config?.operacion_tipo === 'gestion_propia'}
+                occupancyData={meses.map(m => ({ mes: m.mes, occ: m.occ }))}
+              />
+            )}
+          </div>
         </section>
       )}
 	  
