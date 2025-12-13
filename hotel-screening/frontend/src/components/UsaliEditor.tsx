@@ -42,6 +42,8 @@ interface UsaliEditorProps {
   occupancyData?: Array<{ mes: number; occ: number }>;
   showSaveButton?: boolean;
   onChange?: (editedData: UsaliMonthData[]) => void;
+  showSummaryView?: boolean;
+  showBannerTop?: boolean; // Si true, muestra banner arriba; si false, abajo
 }
 
 // Funciones de formateo de números (formato español)
@@ -68,7 +70,7 @@ function fmtDecimal(n: number, decimals: number = 2) {
   });
 }
 
-export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = false, occupancyData = [], showSaveButton = true, onChange }: UsaliEditorProps) {
+export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = false, occupancyData = [], showSaveButton = true, onChange, showSummaryView = true, showBannerTop = true }: UsaliEditorProps) {
   const [data, setData] = useState<UsaliMonthData[]>(calculatedData);
   const [saving, setSaving] = useState(false);
 
@@ -173,6 +175,18 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
 
   const annual = getAnnualSummary();
 
+  // Banner KPIs Año
+  const BannerKPIs = () => (
+    <div className={`grid gap-3 p-4 bg-gray-50 rounded-lg ${isGestionPropia ? 'grid-cols-5' : 'grid-cols-6'}`}>
+      <StatTriple label="Total Rev" value={annual.operating_revenue} totalRN={annual.total_rn} totalRev={annual.total_rev} />
+      <StatTriple label="Dept Profit" value={annual.dept_profit} totalRN={annual.total_rn} totalRev={annual.total_rev} />
+      <StatTriple label="GOP" value={annual.gop} totalRN={annual.total_rn} totalRev={annual.total_rev} />
+      {!isGestionPropia && <StatTriple label="Fees Operador" value={annual.fees_total} totalRN={annual.total_rn} totalRev={annual.total_rev} />}
+      <StatTriple label="EBITDA" value={annual.ebitda} totalRN={annual.total_rn} totalRev={annual.total_rev} />
+      <StatTriple label="EBITDA-FF&E" value={annual.ebitda_less_ffe} totalRN={annual.total_rn} totalRev={annual.total_rev} />
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       <div>
@@ -182,61 +196,10 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
         </p>
       </div>
 
-      {/* Banner KPIs Año - Con 3 métricas por KPI */}
-      <div className={`grid gap-3 p-4 bg-gray-50 rounded-lg ${isGestionPropia ? 'grid-cols-5' : 'grid-cols-6'}`}>
-        <StatTriple label="Total Rev" value={annual.operating_revenue} totalRN={annual.total_rn} totalRev={annual.total_rev} />
-        <StatTriple label="Dept Profit" value={annual.dept_profit} totalRN={annual.total_rn} totalRev={annual.total_rev} />
-        <StatTriple label="GOP" value={annual.gop} totalRN={annual.total_rn} totalRev={annual.total_rev} />
-        {!isGestionPropia && <StatTriple label="Fees Operador" value={annual.fees_total} totalRN={annual.total_rn} totalRev={annual.total_rev} />}
-        <StatTriple label="EBITDA" value={annual.ebitda} totalRN={annual.total_rn} totalRev={annual.total_rev} />
-        <StatTriple label="EBITDA-FF&E" value={annual.ebitda_less_ffe} totalRN={annual.total_rn} totalRev={annual.total_rev} />
-      </div>
+      {/* Banner arriba (opcional) */}
+      {showBannerTop && <BannerKPIs />}
 
-      {/* Vista Resumida - Datos apilados */}
-      <div className="overflow-auto border rounded-lg">
-        <h5 className="font-semibold p-3 bg-gray-100 border-b">Vista Resumida</h5>
-        <table className="w-full text-sm border-collapse">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-2 border">Mes</th>
-              <th className="p-2 border">% Occ</th>
-              <th className="p-2 border bg-blue-50">Total Rev<br/><span className="text-xs font-normal">€ | €/RN | %</span></th>
-              <th className="p-2 border bg-yellow-50">Dept Profit<br/><span className="text-xs font-normal">€ | €/RN | %</span></th>
-              <th className="p-2 border bg-green-50">GOP<br/><span className="text-xs font-normal">€ | €/RN | %</span></th>
-              {!isGestionPropia && <th className="p-2 border bg-pink-50">Fees Operador<br/><span className="text-xs font-normal">€ | €/RN | %</span></th>}
-              <th className="p-2 border bg-purple-50">EBITDA<br/><span className="text-xs font-normal">€ | €/RN | %</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((m) => {
-              const occ = getOccupancy(m.mes);
-              const renderStacked = (value: number, bgClass: string) => (
-                <td className={`border ${bgClass}`}>
-                  <div className="flex flex-col items-end p-1 space-y-0.5">
-                    <div className="text-base font-semibold">{fmt(value)}</div>
-                    <div className="text-xs text-gray-600">{safePerRN(value, m.rn)} €/RN</div>
-                    <div className="text-xs text-gray-500">{safePct(value, m.total_rev)}</div>
-                  </div>
-                </td>
-              );
-
-              return (
-                <tr key={m.mes} className="hover:bg-gray-50">
-                  <td className="p-2 border text-center font-medium">{m.mes}</td>
-                  <td className="p-2 border text-center">{fmtDecimal(occ * 100, 1)}%</td>
-                  {renderStacked(m.total_rev, 'bg-blue-50')}
-                  {renderStacked(m.dept_profit, 'bg-yellow-50')}
-                  {renderStacked(m.gop, 'bg-green-50')}
-                  {!isGestionPropia && renderStacked(m.fees_total, 'bg-pink-50')}
-                  {renderStacked(m.ebitda, 'bg-purple-50')}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Vista Detallada - Datos apilados y editables */}
+      {/* Vista Detallada - PRIMERO */}
       <div className="overflow-auto border rounded-lg">
         <h5 className="font-semibold p-3 bg-gray-100 border-b">Vista Detallada (Editable)</h5>
         <table className="w-full text-xs border-collapse">
@@ -362,6 +325,55 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
           </tbody>
         </table>
       </div>
+
+      {/* Vista Resumida - SEGUNDO (oculta por defecto) */}
+      {showSummaryView && (
+        <div className="overflow-auto border rounded-lg">
+        <h5 className="font-semibold p-3 bg-gray-100 border-b">Vista Resumida</h5>
+        <table className="w-full text-sm border-collapse">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="p-2 border">Mes</th>
+              <th className="p-2 border">% Occ</th>
+              <th className="p-2 border bg-blue-50">Total Rev<br/><span className="text-xs font-normal">€ | €/RN | %</span></th>
+              <th className="p-2 border bg-yellow-50">Dept Profit<br/><span className="text-xs font-normal">€ | €/RN | %</span></th>
+              <th className="p-2 border bg-green-50">GOP<br/><span className="text-xs font-normal">€ | €/RN | %</span></th>
+              {!isGestionPropia && <th className="p-2 border bg-pink-50">Fees Operador<br/><span className="text-xs font-normal">€ | €/RN | %</span></th>}
+              <th className="p-2 border bg-purple-50">EBITDA<br/><span className="text-xs font-normal">€ | €/RN | %</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((m) => {
+              const occ = getOccupancy(m.mes);
+              const renderStacked = (value: number, bgClass: string) => (
+                <td className={`border ${bgClass}`}>
+                  <div className="flex flex-col items-end p-1 space-y-0.5">
+                    <div className="text-base font-semibold">{fmt(value)}</div>
+                    <div className="text-xs text-gray-600">{safePerRN(value, m.rn)} €/RN</div>
+                    <div className="text-xs text-gray-500">{safePct(value, m.total_rev)}</div>
+                  </div>
+                </td>
+              );
+
+              return (
+                <tr key={m.mes} className="hover:bg-gray-50">
+                  <td className="p-2 border text-center font-medium">{m.mes}</td>
+                  <td className="p-2 border text-center">{fmtDecimal(occ * 100, 1)}%</td>
+                  {renderStacked(m.total_rev, 'bg-blue-50')}
+                  {renderStacked(m.dept_profit, 'bg-yellow-50')}
+                  {renderStacked(m.gop, 'bg-green-50')}
+                  {!isGestionPropia && renderStacked(m.fees_total, 'bg-pink-50')}
+                  {renderStacked(m.ebitda, 'bg-purple-50')}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      )}
+
+      {/* Banner abajo (si no se muestra arriba) */}
+      {!showBannerTop && <BannerKPIs />}
 
       {/* Nota informativa */}
       <div className="text-sm bg-yellow-50 p-3 rounded border border-yellow-200">

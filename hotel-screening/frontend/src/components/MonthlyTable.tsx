@@ -86,16 +86,7 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
 
   return (
     <div className="space-y-4">
-      {/* KPIs Anuales */}
-      <div className="grid grid-cols-5 gap-3 p-4 bg-gray-50 rounded-lg">
-        <Stat label="Ocupación" value={`${fmtDecimal(annual.ocupacion * 100, 1)}%`} />
-        <Stat label="ADR" value={fmt(annual.adr)} />
-        <Stat label="Roomnights" value={fmtNumber(annual.roomnights)} />
-        <Stat label="Rooms Rev" value={fmt(annual.roomsRev)} />
-        <Stat label="RevPAR" value={fmtDecimal(annual.revpar, 2)} />
-      </div>
-
-      {/* Tabla Mensual */}
+      {/* Tabla Mensual - PRIMERO */}
       <div className="overflow-auto">
         <table className="w-full border text-sm">
           <thead className="bg-gray-50">
@@ -159,6 +150,15 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* KPIs Anuales - DESPUÉS */}
+      <div className="grid grid-cols-5 gap-3 p-4 bg-gray-50 rounded-lg">
+        <Stat label="Ocupación" value={`${fmtDecimal(annual.ocupacion * 100, 1)}%`} />
+        <Stat label="ADR" value={fmt(annual.adr)} />
+        <Stat label="Roomnights" value={fmtNumber(annual.roomnights)} />
+        <Stat label="Rooms Rev" value={fmt(annual.roomsRev)} />
+        <Stat label="RevPAR" value={fmtDecimal(annual.revpar, 2)} />
       </div>
     </div>
   );

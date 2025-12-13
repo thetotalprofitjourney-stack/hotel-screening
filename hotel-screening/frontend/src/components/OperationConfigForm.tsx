@@ -39,11 +39,11 @@ export default function OperationConfigForm({ data, onChange, onSubmit, showSubm
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-3">
       {/* Sección: Contrato Operador */}
-      <section className="border rounded-lg p-6">
-        <h3 className="text-xl font-semibold mb-4">Contrato Operador</h3>
-        <div className="grid grid-cols-2 gap-4">
+      <section className="border rounded-lg p-3">
+        <h3 className="text-base font-semibold mb-2">Contrato Operador</h3>
+        <div className="grid grid-cols-3 gap-3">
           <label className="flex flex-col">
             <span className="text-sm font-medium mb-1">Tipo de operación *</span>
             <select
@@ -132,9 +132,9 @@ export default function OperationConfigForm({ data, onChange, onSubmit, showSubm
       </section>
 
       {/* Sección: FF&E */}
-      <section className="border rounded-lg p-6">
-        <h3 className="text-xl font-semibold mb-4">Configuración</h3>
-        <div className="grid grid-cols-2 gap-4">
+      <section className="border rounded-lg p-3">
+        <h3 className="text-base font-semibold mb-2">Configuración</h3>
+        <div className="grid grid-cols-3 gap-3">
           <label className="flex flex-col">
             <span className="text-sm font-medium mb-1">FF&E (% sobre ingresos) *</span>
             <NumericInput
@@ -149,9 +149,9 @@ export default function OperationConfigForm({ data, onChange, onSubmit, showSubm
       </section>
 
       {/* Sección: Non-Operating */}
-      <section className="border rounded-lg p-6">
-        <h3 className="text-xl font-semibold mb-4">Gastos Non-Operating (anual)</h3>
-        <div className="grid grid-cols-2 gap-4">
+      <section className="border rounded-lg p-3">
+        <h3 className="text-base font-semibold mb-2">Gastos Non-Operating (anual)</h3>
+        <div className="grid grid-cols-4 gap-3">
           <label className="flex flex-col">
             <span className="text-sm font-medium mb-1">Impuestos (€) *</span>
             <input
