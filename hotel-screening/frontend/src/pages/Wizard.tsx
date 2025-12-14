@@ -1425,6 +1425,97 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               </div>
             </div>
 
+            {/* 2B) ANÁLISIS DE PRECIO DE COMPRA IMPLÍCITO */}
+            {vr.valuation.precio_compra_implicito !== undefined && (
+              <div className="mb-6 p-4 border-2 border-green-200 rounded-lg bg-green-50">
+                <h4 className="font-semibold text-lg mb-3">Análisis de Precio de Compra</h4>
+                <p className="text-sm text-gray-700 mb-4">¿Estoy pagando una prima o comprando con descuento?</p>
+
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="p-4 bg-white border-2 border-gray-400 rounded-lg">
+                    <div className="text-sm text-gray-600 mb-1">Precio Introducido</div>
+                    <div className="text-xl font-bold text-gray-800">{fmt(vr.valuation.precio_compra_real)}</div>
+                    <div className="text-xs text-gray-500 mt-1">por el usuario</div>
+                  </div>
+
+                  <div className="p-4 bg-white border-2 border-green-400 rounded-lg">
+                    <div className="text-sm text-gray-600 mb-1">Precio Implícito</div>
+                    <div className="text-xl font-bold text-green-700">{fmt(vr.valuation.precio_compra_implicito)}</div>
+                    <div className="text-xs text-gray-500 mt-1">según flujos y exit</div>
+                  </div>
+
+                  <div className="p-4 bg-white border-2 border-purple-400 rounded-lg">
+                    <div className="text-sm text-gray-600 mb-1">Diferencia</div>
+                    <div className={`text-xl font-bold ${
+                      vr.valuation.precio_compra_real < vr.valuation.precio_compra_implicito
+                        ? 'text-green-700'
+                        : 'text-red-700'
+                    }`}>
+                      {vr.valuation.precio_compra_real < vr.valuation.precio_compra_implicito ? '↓ ' : '↑ '}
+                      {fmt(Math.abs(vr.valuation.precio_compra_real - vr.valuation.precio_compra_implicito))}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {fmtDecimal(
+                        Math.abs((vr.valuation.precio_compra_real - vr.valuation.precio_compra_implicito) / vr.valuation.precio_compra_implicito * 100),
+                        1
+                      )}%
+                      {vr.valuation.precio_compra_real < vr.valuation.precio_compra_implicito
+                        ? ' descuento'
+                        : ' prima'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-4 rounded border border-green-200">
+                  <div className="text-sm mb-2">
+                    <strong>Interpretación:</strong>
+                    {vr.valuation.precio_compra_real < vr.valuation.precio_compra_implicito ? (
+                      <span className="text-green-700">
+                        {' '}Estás comprando el activo con un <strong>descuento del{' '}
+                        {fmtDecimal(Math.abs((vr.valuation.precio_compra_real - vr.valuation.precio_compra_implicito) / vr.valuation.precio_compra_implicito * 100), 1)}%</strong>{' '}
+                        respecto al precio que los flujos operativos y el valor de salida justificarían.
+                        Esto genera un margen de seguridad positivo para la inversión.
+                      </span>
+                    ) : vr.valuation.precio_compra_real > vr.valuation.precio_compra_implicito ? (
+                      <span className="text-red-700">
+                        {' '}Estás pagando una <strong>prima del{' '}
+                        {fmtDecimal(Math.abs((vr.valuation.precio_compra_real - vr.valuation.precio_compra_implicito) / vr.valuation.precio_compra_implicito * 100), 1)}%</strong>{' '}
+                        por encima del precio que los flujos operativos y el valor de salida justificarían.
+                        Esto reduce el margen de seguridad de la inversión.
+                      </span>
+                    ) : (
+                      <span className="text-gray-700">
+                        {' '}El precio introducido coincide exactamente con el precio implícito.
+                        El valor presente de los flujos y el exit es neutro a la tasa de descuento utilizada.
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-600 mt-2 pt-2 border-t border-gray-200">
+                    Tasa de descuento utilizada: {fmtDecimal(vr.valuation.discount_rate * 100, 2)}%
+                    {' '}(basada en {valuationConfig.metodo_valoracion === 'cap_rate' ? 'cap rate' : 'tasa implícita del múltiplo'} de salida)
+                  </div>
+                </div>
+
+                {/* Insight explicativo */}
+                <div className="mt-4 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                  <h5 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                    <span>ℹ️</span>
+                    <span>Nota sobre el precio de compra implícito</span>
+                  </h5>
+                  <p className="text-sm text-blue-900">
+                    El <strong>precio de compra implícito</strong> se calcula descontando los flujos operativos del proyecto
+                    y el valor de salida estimado utilizando el mismo cap rate definido para el exit
+                    ({fmtDecimal(vr.valuation.discount_rate * 100, 2)}%).
+                  </p>
+                  <p className="text-sm text-blue-900 mt-2">
+                    Este valor representa el <strong>precio máximo económicamente coherente</strong> con la operativa
+                    y la valoración de salida, y sirve como referencia para evaluar si el precio introducido
+                    implica pagar una prima o adquirir el activo con descuento.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* 3) FOTO DE LA INVERSIÓN - FUENTES & USOS */}
             <div className="mb-6 p-4 border rounded-lg bg-gray-50">
               <h4 className="font-semibold text-lg mb-3">Foto de la Inversión — Fuentes & Usos</h4>
