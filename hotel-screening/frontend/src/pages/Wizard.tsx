@@ -104,6 +104,40 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   const [editedFieldsStep2, setEditedFieldsStep2] = useState<EditedField[]>([]);
   const [editedFieldsStep3, setEditedFieldsStep3] = useState<EditedField[]>([]);
 
+  async function loadEditedFields() {
+    try {
+      const fields = await api(`/v1/projects/${projectId}/edited-fields`);
+
+      // Separar por step
+      const step1Fields = fields.filter((f: any) => f.step === 1).map((f: any) => ({ mes: f.mes, campo: f.campo }));
+      const step2Fields = fields.filter((f: any) => f.step === 2).map((f: any) => ({ mes: f.mes, campo: f.campo }));
+      const step3Fields = fields.filter((f: any) => f.step === 3).map((f: any) => ({ anio: f.anio, campo: f.campo }));
+
+      setEditedFieldsStep1(step1Fields);
+      setEditedFieldsStep2(step2Fields);
+      setEditedFieldsStep3(step3Fields);
+    } catch (error) {
+      console.error('Error cargando campos editados:', error);
+    }
+  }
+
+  async function saveEditedFields() {
+    try {
+      const allFields = [
+        ...editedFieldsStep1.map(f => ({ step: 1, campo: f.campo, mes: f.mes })),
+        ...editedFieldsStep2.map(f => ({ step: 2, campo: f.campo, mes: f.mes })),
+        ...editedFieldsStep3.map(f => ({ step: 3, campo: f.campo, anio: f.anio }))
+      ];
+
+      await api(`/v1/projects/${projectId}/edited-fields`, {
+        method: 'POST',
+        body: JSON.stringify(allFields)
+      });
+    } catch (error) {
+      console.error('Error guardando campos editados:', error);
+    }
+  }
+
   async function loadAllConfig() {
     try {
       const data = await api(`/v1/projects/${projectId}/config`);
@@ -616,7 +650,20 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   useEffect(() => {
     loadAllConfig().catch(console.error);
     loadProjectState().catch(console.error);
+    loadEditedFields().catch(console.error);
   }, [projectId]);
+
+  // Guardar campos editados cuando cambien (con debounce)
+  useEffect(() => {
+    // Solo guardar si hay algún campo editado y el proyecto ya está cargado
+    if (editedFieldsStep1.length > 0 || editedFieldsStep2.length > 0 || editedFieldsStep3.length > 0) {
+      const timeoutId = setTimeout(() => {
+        saveEditedFields().catch(console.error);
+      }, 1000); // Esperar 1 segundo después del último cambio
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [editedFieldsStep1, editedFieldsStep2, editedFieldsStep3]);
 
   useEffect(() => {
     if (basicInfoSaved) {
