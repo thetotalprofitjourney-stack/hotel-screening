@@ -3,7 +3,6 @@ import { api } from '../api';
 
 export default function NewProject({ onCancel, onCreated }:{ onCancel:()=>void; onCreated:(id:string)=>void }) {
   const [form, setForm] = useState({
-    rol:'inversor',
     nombre:'',
     comunidad_autonoma:'',
     provincia:'',
@@ -26,11 +25,6 @@ export default function NewProject({ onCancel, onCreated }:{ onCancel:()=>void; 
       <h2 className="text-xl font-semibold mb-2">Nuevo proyecto</h2>
       <div className="grid grid-cols-2 gap-3">
         <label>Nombre <input className="input" value={form.nombre} onChange={e=>setForm({...form, nombre:e.target.value})} required /></label>
-        <label>Rol
-          <select className="input" value={form.rol} onChange={e=>setForm({...form, rol:e.target.value as any})}>
-            <option>inversor</option><option>operador</option><option>banco</option>
-          </select>
-        </label>
         <label>Comunidad Autónoma <input className="input" value={form.comunidad_autonoma} onChange={e=>setForm({...form, comunidad_autonoma:e.target.value})} placeholder="ej: Andalucía" required /></label>
         <label>Provincia <input className="input" value={form.provincia} onChange={e=>setForm({...form, provincia:e.target.value})} placeholder="ej: Málaga" required /></label>
         <label>Zona <input className="input" value={form.zona} onChange={e=>setForm({...form, zona:e.target.value})} placeholder="ej: Costa del Sol" required /></label>

@@ -17,7 +17,6 @@ export default function ProjectList({ onNew, onOpen, onSelector }:{ onNew:()=>vo
         <thead className="bg-gray-50">
           <tr>
             <th className="p-2 text-left">Nombre</th>
-            <th className="p-2">Rol</th>
             <th className="p-2">Ubicación</th>
             <th className="p-2">Segmento</th>
             <th className="p-2">Categoría</th>
@@ -29,7 +28,6 @@ export default function ProjectList({ onNew, onOpen, onSelector }:{ onNew:()=>vo
           {rows.map(r=>(
             <tr key={r.project_id} className="border-t">
               <td className="p-2 text-left">{r.nombre}</td>
-              <td className="p-2 text-center">{r.rol}</td>
               <td className="p-2 text-center text-xs">{r.comunidad_autonoma} - {r.provincia} - {r.zona}</td>
               <td className="p-2 text-center">{r.segmento}</td>
               <td className="p-2 text-center">{r.categoria}</td>
@@ -40,7 +38,7 @@ export default function ProjectList({ onNew, onOpen, onSelector }:{ onNew:()=>vo
             </tr>
           ))}
           {!rows.length && (
-            <tr><td className="p-4 text-center text-gray-500" colSpan={7}>No hay proyectos</td></tr>
+            <tr><td className="p-4 text-center text-gray-500" colSpan={6}>No hay proyectos</td></tr>
           )}
         </tbody>
       </table>
