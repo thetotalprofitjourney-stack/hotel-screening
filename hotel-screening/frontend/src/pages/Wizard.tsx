@@ -1715,6 +1715,10 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                   <span>Por Key:</span>
                   <span>{fmt(equity0 / keys)}</span>
                 </div>
+                <div className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-600 italic">
+                  <strong>Nota:</strong> Capital propio aportado por el inversor en el inicio del proyecto (año 0),
+                  una vez descontada la financiación bancaria.
+                </div>
               </div>
             </div>
 
