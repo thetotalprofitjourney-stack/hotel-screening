@@ -9,6 +9,7 @@ import OperationConfigForm, { OperationConfig } from '../components/OperationCon
 import ProjectionAssumptionsForm, { ProjectionAssumptions } from '../components/ProjectionAssumptionsForm';
 import FinancingForm, { FinancingConfig } from '../components/FinancingForm';
 import ValuationForm, { ValuationConfig } from '../components/ValuationForm';
+import EditedFieldsNote from '../components/EditedFieldsNote';
 
 // Funciones de formateo de números (formato español)
 function fmtDecimal(n: number, decimals: number = 2) {
@@ -80,11 +81,14 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   const [projectState, setProjectState] = useState<string>('draft');
   const [anio, setAnio] = useState<number>(new Date().getFullYear());
   const [meses, setMeses] = useState<any[]>([]);
+  const [benchmarkMeses, setBenchmarkMeses] = useState<any[]>([]); // Benchmark original para comparación
   const [accepted, setAccepted] = useState(false);
   const [calc, setCalc] = useState<any|null>(null);
+  const [calculatedUsali, setCalculatedUsali] = useState<any[]>([]); // USALI calculado original para comparación
   const [usaliSaved, setUsaliSaved] = useState(false);
   const [editedUsaliData, setEditedUsaliData] = useState<any[]>([]);
   const [annuals, setAnnuals] = useState<any[]|null>(null);
+  const [originalAnnuals, setOriginalAnnuals] = useState<any[]>([]); // Proyección original para comparación
   const [projectionSaved, setProjectionSaved] = useState(false);
   const [debt, setDebt] = useState<any|null>(null);
   const [vr, setVR] = useState<any|null>(null);
@@ -395,18 +399,134 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   }
 
   async function loadBenchmark() {
+    // Siempre cargar el benchmark original para comparación
+    const benchmarkData = await api(`/v1/projects/${projectId}/y1/benchmark?anio_base=${anio}`);
+    setBenchmarkMeses(benchmarkData.meses);
+
     try {
+      // Intentar cargar datos guardados
       const y1Data = await api(`/v1/projects/${projectId}/y1/commercial`);
       if (y1Data && y1Data.meses && y1Data.meses.length === 12) {
         setMeses(y1Data.meses);
         return;
       }
     } catch (error) {
-      console.log('No hay datos de Y1 comercial guardados, cargando benchmark');
+      console.log('No hay datos de Y1 comercial guardados, usando benchmark');
     }
 
-    const data = await api(`/v1/projects/${projectId}/y1/benchmark?anio_base=${anio}`);
-    setMeses(data.meses);
+    // Si no hay datos guardados, usar el benchmark
+    setMeses(benchmarkData.meses);
+  }
+
+  // Función para detectar campos editados en Paso 1
+  function getEditedFieldsStep1(): string[] {
+    if (!benchmarkMeses.length || !meses.length) return [];
+
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const changes: string[] = [];
+
+    meses.forEach((current, idx) => {
+      const benchmark = benchmarkMeses[idx];
+      if (!benchmark) return;
+
+      const monthName = monthNames[current.mes - 1];
+
+      // Comparar días (permitir pequeña tolerancia por redondeo)
+      if (Math.abs((current.dias || 0) - (benchmark.dias || 0)) > 0.01) {
+        changes.push(`Días de operativa (${monthName})`);
+      }
+
+      // Comparar ocupación (permitir pequeña tolerancia por redondeo)
+      if (Math.abs((current.occ || 0) - (benchmark.occ || 0)) > 0.001) {
+        changes.push(`Ocupación (${monthName})`);
+      }
+
+      // Comparar ADR (permitir pequeña tolerancia por redondeo)
+      if (Math.abs((current.adr || 0) - (benchmark.adr || 0)) > 0.01) {
+        changes.push(`ADR (${monthName})`);
+      }
+    });
+
+    return changes;
+  }
+
+  // Función para detectar campos editados en Paso 2
+  function getEditedFieldsStep2(): string[] {
+    if (!calculatedUsali.length || !calc?.y1_mensual?.length) return [];
+
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const changes: Set<string> = new Set();
+
+    const editableFields = [
+      { key: 'fb', label: 'F&B' },
+      { key: 'other_operated', label: 'Other Operated' },
+      { key: 'misc_income', label: 'Misc Income' },
+      { key: 'dept_rooms', label: 'Dept Rooms' },
+      { key: 'dept_fb', label: 'Dept F&B' },
+      { key: 'dept_other', label: 'Dept Other' },
+      { key: 'und_ag', label: 'A&G' },
+      { key: 'und_it', label: 'IT' },
+      { key: 'und_sm', label: 'Sales & Marketing' },
+      { key: 'und_pom', label: 'POM' },
+      { key: 'und_eww', label: 'Energy/Water/Waste' }
+    ];
+
+    calc.y1_mensual.forEach((current: any, idx: number) => {
+      const calculated = calculatedUsali[idx];
+      if (!calculated) return;
+
+      const monthName = monthNames[current.mes - 1];
+
+      editableFields.forEach(({ key, label }) => {
+        const currentVal = current[key] || 0;
+        const calcVal = calculated[key] || 0;
+
+        // Permitir tolerancia de 1€ por redondeo
+        if (Math.abs(currentVal - calcVal) > 1) {
+          changes.add(`${label} (${monthName})`);
+        }
+      });
+    });
+
+    return Array.from(changes);
+  }
+
+  // Función para detectar campos editados en Paso 3
+  function getEditedFieldsStep3(): string[] {
+    if (!originalAnnuals.length || !annuals?.length) return [];
+
+    const changes: Set<string> = new Set();
+
+    const editableFields = [
+      { key: 'operating_revenue', label: 'Operating Revenue' },
+      { key: 'dept_total', label: 'Dept Total' },
+      { key: 'und_total', label: 'Undistributed' },
+      { key: 'fees', label: 'Fees' },
+      { key: 'nonop', label: 'Non-Operating' },
+      { key: 'ffe', label: 'FF&E' }
+    ];
+
+    annuals.forEach((current: any, idx: number) => {
+      // Solo comparar años editables (Año 2+)
+      if (current.anio < 2) return;
+
+      const original = originalAnnuals[idx];
+      if (!original) return;
+
+      editableFields.forEach(({ key, label }) => {
+        const currentVal = current[key] || 0;
+        const origVal = original[key] || 0;
+
+        // Permitir tolerancia de 10€ por redondeo
+        if (Math.abs(currentVal - origVal) > 10) {
+          changes.add(`${label} (Año ${current.anio})`);
+        }
+      });
+    });
+
+    return Array.from(changes);
   }
 
   useEffect(() => {
@@ -487,6 +607,11 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     try {
       const r = await api(`/v1/projects/${projectId}/y1/usali`);
       setCalc(r);
+
+      // También cargar el calculado original para comparación (solo si USALI está guardado)
+      const originalCalc = await api(`/v1/projects/${projectId}/y1/calc`, { method:'POST', body: JSON.stringify({}) });
+      setCalculatedUsali(originalCalc.y1_mensual || []);
+
       return;
     } catch (error) {
       console.log('No hay USALI guardado, calculando con ratios de mercado');
@@ -494,6 +619,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
     const r = await api(`/v1/projects/${projectId}/y1/calc`, { method:'POST', body: JSON.stringify({}) });
     setCalc(r);
+    setCalculatedUsali(r.y1_mensual || []); // Guardar como original también
   }
 
   async function saveUsali(editedData: any[]) {
@@ -525,6 +651,12 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       };
       const r = await api(`/v1/projects/${projectId}/projection`, { method:'POST', body: JSON.stringify(ass) });
       setAnnuals(r.annuals);
+
+      // Guardar copia de la proyección original si aún no tenemos una guardada
+      if (!projectionSaved && (!originalAnnuals || originalAnnuals.length === 0)) {
+        setOriginalAnnuals(JSON.parse(JSON.stringify(r.annuals))); // Deep copy
+      }
+
       setProjectionSaved(false);
       setDebt(null);
       setVR(null);
@@ -648,6 +780,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         <section>
           <h3 className="text-lg font-semibold mb-2">Paso 1 — Validación comercial Y1 ✓</h3>
           <MonthlyTable rows={meses} onChange={() => {}} habitaciones={basicInfo.habitaciones} />
+          <EditedFieldsNote editedFields={getEditedFieldsStep1()} />
         </section>
       )}
 
@@ -755,6 +888,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
             habitaciones={basicInfo.habitaciones}
             diasData={meses.map(m => ({ mes: m.mes, dias: m.dias }))}
           />
+          <EditedFieldsNote editedFields={getEditedFieldsStep2()} />
         </section>
       )}
 
@@ -914,6 +1048,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               })()}
               </>
             )}
+            <EditedFieldsNote editedFields={getEditedFieldsStep3()} />
           </section>
         );
       })()}
