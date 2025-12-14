@@ -1399,11 +1399,16 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
               <div className="bg-white p-4 rounded border border-indigo-200">
                 <div className="text-sm font-semibold mb-2">Indicadores de Plausibilidad</div>
-                <div className="grid grid-cols-3 gap-3 text-sm">
+                <div className="grid grid-cols-4 gap-3 text-sm">
                   <div>
                     <div className="text-xs text-gray-600">NOI último año (EBITDA-FF&E)</div>
                     <div className="font-semibold">{fmt(noiLastYear)}</div>
                     <div className="text-xs text-gray-500">{fmt(noiLastYear / keys)} / key</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-600">NOI Estabilizado (media)</div>
+                    <div className="font-semibold text-indigo-700">{fmt(vr.valuation.noi_estabilizado)}</div>
+                    <div className="text-xs text-gray-500">{fmt(vr.valuation.noi_estabilizado / keys)} / key</div>
                   </div>
                   <div>
                     <div className="text-xs text-gray-600">Método de valoración</div>
@@ -1415,9 +1420,9 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-600">Valor bruto / NOI</div>
+                    <div className="text-xs text-gray-600">Valor bruto / NOI estab.</div>
                     <div className="font-semibold">
-                      {noiLastYear > 0 ? `${fmtDecimal(vr.valuation.valor_salida_bruto / noiLastYear, 2)}x` : 'N/A'}
+                      {vr.valuation.noi_estabilizado > 0 ? `${fmtDecimal(vr.valuation.valor_salida_bruto / vr.valuation.noi_estabilizado, 2)}x` : 'N/A'}
                     </div>
                     <div className="text-xs text-gray-500">(múltiplo implícito)</div>
                   </div>
@@ -1468,31 +1473,36 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
                 <div className="bg-white p-4 rounded border border-green-200">
                   <div className="text-sm mb-2">
-                    <strong>Interpretación:</strong>
+                    <strong>Interpretación según tus propios supuestos:</strong>
                     {vr.valuation.precio_compra_real < vr.valuation.precio_compra_implicito ? (
                       <span className="text-green-700">
-                        {' '}Estás comprando el activo con un <strong>descuento del{' '}
-                        {fmtDecimal(Math.abs((vr.valuation.precio_compra_real - vr.valuation.precio_compra_implicito) / vr.valuation.precio_compra_implicito * 100), 1)}%</strong>{' '}
-                        respecto al precio que los flujos operativos y el valor de salida justificarían.
-                        Esto genera un margen de seguridad positivo para la inversión.
+                        {' '}Comparando el precio introducido con el precio de compra implícito, el proyecto se adquiere con un <strong>descuento del{' '}
+                        {fmtDecimal(Math.abs((vr.valuation.precio_compra_real - vr.valuation.precio_compra_implicito) / vr.valuation.precio_compra_implicito * 100), 1)}%</strong>.{' '}
+                        Esta diferencia indica que el precio de compra está por debajo del valor económico que la operativa proyectada y el valor de salida justifican,
+                        generando un margen de seguridad positivo.
                       </span>
                     ) : vr.valuation.precio_compra_real > vr.valuation.precio_compra_implicito ? (
                       <span className="text-red-700">
-                        {' '}Estás pagando una <strong>prima del{' '}
-                        {fmtDecimal(Math.abs((vr.valuation.precio_compra_real - vr.valuation.precio_compra_implicito) / vr.valuation.precio_compra_implicito * 100), 1)}%</strong>{' '}
-                        por encima del precio que los flujos operativos y el valor de salida justificarían.
-                        Esto reduce el margen de seguridad de la inversión.
+                        {' '}Comparando el precio introducido con el precio de compra implícito, el proyecto se adquiere con una <strong>prima del{' '}
+                        {fmtDecimal(Math.abs((vr.valuation.precio_compra_real - vr.valuation.precio_compra_implicito) / vr.valuation.precio_compra_implicito * 100), 1)}%</strong>.{' '}
+                        Esta diferencia indica que el precio de compra está por encima del valor económico que la operativa proyectada y el valor de salida justifican,
+                        reduciendo el margen de seguridad.
                       </span>
                     ) : (
                       <span className="text-gray-700">
-                        {' '}El precio introducido coincide exactamente con el precio implícito.
+                        {' '}El precio introducido coincide exactamente con el precio de compra implícito.
                         El valor presente de los flujos y el exit es neutro a la tasa de descuento utilizada.
                       </span>
                     )}
                   </div>
                   <div className="text-xs text-gray-600 mt-2 pt-2 border-t border-gray-200">
-                    Tasa de descuento utilizada: {fmtDecimal(vr.valuation.discount_rate * 100, 2)}%
-                    {' '}(basada en {valuationConfig.metodo_valoracion === 'cap_rate' ? 'cap rate' : 'tasa implícita del múltiplo'} de salida)
+                    <strong>Tasa de descuento utilizada:</strong> {fmtDecimal(vr.valuation.discount_rate * 100, 2)}%
+                    {' '}(basada en {valuationConfig.metodo_valoracion === 'cap_rate' ? 'cap rate' : 'tasa implícita del múltiplo'} de salida).
+                    <br />
+                    <em className="text-gray-500">
+                      Se utiliza el {valuationConfig.metodo_valoracion === 'cap_rate' ? 'cap rate' : 'múltiplo'} de salida como tasa implícita de descuento
+                      para mantener coherencia entre la valoración del exit y el precio de compra implícito.
+                    </em>
                   </div>
                 </div>
 
@@ -1504,13 +1514,16 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                   </h5>
                   <p className="text-sm text-blue-900">
                     El <strong>precio de compra implícito</strong> se calcula descontando los flujos operativos del proyecto
-                    y el valor de salida estimado utilizando el mismo cap rate definido para el exit
+                    y el valor de salida estimado utilizando el mismo {valuationConfig.metodo_valoracion === 'cap_rate' ? 'cap rate' : 'múltiplo'} definido para el exit
                     ({fmtDecimal(vr.valuation.discount_rate * 100, 2)}%).
                   </p>
                   <p className="text-sm text-blue-900 mt-2">
-                    Este valor representa el <strong>precio máximo económicamente coherente</strong> con la operativa
-                    y la valoración de salida, y sirve como referencia para evaluar si el precio introducido
-                    implica pagar una prima o adquirir el activo con descuento.
+                    Este valor representa el <strong>precio máximo económicamente justificable</strong> con la operativa proyectada
+                    y la valoración de salida, basándose exclusivamente en los supuestos introducidos por el usuario.
+                  </p>
+                  <p className="text-sm text-blue-900 mt-2">
+                    Sirve como referencia analítica para evaluar si el precio introducido implica pagar una prima
+                    o adquirir el activo con descuento, sin constituir una recomendación de compra.
                   </p>
                 </div>
               </div>
