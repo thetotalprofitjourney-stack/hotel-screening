@@ -27,6 +27,7 @@ function fmtDecimal(n: number, decimals: number = 2) {
 interface AnnualData {
   anio: number;
   occupancy: number;
+  occupancy_financiera?: number; // Nueva: ocupación sobre 365 días
   rn: number;
   operating_revenue: number;
   dept_total: number;
@@ -47,9 +48,10 @@ interface AnnualUsaliTableProps {
   data: AnnualData[];
   editable?: boolean;
   onChange?: (data: AnnualData[]) => void;
+  diasModificados?: boolean; // Si true, muestra columna "% Occ si 100%"
 }
 
-export default function AnnualUsaliTable({ data, editable = false, onChange }: AnnualUsaliTableProps) {
+export default function AnnualUsaliTable({ data, editable = false, onChange, diasModificados = false }: AnnualUsaliTableProps) {
   const [editableData, setEditableData] = useState<AnnualData[]>(data);
 
   useEffect(() => {
@@ -165,7 +167,8 @@ export default function AnnualUsaliTable({ data, editable = false, onChange }: A
           <thead className="bg-gray-100">
             <tr>
               <th className="p-2 border sticky left-0 bg-gray-100 z-10" rowSpan={2}>Año</th>
-              <th className="p-2 border" rowSpan={2}>% Ocupación</th>
+              <th className="p-2 border" rowSpan={2}>% Occ</th>
+              {diasModificados && <th className="p-2 border" rowSpan={2}>% Occ si 100%</th>}
               <th className="p-2 border bg-blue-50" colSpan={1}>Total Rev</th>
               <th className="p-2 border bg-red-50" colSpan={1}>Dept Cost</th>
               <th className="p-2 border bg-yellow-50" colSpan={1}>Dept Profit</th>
@@ -198,10 +201,17 @@ export default function AnnualUsaliTable({ data, editable = false, onChange }: A
                   Año {row.anio}
                 </td>
 
-                {/* % Ocupación */}
+                {/* % Occ */}
                 <td className="p-2 border text-center">
                   {fmtDecimal(row.occupancy * 100, 1)}%
                 </td>
+
+                {/* % Occ si 100% (solo si diasModificados) */}
+                {diasModificados && (
+                  <td className="p-2 border text-center">
+                    {fmtDecimal((row.occupancy_financiera || row.occupancy) * 100, 1)}%
+                  </td>
+                )}
 
                 {/* Total Rev - Editable */}
                 {renderMetricGroup('Total Rev', row, row.operating_revenue, true, 'operating_revenue', 'bg-blue-50')}

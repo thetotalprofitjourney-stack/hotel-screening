@@ -162,9 +162,14 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
   for (let y = 1; y <= horizon; y++) {
     if (y === 1) {
       // ✅ AÑO 1: Usar datos guardados directamente de usali_y1_monthly (editados por el usuario)
+      // Ocupación financiera (sobre inventario total de 365 días)
+      const inventario_total_y1 = prj.habitaciones * 365;
+      const occupancy_financiera_y1 = inventario_total_y1 > 0 ? rn1 / inventario_total_y1 : 0;
+
       res.push({
         anio: 1,
         occupancy: occ1,
+        occupancy_financiera: occupancy_financiera_y1, // Nueva: ocupación sobre 365 días
         adr: adr1,
         rn: rn1,
         rooms_rev: y1_total_rooms,  // ✅ Usar valor de usali_y1_monthly
@@ -273,9 +278,14 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
 
     const ebitda_less_ffe = ebitda - ffe_amount;
 
+    // Ocupación financiera (sobre inventario total de 365 días)
+    const inventario_total = prj.habitaciones * 365;
+    const occupancy_financiera = inventario_total > 0 ? rn / inventario_total : 0;
+
     res.push({
       anio: y,
       occupancy: occ,
+      occupancy_financiera, // Nueva: ocupación sobre 365 días
       adr,
       rn, // Roomnights anuales
       rooms_rev, fb, other_operated: other, misc_income: misc,

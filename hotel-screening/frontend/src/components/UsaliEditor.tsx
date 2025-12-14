@@ -55,6 +55,8 @@ interface UsaliEditorProps {
   };
   nonopTotal?: number; // Total anual de non-operating
   ffePercent?: number; // FF&E como porcentaje (0-1)
+  habitaciones?: number; // Número de habitaciones del hotel
+  diasData?: Array<{ mes: number; dias: number }>; // Días de operativa por mes
 }
 
 // Funciones de formateo de números (formato español)
@@ -81,7 +83,7 @@ function fmtDecimal(n: number, decimals: number = 2) {
   });
 }
 
-export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = false, occupancyData = [], showSaveButton = true, onChange, showSummaryView = true, showBannerTop = true, feeParams, nonopTotal = 0, ffePercent = 0 }: UsaliEditorProps) {
+export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = false, occupancyData = [], showSaveButton = true, onChange, showSummaryView = true, showBannerTop = true, feeParams, nonopTotal = 0, ffePercent = 0, habitaciones = 0, diasData = [] }: UsaliEditorProps) {
   const [data, setData] = useState<UsaliMonthData[]>(calculatedData);
   const [saving, setSaving] = useState(false);
 
@@ -89,6 +91,36 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
   const getOccupancy = (mes: number) => {
     const occData = occupancyData.find(o => o.mes === mes);
     return occData ? occData.occ : 0;
+  };
+
+  // Helper para obtener días de un mes
+  const getDias = (mes: number) => {
+    const diasInfo = diasData.find(d => d.mes === mes);
+    return diasInfo ? diasInfo.dias : 30; // Default 30 si no está definido
+  };
+
+  // Calcular si los días fueron modificados
+  const getDaysModified = () => {
+    if (!habitaciones || diasData.length === 0) return false;
+    const totalDias = diasData.reduce((sum, d) => sum + d.dias, 0);
+    return totalDias !== habitaciones * 365;
+  };
+
+  const diasModificados = getDaysModified();
+
+  // Helper para calcular ocupación financiera (sobre 365 días) de un mes
+  const getOccupancyFinanciera = (mes: number) => {
+    if (!habitaciones) return 0;
+    const monthData = data.find(m => m.mes === mes);
+    if (!monthData) return 0;
+    const rn = monthData.rn;
+    const diasMes = getDias(mes);
+    const inventarioMensual = habitaciones * diasMes;
+    // Ocupación financiera usa inventario total (365/12 ≈ 30.42 días promedio por mes)
+    // Pero es más preciso usar los días del mes calendario
+    const diasCalendario = new Date(new Date().getFullYear(), mes, 0).getDate();
+    const inventarioTotal = habitaciones * diasCalendario;
+    return inventarioTotal > 0 ? rn / inventarioTotal : 0;
   };
 
   // Helper para cálculo seguro de porcentajes
@@ -381,6 +413,7 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
             <tr>
               <th className="p-2 border">Mes</th>
               <th className="p-2 border">% Occ</th>
+              {diasModificados && <th className="p-2 border">% Occ si 100%</th>}
               <th className="p-2 border bg-blue-50">Total Rev<br/><span className="text-xs font-normal">€ | €/RN | %</span></th>
               <th className="p-2 border bg-yellow-50">Dept Profit<br/><span className="text-xs font-normal">€ | €/RN | %</span></th>
               <th className="p-2 border bg-green-50">GOP<br/><span className="text-xs font-normal">€ | €/RN | %</span></th>
@@ -391,6 +424,7 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
           <tbody>
             {data.map((m) => {
               const occ = getOccupancy(m.mes);
+              const occFinanciera = diasModificados ? getOccupancyFinanciera(m.mes) : 0;
               const renderStacked = (value: number, bgClass: string) => (
                 <td className={`border ${bgClass}`}>
                   <div className="flex flex-col items-end p-1 space-y-0.5">
@@ -405,6 +439,7 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
                 <tr key={m.mes} className="hover:bg-gray-50">
                   <td className="p-2 border text-center font-medium">{m.mes}</td>
                   <td className="p-2 border text-center">{fmtDecimal(occ * 100, 1)}%</td>
+                  {diasModificados && <td className="p-2 border text-center">{fmtDecimal(occFinanciera * 100, 1)}%</td>}
                   {renderStacked(m.total_rev, 'bg-blue-50')}
                   {renderStacked(m.dept_profit, 'bg-yellow-50')}
                   {renderStacked(m.gop, 'bg-green-50')}
