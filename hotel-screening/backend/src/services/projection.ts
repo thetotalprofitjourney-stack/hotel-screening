@@ -79,12 +79,22 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
   const y1_total_misc = sum('misc_income');
   const y1_total_rev = sum('total_rev');
 
+  // Obtener suma de días de operativa del año 1 desde y1_commercial
+  const [y1CommercialDays]: any = await pool.query(
+    `SELECT SUM(y1_mes_dias) as total_dias
+     FROM y1_commercial
+     WHERE project_id=?`,
+    [project_id]
+  );
+  const suma_dias_y1 = Number(y1CommercialDays[0]?.total_dias ?? 365);
+
   // Calcular RN desde y1_saved (debe coincidir con los ingresos)
   const rn1 = Number(y1Saved.rn);
   if (rn1 <= 0 || y1_total_rooms <= 0) throw new Error('Y1_DATA_INCOMPLETE');
 
   // Calcular occ y ADR desde los datos guardados
-  const occ1 = rn1 / (prj.habitaciones * 365);
+  // ✅ CORRECCIÓN: Usar suma de días de operativa del año 1, no 365 días
+  const occ1 = rn1 / (prj.habitaciones * suma_dias_y1);
   const adr1 = y1_total_rooms / rn1;  // ✅ Usar y1_total_rooms (de usali_y1_monthly), no rooms_rev1
   const y1_dept_rooms = sum('dept_rooms');
   const y1_dept_fb = sum('dept_fb');
@@ -201,7 +211,8 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
     const total_rev = rooms_rev + fb + other + misc;
 
     // RN (roomnights) anual actualizado
-    const rn = occ * prj.habitaciones * 365;
+    // ✅ CORRECCIÓN: Usar suma de días de operativa del año 1, no 365 días
+    const rn = occ * prj.habitaciones * suma_dias_y1;
 
     // "inflación" de % de costes (si se define)
     const kDept = (1 + (assumptions.cost_inflation_pct ?? 0));

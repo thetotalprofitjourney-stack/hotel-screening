@@ -155,7 +155,7 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
       {/* KPIs Anuales - DESPUÉS */}
       <div className="grid grid-cols-5 gap-3 p-4 bg-gray-50 rounded-lg">
         <Stat label="Ocupación" value={`${fmtDecimal(annual.ocupacion * 100, 1)}%`} />
-        <Stat label="ADR" value={fmt(annual.adr)} />
+        <Stat label="ADR" value={fmtDecimal(annual.adr, 2)} />
         <Stat label="Roomnights" value={fmtNumber(annual.roomnights)} />
         <Stat label="Rooms Rev" value={fmt(annual.roomsRev)} />
         <Stat label="RevPAR" value={fmtDecimal(annual.revpar, 2)} />
