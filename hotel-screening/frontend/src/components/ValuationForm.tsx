@@ -12,9 +12,10 @@ interface ValuationFormProps {
   data: ValuationConfig;
   onChange: (data: ValuationConfig) => void;
   onSubmit: () => void;
+  showSubmitButton?: boolean;
 }
 
-export default function ValuationForm({ data, onChange, onSubmit }: ValuationFormProps) {
+export default function ValuationForm({ data, onChange, onSubmit, showSubmitButton = true }: ValuationFormProps) {
   function updateField<K extends keyof ValuationConfig>(field: K, value: ValuationConfig[K]) {
     onChange({ ...data, [field]: value });
   }
@@ -82,14 +83,16 @@ export default function ValuationForm({ data, onChange, onSubmit }: ValuationFor
         </div>
       </section>
 
-      <div className="flex justify-start">
-        <button
-          type="submit"
-          className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
-        >
-          Calcular Valoración y Retornos
-        </button>
-      </div>
+      {showSubmitButton && (
+        <div className="flex justify-start">
+          <button
+            type="submit"
+            className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
+          >
+            Calcular Valoración y Retornos
+          </button>
+        </div>
+      )}
     </form>
   );
 }
