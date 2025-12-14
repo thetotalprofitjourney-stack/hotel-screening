@@ -6,6 +6,111 @@ import { computeDebt, valuationAndReturns } from '../services/valuation.js';
 
 const router = Router();
 
+// GET /v1/projects/:id/projection - Cargar proyección guardada
+router.get('/v1/projects/:id/projection', async (req, res) => {
+  try {
+    const [annRows]: any = await pool.query(
+      `SELECT anio, rn, operating_revenue, dept_total, dept_profit, und_total, gop, fees, nonop, ebitda, ffe, ebitda_less_ffe,
+              gop_margin, ebitda_margin, ebitda_less_ffe_margin
+       FROM usali_annual
+       WHERE project_id=?
+       ORDER BY anio`,
+      [req.params.id]
+    );
+
+    if (!annRows || annRows.length === 0) {
+      return res.status(404).json({ error: 'PROJECTION_NOT_FOUND' });
+    }
+
+    res.json({ annuals: annRows });
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// GET /v1/projects/:id/debt - Cargar deuda guardada
+router.get('/v1/projects/:id/debt', async (req, res) => {
+  try {
+    const [schedule]: any = await pool.query(
+      `SELECT anio, intereses, amortizacion, cuota, saldo_final
+       FROM debt_schedule_annual
+       WHERE project_id=?
+       ORDER BY anio`,
+      [req.params.id]
+    );
+
+    if (!schedule || schedule.length === 0) {
+      return res.status(404).json({ error: 'DEBT_NOT_FOUND' });
+    }
+
+    // Obtener loan_amount de financing_terms
+    const [[ft]]: any = await pool.query(
+      `SELECT precio_compra, capex_inicial, ltv FROM financing_terms WHERE project_id=?`,
+      [req.params.id]
+    );
+    const base = Number(ft?.precio_compra ?? 0) + Number(ft?.capex_inicial ?? 0);
+    const loan_amount = Math.max(0, Number(ft?.ltv ?? 0) * base);
+
+    res.json({ loan_amount, schedule });
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// GET /v1/projects/:id/valuation-and-returns - Cargar valoración guardada
+router.get('/v1/projects/:id/valuation-and-returns', async (req, res) => {
+  try {
+    const [[valuation]]: any = await pool.query(
+      `SELECT valor_salida_bruto, valor_salida_neto FROM valuations WHERE project_id=?`,
+      [req.params.id]
+    );
+
+    const [[returns]]: any = await pool.query(
+      `SELECT irr_unlevered, moic_unlevered, irr_levered, moic_levered FROM returns WHERE project_id=?`,
+      [req.params.id]
+    );
+
+    if (!valuation || !returns) {
+      return res.status(404).json({ error: 'VALUATION_NOT_FOUND' });
+    }
+
+    // Obtener equity0 de financing_terms y project_settings
+    const [[ft]]: any = await pool.query(
+      `SELECT precio_compra, capex_inicial, ltv FROM financing_terms WHERE project_id=?`,
+      [req.params.id]
+    );
+    const [[ps]]: any = await pool.query(
+      `SELECT coste_tx_compra_pct FROM project_settings WHERE project_id=?`,
+      [req.params.id]
+    );
+
+    const base = Number(ft?.precio_compra ?? 0) + Number(ft?.capex_inicial ?? 0);
+    const costs_buy = Number(ps?.coste_tx_compra_pct ?? 0) * base;
+    const loan0 = Number(ft?.ltv ?? 0) * base;
+    const equity0 = base + costs_buy - loan0;
+
+    res.json({
+      valuation: {
+        valor_salida_bruto: Number(valuation.valor_salida_bruto),
+        valor_salida_neto: Number(valuation.valor_salida_neto)
+      },
+      returns: {
+        unlevered: {
+          irr: Number(returns.irr_unlevered),
+          moic: Number(returns.moic_unlevered)
+        },
+        levered: {
+          irr: Number(returns.irr_levered),
+          moic: Number(returns.moic_levered),
+          equity0
+        }
+      }
+    });
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 const assumptionsSchema = z.object({
   years: z.number().int().min(1).max(40).optional(),
   anio_base: z.number().int().optional(),

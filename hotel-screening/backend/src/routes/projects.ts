@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 const router = Router();
 
 const createProjectSchema = z.object({
-  rol: z.enum(['inversor','operador','banco']),
+  rol: z.enum(['inversor','operador','banco']).optional().default('inversor'),
   nombre: z.string().min(2),
   comunidad_autonoma: z.string().min(2),
   provincia: z.string().min(2),

@@ -196,13 +196,52 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         if (project.estado === 'projection_2n' || project.estado === 'finalized') {
           setProjectionSaved(true);
           setProjectionAssumptionsSaved(true);
+          // Cargar datos de proyección guardados
+          await loadSavedProjection();
         }
         if (project.estado === 'finalized') {
           setFinancingConfigSaved(true);
+          // Cargar datos de deuda guardados
+          await loadSavedDebt();
+          // Cargar datos de valoración guardados
+          await loadSavedValuation();
         }
       }
     } catch (error) {
       console.error('Error cargando estado del proyecto:', error);
+    }
+  }
+
+  async function loadSavedProjection() {
+    try {
+      const data = await api(`/v1/projects/${projectId}/projection`);
+      if (data && data.annuals) {
+        setAnnuals(data.annuals);
+      }
+    } catch (error) {
+      console.error('Error cargando proyección guardada:', error);
+    }
+  }
+
+  async function loadSavedDebt() {
+    try {
+      const data = await api(`/v1/projects/${projectId}/debt`);
+      if (data) {
+        setDebt(data);
+      }
+    } catch (error) {
+      console.error('Error cargando deuda guardada:', error);
+    }
+  }
+
+  async function loadSavedValuation() {
+    try {
+      const data = await api(`/v1/projects/${projectId}/valuation-and-returns`);
+      if (data) {
+        setVR(data);
+      }
+    } catch (error) {
+      console.error('Error cargando valoración guardada:', error);
     }
   }
 
@@ -587,7 +626,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
   // Calcular USALI automáticamente al abrir Paso 2 o cuando cambia operationConfig
   useEffect(() => {
-    if (accepted && !usaliSaved) {
+    // NO recalcular si el proyecto ya está finalizado
+    if (accepted && !usaliSaved && projectState !== 'finalized') {
       // Guardar configuración y recalcular USALI
       const recalculate = async () => {
         try {
@@ -601,11 +641,12 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       };
       recalculate();
     }
-  }, [accepted, operationConfig, usaliSaved, projectId]);
+  }, [accepted, operationConfig, usaliSaved, projectId, projectState]);
 
   // Calcular proyección automáticamente al abrir Paso 3 o cuando cambia projectionAssumptions
   useEffect(() => {
-    if (accepted && calc && usaliSaved && !projectionSaved) {
+    // NO recalcular si el proyecto ya está finalizado
+    if (accepted && calc && usaliSaved && !projectionSaved && projectState !== 'finalized') {
       // Guardar supuestos y recalcular proyección
       const recalculate = async () => {
         try {
@@ -617,15 +658,16 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       };
       recalculate();
     }
-  }, [accepted, calc, usaliSaved, projectionAssumptions, projectionSaved, projectId]);
+  }, [accepted, calc, usaliSaved, projectionAssumptions, projectionSaved, projectId, projectState]);
 
   // Calcular deuda automáticamente al abrir Paso 4 o cuando cambia financingConfig
   useEffect(() => {
-    if (accepted && calc && usaliSaved && projectionSaved && !financingConfigSaved) {
+    // NO recalcular si el proyecto ya está finalizado
+    if (accepted && calc && usaliSaved && projectionSaved && !financingConfigSaved && projectState !== 'finalized') {
       // Solo recalcular deuda (NO guardar configuración automáticamente)
       doDebt();
     }
-  }, [accepted, calc, usaliSaved, projectionSaved, financingConfig, financingConfigSaved, projectId]);
+  }, [accepted, calc, usaliSaved, projectionSaved, financingConfig, financingConfigSaved, projectId, projectState]);
 
   async function accept() {
     // Normalizar datos: si días = 0, entonces occ = 0 y adr = 0
