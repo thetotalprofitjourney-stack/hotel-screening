@@ -344,4 +344,72 @@ router.delete('/v1/projects/:id', async (req, res) => {
   res.json({ success: true, project_id: projectId });
 });
 
+// GET /v1/projects/:id/edited-fields - Obtener campos editados del proyecto
+router.get('/v1/projects/:id/edited-fields', async (req, res) => {
+  const email = (req as any).userEmail as string;
+  const projectId = req.params.id;
+
+  // Verificar que el usuario es dueño del proyecto
+  const [projectRows] = await pool.query<any[]>(
+    `SELECT * FROM projects WHERE project_id=? AND owner_email=?`,
+    [projectId, email]
+  );
+  if (!projectRows || projectRows.length === 0) {
+    return res.status(404).json({ error: 'Proyecto no encontrado' });
+  }
+
+  // Obtener campos editados
+  const [fields] = await pool.query<any[]>(
+    `SELECT step, campo, mes, anio FROM edited_fields_log WHERE project_id=? ORDER BY created_at ASC`,
+    [projectId]
+  );
+
+  res.json(fields);
+});
+
+// POST /v1/projects/:id/edited-fields - Guardar campos editados del proyecto
+router.post('/v1/projects/:id/edited-fields', async (req, res) => {
+  const email = (req as any).userEmail as string;
+  const projectId = req.params.id;
+
+  // Verificar que el usuario es dueño del proyecto
+  const [projectRows] = await pool.query<any[]>(
+    `SELECT * FROM projects WHERE project_id=? AND owner_email=?`,
+    [projectId, email]
+  );
+  if (!projectRows || projectRows.length === 0) {
+    return res.status(404).json({ error: 'Proyecto no encontrado' });
+  }
+
+  // Esperar un array de objetos: [{ step: 1, campo: 'dias', mes: 1 }, ...]
+  const fields = req.body;
+  if (!Array.isArray(fields)) {
+    return res.status(400).json({ error: 'Se esperaba un array de campos editados' });
+  }
+
+  // Eliminar registros antiguos del proyecto
+  await pool.query(
+    `DELETE FROM edited_fields_log WHERE project_id=?`,
+    [projectId]
+  );
+
+  // Insertar nuevos registros
+  if (fields.length > 0) {
+    const values = fields.map((f: any) => [
+      projectId,
+      f.step,
+      f.campo,
+      f.mes || null,
+      f.anio || null
+    ]);
+
+    await pool.query(
+      `INSERT INTO edited_fields_log (project_id, step, campo, mes, anio) VALUES ?`,
+      [values]
+    );
+  }
+
+  res.json({ success: true, count: fields.length });
+});
+
 export default router;

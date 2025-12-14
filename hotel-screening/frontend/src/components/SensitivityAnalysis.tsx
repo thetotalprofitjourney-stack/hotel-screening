@@ -270,7 +270,10 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
                   className="w-full px-2 py-1 border rounded text-sm"
                   placeholder="Ej: 2.0"
                   value={newScenarioADR}
-                  onChange={(e) => setNewScenarioADR(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setNewScenarioADR(isNaN(val) ? 0 : val);
+                  }}
                 />
                 <p className="text-xs text-gray-500 mt-1">Ej: 2 para +2%, -3 para -3%</p>
               </div>
@@ -282,7 +285,10 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
                   className="w-full px-2 py-1 border rounded text-sm"
                   placeholder="Ej: -1.0"
                   value={newScenarioOcc}
-                  onChange={(e) => setNewScenarioOcc(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setNewScenarioOcc(isNaN(val) ? 0 : val);
+                  }}
                 />
                 <p className="text-xs text-gray-500 mt-1">Ej: 1 para +1pp, -2 para -2pp</p>
               </div>
