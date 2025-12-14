@@ -192,7 +192,7 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
           <button
             className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400"
             onClick={runSensitivityAnalysis}
-            disabled={loading || !baseIRR || scenarios.length === 0}
+            disabled={loading || baseIRR === null || baseIRR === undefined || scenarios.length === 0}
           >
             {loading ? 'Calculando...' : 'Ejecutar análisis'}
           </button>
@@ -400,7 +400,7 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
         </div>
       )}
 
-      {!baseIRR && (
+      {(baseIRR === null || baseIRR === undefined) && (
         <div className="mt-3 text-sm text-gray-500 italic">
           Debes calcular primero la proyección, deuda y retornos base antes de ejecutar el análisis de sensibilidad.
         </div>

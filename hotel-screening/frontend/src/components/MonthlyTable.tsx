@@ -130,6 +130,12 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
                       value={dias}
                       onChange={e=>upd(i,'dias', Number(e.target.value))}
                       onFocus={e => e.target.select()}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        }
+                      }}
                     />
                   </td>
                   <td className="p-2 text-center">
@@ -146,6 +152,12 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
                       value={r.adr}
                       onChange={e=>upd(i,'adr', Number(e.target.value))}
                       onFocus={e => e.target.select()}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        }
+                      }}
                     />
                   </td>
                   <td className="p-2 text-right bg-blue-50 font-semibold">
