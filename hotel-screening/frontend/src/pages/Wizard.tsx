@@ -920,8 +920,19 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       {/* PASO 5 guardado: Valoración y Retornos */}
       {accepted && calc && usaliSaved && projectionSaved && financingConfigSaved && vr && (
         <section>
-          <h3 className="text-lg font-semibold mb-2">Paso 5 — Valoración & Retornos</h3>
+          <h3 className="text-lg font-semibold mb-4">Paso 5 — Valoración & Retornos ✓</h3>
 
+          {/* Formulario de Valoración (read-only) */}
+          <div className="mb-6 opacity-75 pointer-events-none">
+            <ValuationForm
+              data={valuationConfig}
+              onChange={() => {}}
+              onSubmit={() => {}}
+              showSubmitButton={false}
+            />
+          </div>
+
+          {/* Resultados de Valoración */}
           <div className="mt-5">
             <h4 className="font-semibold">Valoración & Retornos</h4>
             <div className="grid grid-cols-3 gap-3">

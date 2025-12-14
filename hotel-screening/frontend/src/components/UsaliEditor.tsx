@@ -231,19 +231,22 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
 
   return (
     <div className="space-y-4">
-      <div>
-        <h4 className="font-semibold text-lg">Edición USALI Año 1</h4>
-        <p className="text-sm text-gray-600">
-          Los valores sugeridos están basados en ratios de mercado. Puedes editarlos libremente.
-        </p>
-      </div>
+      {!showSummaryView && (
+        <div>
+          <h4 className="font-semibold text-lg">Edición USALI Año 1</h4>
+          <p className="text-sm text-gray-600">
+            Los valores sugeridos están basados en ratios de mercado. Puedes editarlos libremente.
+          </p>
+        </div>
+      )}
 
       {/* Banner arriba (opcional) */}
       {showBannerTop && <BannerKPIs />}
 
-      {/* Vista Detallada - PRIMERO */}
-      <div className="overflow-auto border rounded-lg">
-        <h5 className="font-semibold p-3 bg-gray-100 border-b">Vista Detallada (Editable)</h5>
+      {/* Vista Detallada - PRIMERO (solo si no hay vista resumida) */}
+      {!showSummaryView && (
+        <div className="overflow-auto border rounded-lg">
+          <h5 className="font-semibold p-3 bg-gray-100 border-b">Vista Detallada (Editable)</h5>
         <table className="w-full text-xs border-collapse">
           <thead className="bg-gray-100 sticky top-0">
             <tr>
@@ -366,9 +369,10 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
             })}
           </tbody>
         </table>
-      </div>
+        </div>
+      )}
 
-      {/* Vista Resumida - SEGUNDO (oculta por defecto) */}
+      {/* Vista Resumida - SEGUNDO (solo si showSummaryView=true) */}
       {showSummaryView && (
         <div className="overflow-auto border rounded-lg">
         <h5 className="font-semibold p-3 bg-gray-100 border-b">Vista Resumida</h5>
