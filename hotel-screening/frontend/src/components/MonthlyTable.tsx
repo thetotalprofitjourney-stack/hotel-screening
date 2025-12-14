@@ -7,7 +7,14 @@ const getDaysInMonth = (month: number, year: number = new Date().getFullYear()):
   return new Date(year, month, 0).getDate();
 };
 
-export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any[]; onChange:(r:any[])=>void; habitaciones:number }) {
+interface MonthlyTableProps {
+  rows: any[];
+  onChange: (r: any[]) => void;
+  habitaciones: number;
+  onFieldEdit?: (mes: number, campo: 'dias' | 'occ' | 'adr') => void;
+}
+
+export default function MonthlyTable({ rows, onChange, habitaciones, onFieldEdit }: MonthlyTableProps) {
   const currentYear = new Date().getFullYear();
 
   function upd(i:number, key:'occ'|'adr'|'dias', val:number) {
@@ -130,6 +137,7 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
                       value={dias}
                       onChange={e=>upd(i,'dias', Number(e.target.value))}
                       onFocus={e => e.target.select()}
+                      onBlur={() => onFieldEdit && onFieldEdit(r.mes, 'dias')}
                       onKeyDown={e => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
@@ -143,6 +151,7 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
                       className="w-24 border px-2 py-1 rounded text-right"
                       value={ocupacion * 100}
                       onChange={val => upd(i, 'occ', val)}
+                      onBlur={() => onFieldEdit && onFieldEdit(r.mes, 'occ')}
                       decimals={2}
                     />
                   </td>
@@ -152,6 +161,7 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
                       value={r.adr}
                       onChange={e=>upd(i,'adr', Number(e.target.value))}
                       onFocus={e => e.target.select()}
+                      onBlur={() => onFieldEdit && onFieldEdit(r.mes, 'adr')}
                       onKeyDown={e => {
                         if (e.key === 'Enter') {
                           e.preventDefault();

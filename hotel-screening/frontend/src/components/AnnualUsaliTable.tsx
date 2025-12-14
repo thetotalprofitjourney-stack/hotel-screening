@@ -49,9 +49,10 @@ interface AnnualUsaliTableProps {
   editable?: boolean;
   onChange?: (data: AnnualData[]) => void;
   diasModificados?: boolean; // Si true, muestra columna "% Occ si 100%"
+  onFieldEdit?: (anio: number, campo: string) => void;
 }
 
-export default function AnnualUsaliTable({ data, editable = false, onChange, diasModificados = false }: AnnualUsaliTableProps) {
+export default function AnnualUsaliTable({ data, editable = false, onChange, diasModificados = false, onFieldEdit }: AnnualUsaliTableProps) {
   const [editableData, setEditableData] = useState<AnnualData[]>(data);
 
   useEffect(() => {
@@ -60,6 +61,11 @@ export default function AnnualUsaliTable({ data, editable = false, onChange, dia
 
   // Función para actualizar un valor y recalcular campos derivados
   const updateValue = (anio: number, field: string, euroPerRN: number) => {
+    // Registrar edición manual
+    if (onFieldEdit) {
+      onFieldEdit(anio, field);
+    }
+
     const newData = editableData.map(row => {
       if (row.anio !== anio) return row;
 
