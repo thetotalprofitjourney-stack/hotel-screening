@@ -88,7 +88,6 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   const [usaliSaved, setUsaliSaved] = useState(false);
   const [editedUsaliData, setEditedUsaliData] = useState<any[]>([]);
   const [annuals, setAnnuals] = useState<any[]|null>(null);
-  const [originalAnnuals, setOriginalAnnuals] = useState<any[]>([]); // Proyección original para comparación
   const [projectionSaved, setProjectionSaved] = useState(false);
   const [debt, setDebt] = useState<any|null>(null);
   const [vr, setVR] = useState<any|null>(null);
@@ -445,25 +444,32 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
       const monthName = monthNames[current.mes - 1];
 
-      // Comparar días (permitir pequeña tolerancia por redondeo)
-      const diasChanged = Math.abs((current.dias || 0) - (benchmark.dias || 0)) > 0.01;
+      // Extraer valores
+      const currentDias = current.dias || 0;
+      const benchmarkDias = benchmark.dias || 0;
+      const currentOcc = current.occ || 0;
+      const benchmarkOcc = benchmark.occ || 0;
+      const currentAdr = current.adr || 0;
+      const benchmarkAdr = benchmark.adr || 0;
 
+      // Comparar días (permitir pequeña tolerancia por redondeo)
+      const diasChanged = Math.abs(currentDias - benchmarkDias) > 0.01;
       if (diasChanged) {
         editedFields['Días de operativa'].push(monthName);
       }
 
-      // Solo comparar ocupación y ADR si días NO cambió, o si ambos días son > 0
+      // Solo comparar ocupación y ADR si días es mayor que 0 en AMBOS casos
       // (para evitar falsos positivos cuando días=0 normaliza occ y ADR a 0)
-      const shouldCheckOccAdr = !diasChanged || (current.dias > 0 && benchmark.dias > 0);
+      const shouldCheckOccAdr = currentDias > 0 && benchmarkDias > 0;
 
       if (shouldCheckOccAdr) {
         // Comparar ocupación (permitir pequeña tolerancia por redondeo)
-        if (Math.abs((current.occ || 0) - (benchmark.occ || 0)) > 0.001) {
+        if (Math.abs(currentOcc - benchmarkOcc) > 0.001) {
           editedFields['Ocupación'].push(monthName);
         }
 
         // Comparar ADR (permitir pequeña tolerancia por redondeo)
-        if (Math.abs((current.adr || 0) - (benchmark.adr || 0)) > 0.01) {
+        if (Math.abs(currentAdr - benchmarkAdr) > 0.01) {
           editedFields['ADR'].push(monthName);
         }
       }
@@ -535,74 +541,6 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     return result;
   }
 
-  // Función para detectar campos editados en Paso 3
-  function getEditedFieldsStep3(): string[] {
-    if (!originalAnnuals || !originalAnnuals.length || !annuals?.length) return [];
-
-    // Agrupar años por campo editado
-    const editedFieldsMap: { [label: string]: string[] } = {};
-
-    const editableFields = [
-      { key: 'operating_revenue', label: 'Total Rev' },
-      { key: 'dept_total', label: 'Dept Total' },
-      { key: 'und_total', label: 'Undistributed' },
-      { key: 'fees', label: 'Fees' },
-      { key: 'nonop', label: 'Non-Operating' },
-      { key: 'ffe', label: 'FF&E' }
-    ];
-
-    annuals.forEach((current: any, idx: number) => {
-      // Solo comparar años editables (Año 2+)
-      if (current.anio < 2) return;
-
-      const original = originalAnnuals[idx];
-      if (!original) return;
-
-      editableFields.forEach(({ key, label }) => {
-        const currentVal = current[key] || 0;
-        const origVal = original[key] || 0;
-
-        // Permitir tolerancia de 10€ por redondeo
-        if (Math.abs(currentVal - origVal) > 10) {
-          if (!editedFieldsMap[label]) {
-            editedFieldsMap[label] = [];
-          }
-          editedFieldsMap[label].push(`Año ${current.anio}`);
-        }
-      });
-    });
-
-    // Formatear resultado agrupado
-    const result: string[] = [];
-    Object.entries(editedFieldsMap).forEach(([field, years]) => {
-      if (years.length > 0) {
-        result.push(`${field} (${years.join(', ')})`);
-      }
-    });
-
-    return result;
-  }
-
-  // Función para cargar proyección "limpia" para comparación
-  async function loadCleanProjection() {
-    try {
-      const ass = {
-        years: projectionAssumptions.horizonte,
-        adr_growth_pct: projectionAssumptions.adr_growth_pct,
-        occ_delta_pp: projectionAssumptions.occ_delta_pp,
-        occ_cap: projectionAssumptions.occ_cap,
-        cost_inflation_pct: projectionAssumptions.cost_inflation_pct,
-        undistributed_inflation_pct: projectionAssumptions.undistributed_inflation_pct,
-        nonop_inflation_pct: projectionAssumptions.nonop_inflation_pct,
-        fees_indexation_pct: projectionAssumptions.fees_indexation_pct
-      };
-      const r = await api(`/v1/projects/${projectId}/projection`, { method:'POST', body: JSON.stringify(ass) });
-      setOriginalAnnuals(r.annuals);
-    } catch (error) {
-      console.error('Error cargando proyección limpia:', error);
-    }
-  }
-
   useEffect(() => {
     loadAllConfig().catch(console.error);
     loadProjectState().catch(console.error);
@@ -655,13 +593,6 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       doDebt();
     }
   }, [accepted, calc, usaliSaved, projectionSaved, financingConfig, financingConfigSaved, projectId]);
-
-  // Cargar proyección "limpia" cuando se abre un proyecto con proyección guardada
-  useEffect(() => {
-    if (projectionSaved && annuals && annuals.length > 0 && (!originalAnnuals || originalAnnuals.length === 0)) {
-      loadCleanProjection();
-    }
-  }, [projectionSaved, annuals, projectionAssumptions]);
 
   async function accept() {
     // Normalizar datos: si días = 0, entonces occ = 0 y adr = 0
@@ -732,11 +663,6 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       };
       const r = await api(`/v1/projects/${projectId}/projection`, { method:'POST', body: JSON.stringify(ass) });
       setAnnuals(r.annuals);
-
-      // Guardar copia de la proyección original si aún no tenemos una guardada
-      if (!projectionSaved && (!originalAnnuals || originalAnnuals.length === 0)) {
-        setOriginalAnnuals(JSON.parse(JSON.stringify(r.annuals))); // Deep copy
-      }
 
       setProjectionSaved(false);
       setDebt(null);
@@ -1129,7 +1055,6 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               })()}
               </>
             )}
-            <EditedFieldsNote editedFields={getEditedFieldsStep3()} />
           </section>
         );
       })()}
