@@ -1334,6 +1334,48 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded text-sm">
                 <strong>Contexto:</strong> Estos supuestos permiten validar si el exit es razonable para la rentabilidad esperada.
               </div>
+
+              {/* INSIGHT SOBRE NOI ESTABILIZADO */}
+              {vr.valuation.noi_details && (
+                <div className="mt-4 p-4 bg-amber-50 border-2 border-amber-300 rounded-lg">
+                  <h5 className="font-semibold text-amber-900 mb-2 flex items-center gap-2">
+                    <span>ℹ️</span>
+                    <span>Nota sobre el valor de salida</span>
+                  </h5>
+                  <p className="text-sm text-amber-900 mb-3">
+                    El valor de salida se calcula capitalizando un <strong>NOI estabilizado</strong> del activo,
+                    obtenido a partir de los resultados operativos de los últimos{' '}
+                    <strong>{vr.valuation.noi_details.years_used} años</strong>, ajustados al año de salida
+                    con un crecimiento prudente del <strong>{fmtDecimal(vr.valuation.noi_details.growth_rate * 100, 1)}% anual</strong>.
+                  </p>
+                  <p className="text-sm text-amber-900 mb-3">
+                    Esta metodología evita que un único ejercicio puntual distorsione la valoración del activo
+                    y se alinea con las prácticas habituales en inversión hotelera.
+                  </p>
+                  <div className="bg-white p-3 rounded border border-amber-200">
+                    <div className="text-xs font-semibold text-amber-900 mb-2">Detalle del cálculo:</div>
+                    <div className="space-y-1 text-xs text-gray-700">
+                      {vr.valuation.noi_details.adjusted_nois.map((item: any, idx: number) => (
+                        <div key={idx} className="flex justify-between">
+                          <span>
+                            Año {item.anio}: {fmt(item.noi_year)}
+                            {item.years_to_exit > 0 && (
+                              <span className="text-gray-500">
+                                {' '}× (1.02)^{item.years_to_exit}
+                              </span>
+                            )}
+                          </span>
+                          <span className="font-semibold">{fmt(item.adjusted_noi)}</span>
+                        </div>
+                      ))}
+                      <div className="pt-2 mt-2 border-t border-amber-200 flex justify-between font-semibold">
+                        <span>NOI Estabilizado (media):</span>
+                        <span className="text-amber-900">{fmt(vr.valuation.noi_estabilizado)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 2) CHEQUEO DE PLAUSIBILIDAD DEL EXIT */}
@@ -1382,6 +1424,97 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                 </div>
               </div>
             </div>
+
+            {/* 2B) ANÁLISIS DE PRECIO DE COMPRA IMPLÍCITO */}
+            {vr.valuation.precio_compra_implicito !== undefined && (
+              <div className="mb-6 p-4 border-2 border-green-200 rounded-lg bg-green-50">
+                <h4 className="font-semibold text-lg mb-3">Análisis de Precio de Compra</h4>
+                <p className="text-sm text-gray-700 mb-4">¿Estoy pagando una prima o comprando con descuento?</p>
+
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="p-4 bg-white border-2 border-gray-400 rounded-lg">
+                    <div className="text-sm text-gray-600 mb-1">Precio Introducido</div>
+                    <div className="text-xl font-bold text-gray-800">{fmt(vr.valuation.precio_compra_real)}</div>
+                    <div className="text-xs text-gray-500 mt-1">por el usuario</div>
+                  </div>
+
+                  <div className="p-4 bg-white border-2 border-green-400 rounded-lg">
+                    <div className="text-sm text-gray-600 mb-1">Precio Implícito</div>
+                    <div className="text-xl font-bold text-green-700">{fmt(vr.valuation.precio_compra_implicito)}</div>
+                    <div className="text-xs text-gray-500 mt-1">según flujos y exit</div>
+                  </div>
+
+                  <div className="p-4 bg-white border-2 border-purple-400 rounded-lg">
+                    <div className="text-sm text-gray-600 mb-1">Diferencia</div>
+                    <div className={`text-xl font-bold ${
+                      vr.valuation.precio_compra_real < vr.valuation.precio_compra_implicito
+                        ? 'text-green-700'
+                        : 'text-red-700'
+                    }`}>
+                      {vr.valuation.precio_compra_real < vr.valuation.precio_compra_implicito ? '↓ ' : '↑ '}
+                      {fmt(Math.abs(vr.valuation.precio_compra_real - vr.valuation.precio_compra_implicito))}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {fmtDecimal(
+                        Math.abs((vr.valuation.precio_compra_real - vr.valuation.precio_compra_implicito) / vr.valuation.precio_compra_implicito * 100),
+                        1
+                      )}%
+                      {vr.valuation.precio_compra_real < vr.valuation.precio_compra_implicito
+                        ? ' descuento'
+                        : ' prima'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-4 rounded border border-green-200">
+                  <div className="text-sm mb-2">
+                    <strong>Interpretación:</strong>
+                    {vr.valuation.precio_compra_real < vr.valuation.precio_compra_implicito ? (
+                      <span className="text-green-700">
+                        {' '}Estás comprando el activo con un <strong>descuento del{' '}
+                        {fmtDecimal(Math.abs((vr.valuation.precio_compra_real - vr.valuation.precio_compra_implicito) / vr.valuation.precio_compra_implicito * 100), 1)}%</strong>{' '}
+                        respecto al precio que los flujos operativos y el valor de salida justificarían.
+                        Esto genera un margen de seguridad positivo para la inversión.
+                      </span>
+                    ) : vr.valuation.precio_compra_real > vr.valuation.precio_compra_implicito ? (
+                      <span className="text-red-700">
+                        {' '}Estás pagando una <strong>prima del{' '}
+                        {fmtDecimal(Math.abs((vr.valuation.precio_compra_real - vr.valuation.precio_compra_implicito) / vr.valuation.precio_compra_implicito * 100), 1)}%</strong>{' '}
+                        por encima del precio que los flujos operativos y el valor de salida justificarían.
+                        Esto reduce el margen de seguridad de la inversión.
+                      </span>
+                    ) : (
+                      <span className="text-gray-700">
+                        {' '}El precio introducido coincide exactamente con el precio implícito.
+                        El valor presente de los flujos y el exit es neutro a la tasa de descuento utilizada.
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-600 mt-2 pt-2 border-t border-gray-200">
+                    Tasa de descuento utilizada: {fmtDecimal(vr.valuation.discount_rate * 100, 2)}%
+                    {' '}(basada en {valuationConfig.metodo_valoracion === 'cap_rate' ? 'cap rate' : 'tasa implícita del múltiplo'} de salida)
+                  </div>
+                </div>
+
+                {/* Insight explicativo */}
+                <div className="mt-4 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                  <h5 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                    <span>ℹ️</span>
+                    <span>Nota sobre el precio de compra implícito</span>
+                  </h5>
+                  <p className="text-sm text-blue-900">
+                    El <strong>precio de compra implícito</strong> se calcula descontando los flujos operativos del proyecto
+                    y el valor de salida estimado utilizando el mismo cap rate definido para el exit
+                    ({fmtDecimal(vr.valuation.discount_rate * 100, 2)}%).
+                  </p>
+                  <p className="text-sm text-blue-900 mt-2">
+                    Este valor representa el <strong>precio máximo económicamente coherente</strong> con la operativa
+                    y la valoración de salida, y sirve como referencia para evaluar si el precio introducido
+                    implica pagar una prima o adquirir el activo con descuento.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* 3) FOTO DE LA INVERSIÓN - FUENTES & USOS */}
             <div className="mb-6 p-4 border rounded-lg bg-gray-50">
@@ -1629,7 +1762,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                   aplicando {valuationConfig.metodo_valoracion === 'cap_rate'
                     ? `un cap rate de salida del ${fmtDecimal((valuationConfig.cap_rate_salida ?? 0) * 100, 2)}%`
                     : `un múltiplo de ${fmtDecimal(valuationConfig.multiplo_salida ?? 0, 2)}x`
-                  } sobre el NOI del último año ({fmt(noiLastYear)}).
+                  } sobre un NOI estabilizado de {fmt(vr.valuation.noi_estabilizado ?? noiLastYear)}
+                  {vr.valuation.noi_details && ` (media ajustada de los últimos ${vr.valuation.noi_details.years_used} años)`}.
                   Tras liquidar la deuda pendiente ({fmt(saldoDeudaFinal)}),
                   el equity neto al exit es de {fmt(equityAtExit)} ({fmt(equityAtExit / keys)} por key).
                 </p>
@@ -1643,7 +1777,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                     : 'El apalancamiento reduce la rentabilidad del equity.'
                   }
                   {' '}La plausibilidad del exit debe evaluarse considerando que el valor por key de {fmt(vr.valuation.valor_salida_neto / keys)}
-                  se fundamenta en un NOI anual de {fmt(noiLastYear / keys)} por habitación.
+                  se fundamenta en un NOI estabilizado de {fmt((vr.valuation.noi_estabilizado ?? noiLastYear) / keys)} por habitación.
                 </p>
 
                 <p className="pt-2 border-t border-gray-300 italic">

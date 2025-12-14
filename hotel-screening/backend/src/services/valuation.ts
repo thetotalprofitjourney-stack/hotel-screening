@@ -53,8 +53,25 @@ export async function valuationAndReturns(project_id:string) {
   );
 
   const years = annRows[annRows.length - 1].anio;
-  const exitBase = annRows.find((r:any)=> r.anio===years);
-  const noi = Number(exitBase.ebitda_less_ffe ?? exitBase.ebitda); // NOI proxy
+
+  // ✅ NUEVO CÁLCULO: NOI ESTABILIZADO (últimos 4 años ajustados al año de salida con 2% anual)
+  const GROWTH_RATE = 0.02; // Parámetro interno fijo: 2% anual
+  const NUM_YEARS_AVG = 4;  // Últimos 4 años
+
+  // Tomar los últimos N años disponibles (máximo 4)
+  const yearsToAvg = Math.min(NUM_YEARS_AVG, annRows.length);
+  const relevantYears = annRows.slice(-yearsToAvg);
+
+  // Ajustar cada NOI al año de salida
+  const adjustedNOIs = relevantYears.map((r: any) => {
+    const noi_year = Number(r.ebitda_less_ffe ?? r.ebitda);
+    const years_to_exit = years - r.anio;
+    const adjusted_noi = noi_year * Math.pow(1 + GROWTH_RATE, years_to_exit);
+    return { anio: r.anio, noi_year, years_to_exit, adjusted_noi };
+  });
+
+  // Calcular media de los NOI ajustados
+  const noi = adjustedNOIs.reduce((sum: number, item: any) => sum + item.adjusted_noi, 0) / yearsToAvg;
 
   let valor_salida_bruto = 0;
   if (ps.metodo_valoracion === 'multiplo') {
@@ -66,6 +83,31 @@ export async function valuationAndReturns(project_id:string) {
   }
   const costs_sell = Number(ps.coste_tx_venta_pct ?? 0) * valor_salida_bruto;
   const valor_salida_neto = valor_salida_bruto - costs_sell;
+
+  // ✅ NUEVO CÁLCULO: PRECIO DE COMPRA IMPLÍCITO
+  // Tasa de descuento = cap rate de salida (o tasa implícita si se usa múltiplo)
+  const discount_rate = ps.metodo_valoracion === 'cap_rate'
+    ? Number(ps.cap_rate_salida ?? 0.08)
+    : (1 / Number(ps.multiplo_salida ?? 12.5)); // Tasa implícita del múltiplo
+
+  // Calcular PV de flujos operativos (años 1 a N)
+  let pv_flujos_operativos = 0;
+  for (let y = 1; y <= years; y++) {
+    const r: any = annRows.find((a: any) => a.anio === y);
+    const cash = Number(r.ebitda_less_ffe ?? r.ebitda);
+    pv_flujos_operativos += cash / Math.pow(1 + discount_rate, y);
+  }
+
+  // Calcular PV del valor de salida neto
+  const pv_exit = valor_salida_neto / Math.pow(1 + discount_rate, years);
+
+  // Resolver para precio de compra que hace NPV = 0
+  // NPV = -Precio_compra * (1 + pct_tx_compra) - capex_inicial + PV_flujos + PV_exit = 0
+  // Precio_compra = (PV_flujos + PV_exit - capex_inicial) / (1 + pct_tx_compra)
+  const capex_inicial = Number(ft.capex_inicial ?? 0);
+  const pct_tx_compra = Number(ps.coste_tx_compra_pct ?? 0);
+
+  const precio_compra_implicito = (pv_flujos_operativos + pv_exit - capex_inicial) / (1 + pct_tx_compra);
 
   // Equity inicial (t0)
   const base = Number(ft.precio_compra ?? 0) + Number(ft.capex_inicial ?? 0);
@@ -138,7 +180,19 @@ export async function valuationAndReturns(project_id:string) {
   await pool.query(`UPDATE projects SET estado='finalized', updated_at=NOW(3) WHERE project_id=?`, [project_id]);
 
   return {
-    valuation: { valor_salida_bruto, valor_salida_neto },
+    valuation: {
+      valor_salida_bruto,
+      valor_salida_neto,
+      noi_estabilizado: noi,
+      noi_details: {
+        years_used: yearsToAvg,
+        growth_rate: GROWTH_RATE,
+        adjusted_nois: adjustedNOIs
+      },
+      precio_compra_implicito,
+      precio_compra_real: Number(ft.precio_compra ?? 0),
+      discount_rate
+    },
     returns: {
       unlevered: { irr: irr_unlev, moic: moic_unlev },
       levered:   { irr: irr_lev,   moic: moic_lev, equity0 }
