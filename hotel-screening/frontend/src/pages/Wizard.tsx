@@ -787,13 +787,93 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
           {/* Tabla de Proyección (read-only) */}
           {annuals && (
-            <div className="opacity-75 pointer-events-none">
-              <AnnualUsaliTable
-                data={annuals}
-                editable={false}
-                onChange={() => {}}
-              />
-            </div>
+            <>
+              <div className="opacity-75 pointer-events-none">
+                <AnnualUsaliTable
+                  data={annuals}
+                  editable={false}
+                  onChange={() => {}}
+                />
+              </div>
+
+              {/* Banner de Totales Acumulados por Key */}
+              {(() => {
+                // Calcular totales acumulados
+                const totals = annuals.reduce((acc, year) => ({
+                  operating_revenue: acc.operating_revenue + (year.operating_revenue || 0),
+                  gop: acc.gop + (year.gop || 0),
+                  fees: acc.fees + (year.fees || 0),
+                  ebitda: acc.ebitda + (year.ebitda || 0),
+                  ffe: acc.ffe + (year.ffe || 0),
+                  ebitda_less_ffe: acc.ebitda_less_ffe + (year.ebitda_less_ffe || 0),
+                }), {
+                  operating_revenue: 0,
+                  gop: 0,
+                  fees: 0,
+                  ebitda: 0,
+                  ffe: 0,
+                  ebitda_less_ffe: 0,
+                });
+
+                const key = basicInfo.habitaciones; // Habitaciones físicas
+                const totalRev = totals.operating_revenue || 1; // Para evitar división por 0
+
+                return (
+                  <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-semibold mb-3">Resumen Acumulado ({annuals.length} años) - Por Key ({key} habitaciones)</h4>
+                    <div className="grid grid-cols-3 gap-3">
+                      {/* Total Rev */}
+                      <div className="p-3 border rounded bg-blue-50">
+                        <div className="text-xs text-gray-600 mb-1">Total Revenue</div>
+                        <div className="font-semibold">{fmt(totals.operating_revenue)}</div>
+                        <div className="text-sm text-gray-600">{fmt(totals.operating_revenue / key)} / key</div>
+                        <div className="text-sm text-gray-600">100.00%</div>
+                      </div>
+
+                      {/* GOP */}
+                      <div className="p-3 border rounded bg-green-50">
+                        <div className="text-xs text-gray-600 mb-1">GOP</div>
+                        <div className="font-semibold">{fmt(totals.gop)}</div>
+                        <div className="text-sm text-gray-600">{fmt(totals.gop / key)} / key</div>
+                        <div className="text-sm text-gray-600">{fmtDecimal((totals.gop / totalRev) * 100, 2)}%</div>
+                      </div>
+
+                      {/* FEES */}
+                      <div className="p-3 border rounded bg-pink-50">
+                        <div className="text-xs text-gray-600 mb-1">FEES</div>
+                        <div className="font-semibold">{fmt(totals.fees)}</div>
+                        <div className="text-sm text-gray-600">{fmt(totals.fees / key)} / key</div>
+                        <div className="text-sm text-gray-600">{fmtDecimal((totals.fees / totalRev) * 100, 2)}%</div>
+                      </div>
+
+                      {/* EBITDA */}
+                      <div className="p-3 border rounded bg-purple-50">
+                        <div className="text-xs text-gray-600 mb-1">EBITDA</div>
+                        <div className="font-semibold">{fmt(totals.ebitda)}</div>
+                        <div className="text-sm text-gray-600">{fmt(totals.ebitda / key)} / key</div>
+                        <div className="text-sm text-gray-600">{fmtDecimal((totals.ebitda / totalRev) * 100, 2)}%</div>
+                      </div>
+
+                      {/* FF&E */}
+                      <div className="p-3 border rounded bg-gray-100">
+                        <div className="text-xs text-gray-600 mb-1">FF&E</div>
+                        <div className="font-semibold">{fmt(totals.ffe)}</div>
+                        <div className="text-sm text-gray-600">{fmt(totals.ffe / key)} / key</div>
+                        <div className="text-sm text-gray-600">{fmtDecimal((totals.ffe / totalRev) * 100, 2)}%</div>
+                      </div>
+
+                      {/* EBITDA-FF&E */}
+                      <div className="p-3 border rounded bg-orange-50">
+                        <div className="text-xs text-gray-600 mb-1">EBITDA-FF&E</div>
+                        <div className="font-semibold">{fmt(totals.ebitda_less_ffe)}</div>
+                        <div className="text-sm text-gray-600">{fmt(totals.ebitda_less_ffe / key)} / key</div>
+                        <div className="text-sm text-gray-600">{fmtDecimal((totals.ebitda_less_ffe / totalRev) * 100, 2)}%</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
           )}
         </section>
       )}
