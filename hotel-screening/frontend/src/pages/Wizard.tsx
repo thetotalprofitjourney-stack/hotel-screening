@@ -355,6 +355,13 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
   async function saveValuationConfig() {
     try {
+      // Validar que precio_compra sea mayor que 0
+      const precioCompra = Number(financingConfig.precio_compra || 0);
+      if (precioCompra <= 0) {
+        alert('Para calcular la Valoración y Retornos es necesario establecer un Precio de compra (€) mayor que 0 en la configuración de Deuda.');
+        return;
+      }
+
       const configData = {
         nombre: basicInfo.nombre,
         comunidad_autonoma: basicInfo.comunidad_autonoma,
@@ -670,6 +677,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                   operationConfig.nonop_other_anual
                 }
                 ffePercent={operationConfig.ffe}
+                habitaciones={basicInfo.habitaciones}
+                diasData={meses.map(m => ({ mes: m.mes, dias: m.dias }))}
               />
             )}
 
@@ -728,73 +737,88 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               operationConfig.nonop_other_anual
             }
             ffePercent={operationConfig.ffe}
+            habitaciones={basicInfo.habitaciones}
+            diasData={meses.map(m => ({ mes: m.mes, dias: m.dias }))}
           />
         </section>
       )}
 
       {/* PASO 3: Proyección 2..N (aparece después de guardar Paso 2, antes de guardar Paso 3) */}
-      {accepted && calc && usaliSaved && !projectionSaved && (
-        <section>
-          <h3 className="text-lg font-semibold mb-2">Paso 3 — Proyección años 1 a {projectionAssumptions.horizonte}</h3>
+      {accepted && calc && usaliSaved && !projectionSaved && (() => {
+        // Calcular si los días fueron modificados
+        const totalDias = meses.reduce((sum, m) => sum + (m.dias || 0), 0);
+        const diasModificados = totalDias !== basicInfo.habitaciones * 365;
 
-          {/* Formulario de Supuestos */}
-          <ProjectionAssumptionsForm
-            data={projectionAssumptions}
-            onChange={setProjectionAssumptions}
-            onSubmit={saveProjectionAssumptions}
-            showSubmitButton={false}
-          />
+        return (
+          <section>
+            <h3 className="text-lg font-semibold mb-2">Paso 3 — Proyección años 1 a {projectionAssumptions.horizonte}</h3>
 
-          {/* Tabla de Proyección */}
-          {annuals && (
-            <>
-              <div className="mt-3">
-                <AnnualUsaliTable
-                  data={annuals}
-                  editable={true}
-                  onChange={setAnnuals}
-                />
-              </div>
-
-              <div className="mt-3">
-                <button
-                  className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
-                  onClick={() => saveProjection(annuals)}
-                  disabled={loading.save_projection}
-                >
-                  {loading.save_projection ? 'Guardando...' : 'Guardar Paso 3 (PROYECCIÓN)'}
-                </button>
-              </div>
-            </>
-          )}
-        </section>
-      )}
-
-      {/* PASO 3 guardado (read-only) */}
-      {accepted && calc && usaliSaved && projectionSaved && (
-        <section>
-          <h3 className="text-lg font-semibold mb-4">Paso 3 — Proyección ✓</h3>
-
-          {/* Formulario de Supuestos (read-only) */}
-          <div className="mb-6 opacity-75 pointer-events-none">
+            {/* Formulario de Supuestos */}
             <ProjectionAssumptionsForm
               data={projectionAssumptions}
-              onChange={() => {}}
-              onSubmit={() => {}}
+              onChange={setProjectionAssumptions}
+              onSubmit={saveProjectionAssumptions}
               showSubmitButton={false}
             />
-          </div>
 
-          {/* Tabla de Proyección (read-only) */}
-          {annuals && (
-            <>
-              <div className="opacity-75 pointer-events-none">
-                <AnnualUsaliTable
-                  data={annuals}
-                  editable={false}
-                  onChange={() => {}}
-                />
-              </div>
+            {/* Tabla de Proyección */}
+            {annuals && (
+              <>
+                <div className="mt-3">
+                  <AnnualUsaliTable
+                    data={annuals}
+                    editable={true}
+                    onChange={setAnnuals}
+                    diasModificados={diasModificados}
+                  />
+                </div>
+
+                <div className="mt-3">
+                  <button
+                    className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
+                    onClick={() => saveProjection(annuals)}
+                    disabled={loading.save_projection}
+                  >
+                    {loading.save_projection ? 'Guardando...' : 'Guardar Paso 3 (PROYECCIÓN)'}
+                  </button>
+                </div>
+              </>
+            )}
+          </section>
+        );
+      })()}
+
+      {/* PASO 3 guardado (read-only) */}
+      {accepted && calc && usaliSaved && projectionSaved && (() => {
+        // Calcular si los días fueron modificados
+        const totalDias = meses.reduce((sum, m) => sum + (m.dias || 0), 0);
+        const diasModificados = totalDias !== basicInfo.habitaciones * 365;
+
+        return (
+          <section>
+            <h3 className="text-lg font-semibold mb-4">Paso 3 — Proyección ✓</h3>
+
+            {/* Formulario de Supuestos (read-only) */}
+            <div className="mb-6 opacity-75 pointer-events-none">
+              <ProjectionAssumptionsForm
+                data={projectionAssumptions}
+                onChange={() => {}}
+                onSubmit={() => {}}
+                showSubmitButton={false}
+              />
+            </div>
+
+            {/* Tabla de Proyección (read-only) */}
+            {annuals && (
+              <>
+                <div className="opacity-75 pointer-events-none">
+                  <AnnualUsaliTable
+                    data={annuals}
+                    editable={false}
+                    onChange={() => {}}
+                    diasModificados={diasModificados}
+                  />
+                </div>
 
               {/* Banner de Totales Acumulados por Key */}
               {(() => {
@@ -873,10 +897,11 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                   </div>
                 );
               })()}
-            </>
-          )}
-        </section>
-      )}
+              </>
+            )}
+          </section>
+        );
+      })()}
 
       {/* PASO 4: Deuda (aparece después de guardar Paso 3, antes de guardar Paso 4) */}
       {accepted && calc && usaliSaved && projectionSaved && !financingConfigSaved && (

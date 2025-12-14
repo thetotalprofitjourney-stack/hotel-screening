@@ -53,6 +53,7 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
     let totalRoomnights = 0;
     let totalRoomsRev = 0;
     let totalAvailableRooms = 0;
+    let totalDias = 0;
 
     rows.forEach((r) => {
       const ocupacion = normalizeOcc(r.occ);
@@ -64,17 +65,28 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
       totalRoomnights += roomnights;
       totalRoomsRev += roomsRev;
       totalAvailableRooms += availableRooms;
+      totalDias += dias;
     });
 
-    // Ocupación anual = sumatorio de Roomnights / sumatorio de habitaciones disponibles del año
+    // Ocupación operativa (días abiertos) = sumatorio de Roomnights / sumatorio de habitaciones disponibles del año
     const occAnual = totalAvailableRooms > 0 ? totalRoomnights / totalAvailableRooms : 0;
+
+    // Ocupación financiera (inventario total 365 días)
+    const inventarioTotal = habitaciones * 365;
+    const occFinanciera = inventarioTotal > 0 ? totalRoomnights / inventarioTotal : 0;
+
     // ADR anual = Rooms Rev anualizado / Roomnights anualizadas
     const adrAnual = totalRoomnights > 0 ? totalRoomsRev / totalRoomnights : 0;
     // RevPAR anual = ocupación anual * ADR anual
     const revparAnual = occAnual * adrAnual;
 
+    // Detectar si se han modificado días (comparar con inventario total)
+    const diasModificados = totalDias !== inventarioTotal;
+
     return {
       ocupacion: occAnual,
+      ocupacionFinanciera: occFinanciera,
+      diasModificados,
       adr: adrAnual,
       roomnights: totalRoomnights,
       roomsRev: totalRoomsRev,
@@ -153,8 +165,11 @@ export default function MonthlyTable({ rows, onChange, habitaciones }:{ rows:any
       </div>
 
       {/* KPIs Anuales - DESPUÉS */}
-      <div className="grid grid-cols-5 gap-3 p-4 bg-gray-50 rounded-lg">
+      <div className={`grid gap-3 p-4 bg-gray-50 rounded-lg ${annual.diasModificados ? 'grid-cols-6' : 'grid-cols-5'}`}>
         <Stat label="Ocupación" value={`${fmtDecimal(annual.ocupacion * 100, 1)}%`} />
+        {annual.diasModificados && (
+          <Stat label="Ocupación si 100%" value={`${fmtDecimal(annual.ocupacionFinanciera * 100, 1)}%`} />
+        )}
         <Stat label="ADR" value={fmtDecimal(annual.adr, 2)} />
         <Stat label="Roomnights" value={fmtNumber(annual.roomnights)} />
         <Stat label="Rooms Rev" value={fmt(annual.roomsRev)} />
