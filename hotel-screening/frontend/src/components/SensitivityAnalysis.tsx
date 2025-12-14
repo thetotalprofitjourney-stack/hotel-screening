@@ -60,8 +60,8 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
   const [scenarios, setScenarios] = useState<Scenario[]>(DEFAULT_SCENARIOS);
   const [editMode, setEditMode] = useState(false);
   const [newScenarioName, setNewScenarioName] = useState('');
-  const [newScenarioADR, setNewScenarioADR] = useState(0);
-  const [newScenarioOcc, setNewScenarioOcc] = useState(0);
+  const [newScenarioADR, setNewScenarioADR] = useState('0');
+  const [newScenarioOcc, setNewScenarioOcc] = useState('0');
   const hasRunAutoAnalysis = useRef(false);
   const [scenariosLoaded, setScenariosLoaded] = useState(false);
 
@@ -129,16 +129,20 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
       alert('Debes proporcionar un nombre para el escenario');
       return;
     }
+
+    const adrValue = parseFloat(newScenarioADR) || 0;
+    const occValue = parseFloat(newScenarioOcc) || 0;
+
     const newScenario: Scenario = {
       id: Date.now().toString(),
       name: newScenarioName.trim(),
-      adr_delta_pct: newScenarioADR / 100,
-      occ_delta_pp: newScenarioOcc,
+      adr_delta_pct: adrValue / 100,
+      occ_delta_pp: occValue,
     };
     setScenarios([...scenarios, newScenario]);
     setNewScenarioName('');
-    setNewScenarioADR(0);
-    setNewScenarioOcc(0);
+    setNewScenarioADR('0');
+    setNewScenarioOcc('0');
   };
 
   const removeScenario = (id: string) => {
@@ -317,10 +321,7 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
                   className="w-full px-2 py-1 border rounded text-sm"
                   placeholder="Ej: 2.0"
                   value={newScenarioADR}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    setNewScenarioADR(isNaN(val) ? 0 : val);
-                  }}
+                  onChange={(e) => setNewScenarioADR(e.target.value)}
                 />
                 <p className="text-xs text-gray-500 mt-1">Ej: 2 para +2%, -3 para -3%</p>
               </div>
@@ -332,10 +333,7 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
                   className="w-full px-2 py-1 border rounded text-sm"
                   placeholder="Ej: -1.0"
                   value={newScenarioOcc}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    setNewScenarioOcc(isNaN(val) ? 0 : val);
-                  }}
+                  onChange={(e) => setNewScenarioOcc(e.target.value)}
                 />
                 <p className="text-xs text-gray-500 mt-1">Ej: 1 para +1pp, -2 para -2pp</p>
               </div>

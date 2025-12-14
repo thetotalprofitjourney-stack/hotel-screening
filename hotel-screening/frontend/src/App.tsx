@@ -19,7 +19,7 @@ export default function App() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <header className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Hotel Screening</h1>
+        <div></div>
         <div className="text-sm text-gray-500">usuario: {localStorage.getItem('email')}</div>
       </header>
 

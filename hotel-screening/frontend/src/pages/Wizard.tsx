@@ -860,15 +860,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex items-center">
         <button className="px-2 py-1 border rounded" onClick={onBack}>← Volver</button>
-        {basicInfoSaved && (
-          <div className="flex items-center gap-2">
-            <span>Año base</span>
-            <input className="border px-2 py-1 rounded w-24" type="number" value={anio} onChange={e=>setAnio(Number(e.target.value))} />
-            <button className="px-2 py-1 border rounded" onClick={loadBenchmark}>Recargar</button>
-          </div>
-        )}
       </div>
 
       {/* INICIO: Datos básicos del proyecto */}
