@@ -424,7 +424,13 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
                         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    const changes: string[] = [];
+
+    // Agrupar meses por campo editado
+    const editedFields: { [field: string]: string[] } = {
+      'Días de operativa': [],
+      'Ocupación': [],
+      'ADR': []
+    };
 
     meses.forEach((current, idx) => {
       const benchmark = benchmarkMeses[idx];
@@ -434,21 +440,29 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
       // Comparar días (permitir pequeña tolerancia por redondeo)
       if (Math.abs((current.dias || 0) - (benchmark.dias || 0)) > 0.01) {
-        changes.push(`Días de operativa (${monthName})`);
+        editedFields['Días de operativa'].push(monthName);
       }
 
       // Comparar ocupación (permitir pequeña tolerancia por redondeo)
       if (Math.abs((current.occ || 0) - (benchmark.occ || 0)) > 0.001) {
-        changes.push(`Ocupación (${monthName})`);
+        editedFields['Ocupación'].push(monthName);
       }
 
       // Comparar ADR (permitir pequeña tolerancia por redondeo)
       if (Math.abs((current.adr || 0) - (benchmark.adr || 0)) > 0.01) {
-        changes.push(`ADR (${monthName})`);
+        editedFields['ADR'].push(monthName);
       }
     });
 
-    return changes;
+    // Formatear resultado agrupado
+    const result: string[] = [];
+    Object.entries(editedFields).forEach(([field, months]) => {
+      if (months.length > 0) {
+        result.push(`${field} (${months.join(', ')})`);
+      }
+    });
+
+    return result;
   }
 
   // Función para detectar campos editados en Paso 2
@@ -457,7 +471,6 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
                         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    const changes: Set<string> = new Set();
 
     const editableFields = [
       { key: 'fb', label: 'F&B' },
@@ -473,6 +486,9 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       { key: 'und_eww', label: 'Energy/Water/Waste' }
     ];
 
+    // Agrupar meses por campo editado
+    const editedFieldsMap: { [label: string]: string[] } = {};
+
     calc.y1_mensual.forEach((current: any, idx: number) => {
       const calculated = calculatedUsali[idx];
       if (!calculated) return;
@@ -485,48 +501,23 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
         // Permitir tolerancia de 1€ por redondeo
         if (Math.abs(currentVal - calcVal) > 1) {
-          changes.add(`${label} (${monthName})`);
+          if (!editedFieldsMap[label]) {
+            editedFieldsMap[label] = [];
+          }
+          editedFieldsMap[label].push(monthName);
         }
       });
     });
 
-    return Array.from(changes);
-  }
-
-  // Función para detectar campos editados en Paso 3
-  function getEditedFieldsStep3(): string[] {
-    if (!originalAnnuals.length || !annuals?.length) return [];
-
-    const changes: Set<string> = new Set();
-
-    const editableFields = [
-      { key: 'operating_revenue', label: 'Operating Revenue' },
-      { key: 'dept_total', label: 'Dept Total' },
-      { key: 'und_total', label: 'Undistributed' },
-      { key: 'fees', label: 'Fees' },
-      { key: 'nonop', label: 'Non-Operating' },
-      { key: 'ffe', label: 'FF&E' }
-    ];
-
-    annuals.forEach((current: any, idx: number) => {
-      // Solo comparar años editables (Año 2+)
-      if (current.anio < 2) return;
-
-      const original = originalAnnuals[idx];
-      if (!original) return;
-
-      editableFields.forEach(({ key, label }) => {
-        const currentVal = current[key] || 0;
-        const origVal = original[key] || 0;
-
-        // Permitir tolerancia de 10€ por redondeo
-        if (Math.abs(currentVal - origVal) > 10) {
-          changes.add(`${label} (Año ${current.anio})`);
-        }
-      });
+    // Formatear resultado agrupado
+    const result: string[] = [];
+    Object.entries(editedFieldsMap).forEach(([field, months]) => {
+      if (months.length > 0) {
+        result.push(`${field} (${months.join(', ')})`);
+      }
     });
 
-    return Array.from(changes);
+    return result;
   }
 
   useEffect(() => {
@@ -1048,7 +1039,6 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               })()}
               </>
             )}
-            <EditedFieldsNote editedFields={getEditedFieldsStep3()} />
           </section>
         );
       })()}
