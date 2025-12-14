@@ -463,9 +463,20 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   }, [accepted, calc, usaliSaved, projectionSaved, financingConfig, financingConfigSaved, projectId]);
 
   async function accept() {
+    // Normalizar datos: si días = 0, entonces occ = 0 y adr = 0
+    const normalizedMeses = meses.map((m: any) => {
+      if (m.dias === 0) {
+        return { mes: m.mes, dias: 0, occ: 0, adr: 0 };
+      }
+      return { mes: m.mes, dias: m.dias, occ: m.occ, adr: m.adr };
+    });
+
+    // Actualizar estado local con valores normalizados
+    setMeses(normalizedMeses);
+
     await api(`/v1/projects/${projectId}/y1/benchmark/accept`, {
       method:'POST',
-      body: JSON.stringify({ anio_base: anio, meses: meses.map((m:any)=>({ mes:m.mes, dias:m.dias, occ:m.occ, adr:m.adr })) })
+      body: JSON.stringify({ anio_base: anio, meses: normalizedMeses })
     });
 
     setProjectState('y1_commercial');
