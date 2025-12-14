@@ -1297,6 +1297,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               fees_indexation_pct: projectionAssumptions.fees_indexation_pct
             }}
             baseIRR={vr.returns.levered.irr}
+            isFinalized={projectState === 'finalized'}
           />
         </section>
       )}

@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api';
 
+// Función de formateo de números (formato español)
+function fmtDecimal(n: number, decimals: number = 2) {
+  return n.toLocaleString('es-ES', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
+}
+
 const OPTS = [
   { key:'irr_levered', label:'IRR levered' },
   { key:'y1_yield_on_cost', label:'Yield on Cost Y1' },
@@ -25,6 +33,8 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
   const [selectedCategorias, setSelectedCategorias] = useState<string[]>([]);
   const [irrMin, setIrrMin] = useState<number | null>(null);
   const [irrMax, setIrrMax] = useState<number | null>(null);
+  const [fechaMin, setFechaMin] = useState<string>('');
+  const [fechaMax, setFechaMax] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
 
   async function load() {
@@ -56,12 +66,23 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
       filtered = filtered.filter(r => r.irr_levered !== null && r.irr_levered <= irrMax / 100);
     }
 
+    // Filtro por rango de fecha
+    if (fechaMin) {
+      const minDate = new Date(fechaMin);
+      filtered = filtered.filter(r => r.created_at && new Date(r.created_at) >= minDate);
+    }
+    if (fechaMax) {
+      const maxDate = new Date(fechaMax);
+      maxDate.setHours(23, 59, 59, 999); // Incluir todo el día
+      filtered = filtered.filter(r => r.created_at && new Date(r.created_at) <= maxDate);
+    }
+
     setRows(filtered);
   };
 
   useEffect(() => {
     applyFilters();
-  }, [selectedSegmentos, selectedCategorias, irrMin, irrMax, allRows]);
+  }, [selectedSegmentos, selectedCategorias, irrMin, irrMax, fechaMin, fechaMax, allRows]);
 
   const toggleSegmento = (seg: string) => {
     setSelectedSegmentos(prev =>
@@ -80,6 +101,8 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
     setSelectedCategorias([]);
     setIrrMin(null);
     setIrrMax(null);
+    setFechaMin('');
+    setFechaMax('');
   };
 
   return (
@@ -120,7 +143,7 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
             </button>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             {/* Filtro por segmento */}
             <div>
               <label className="block text-sm font-medium mb-2">Segmento</label>
@@ -185,17 +208,47 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
                 </div>
               </div>
             </div>
+
+            {/* Filtro por rango de Fecha de Alta */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Rango de Fecha de Alta</label>
+              <div className="space-y-2">
+                <div>
+                  <label className="text-xs text-gray-600">Desde</label>
+                  <input
+                    type="date"
+                    value={fechaMin}
+                    onChange={e => setFechaMin(e.target.value)}
+                    className="w-full border px-2 py-1 rounded text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-600">Hasta</label>
+                  <input
+                    type="date"
+                    value={fechaMax}
+                    onChange={e => setFechaMax(e.target.value)}
+                    className="w-full border px-2 py-1 rounded text-sm"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Resumen de filtros activos */}
-          {(selectedSegmentos.length > 0 || selectedCategorias.length > 0 || irrMin !== null || irrMax !== null) && (
+          {(selectedSegmentos.length > 0 || selectedCategorias.length > 0 || irrMin !== null || irrMax !== null || fechaMin || fechaMax) && (
             <div className="mt-3 pt-3 border-t text-sm">
               <strong>Filtros activos:</strong>{' '}
               {selectedSegmentos.length > 0 && <span className="text-blue-600">Segmentos: {selectedSegmentos.join(', ')} </span>}
               {selectedCategorias.length > 0 && <span className="text-green-600">Categorías: {selectedCategorias.join(', ')} </span>}
               {(irrMin !== null || irrMax !== null) && (
                 <span className="text-purple-600">
-                  IRR: {irrMin ?? '-∞'}% - {irrMax ?? '+∞'}%
+                  IRR: {irrMin ?? '-∞'}% - {irrMax ?? '+∞'}%{' '}
+                </span>
+              )}
+              {(fechaMin || fechaMax) && (
+                <span className="text-orange-600">
+                  Fecha: {fechaMin || 'inicio'} - {fechaMax || 'hoy'}
                 </span>
               )}
             </div>
