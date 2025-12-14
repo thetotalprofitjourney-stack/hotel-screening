@@ -236,11 +236,11 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
   };
 
   return (
-    <div className="mt-6 p-4 border rounded-lg bg-gray-50">
+    <div className="mt-6 p-4 border-2 border-orange-300 rounded-lg bg-orange-50">
       <div className="flex justify-between items-center mb-3">
         <div>
-          <h4 className="font-semibold text-lg">Análisis de Sensibilidad</h4>
-          <p className="text-sm text-gray-600">Impacto de variaciones en ADR y Ocupación sobre IRR</p>
+          <h4 className="font-semibold text-lg">Stress Test — Análisis de Robustez</h4>
+          <p className="text-sm text-gray-700">Validar la robustez del proyecto ante variaciones en ADR y Ocupación</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -251,11 +251,11 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
             {editMode ? 'Ver Escenarios' : 'Editar Escenarios'}
           </button>
           <button
-            className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400"
+            className="px-4 py-2 bg-orange-600 text-white rounded disabled:bg-gray-400"
             onClick={runSensitivityAnalysis}
             disabled={loading || baseIRR === null || baseIRR === undefined || scenarios.length === 0 || isFinalized}
           >
-            {loading ? 'Calculando...' : 'Ejecutar análisis'}
+            {loading ? 'Calculando...' : 'Ejecutar stress test'}
           </button>
         </div>
       </div>
@@ -415,7 +415,7 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
 
           {/* Visualización gráfica simple */}
           <div className="mt-4">
-            <h5 className="font-medium mb-2">Sensibilidad del IRR Levered</h5>
+            <h5 className="font-medium mb-2">Robustez del IRR Levered por Escenario</h5>
             <div className="space-y-2 max-w-full overflow-hidden">
               {(() => {
                 // Calcular el máximo IRR para escalar las barras
@@ -449,9 +449,9 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
             </div>
           </div>
 
-          {/* Resumen de insights */}
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm">
-            <strong>Insights:</strong>
+          {/* Resumen de robustez */}
+          <div className="mt-4 p-3 bg-orange-100 border border-orange-300 rounded text-sm">
+            <strong>Evaluación de Robustez:</strong>
             <ul className="mt-2 space-y-1 list-disc list-inside">
               <li>
                 Rango de IRR levered: {fmtDecimal(Math.min(...results.map(r => r.irr_levered)) * 100, 2)}% - {fmtDecimal(Math.max(...results.map(r => r.irr_levered)) * 100, 2)}%
@@ -460,7 +460,12 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
                 Volatilidad máxima del IRR: ±{fmtDecimal(Math.max(...results.map(r => Math.abs(r.delta_vs_base))) * 100, 2)}pp
               </li>
               <li>
-                Escenarios analizados: {results.length} (combinando variaciones de ADR y Ocupación)
+                Escenarios testados: {results.length} (combinando variaciones de ADR y Ocupación)
+              </li>
+              <li>
+                {Math.min(...results.map(r => r.irr_levered)) > 0
+                  ? 'El proyecto mantiene rentabilidad positiva en todos los escenarios analizados.'
+                  : 'Atención: Algunos escenarios generan IRR negativo. Revisar plausibilidad del proyecto.'}
               </li>
             </ul>
           </div>
@@ -468,8 +473,8 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
       )}
 
       {(baseIRR === null || baseIRR === undefined) && (
-        <div className="mt-3 text-sm text-gray-500 italic">
-          Debes calcular primero la proyección, deuda y retornos base antes de ejecutar el análisis de sensibilidad.
+        <div className="mt-3 text-sm text-gray-600 italic">
+          Debes calcular primero la proyección, deuda y retornos base antes de ejecutar el stress test de robustez.
         </div>
       )}
     </div>
