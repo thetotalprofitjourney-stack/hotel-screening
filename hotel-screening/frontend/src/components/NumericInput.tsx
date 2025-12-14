@@ -122,6 +122,20 @@ export default function NumericInput({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Enter: guardar valor (como blur)
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      inputRef.current?.blur(); // Dispara handleBlur
+      return;
+    }
+
+    // Escape: cancelar edición
+    if (e.key === 'Escape') {
+      setDisplayValue(typeof value === 'number' ? value.toFixed(decimals).replace('.', ',') : '');
+      inputRef.current?.blur();
+      return;
+    }
+
     // Permitir teclas de navegación y edición
     if (
       e.key === 'ArrowLeft' ||
@@ -129,8 +143,6 @@ export default function NumericInput({
       e.key === 'Backspace' ||
       e.key === 'Delete' ||
       e.key === 'Tab' ||
-      e.key === 'Enter' ||
-      e.key === 'Escape' ||
       (e.ctrlKey || e.metaKey) // Permitir Ctrl+C, Ctrl+V, etc.
     ) {
       return;
