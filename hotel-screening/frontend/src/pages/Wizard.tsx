@@ -1288,59 +1288,375 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       )}
 
       {/* PASO 5 guardado: Valoración y Retornos */}
-      {accepted && calc && usaliSaved && projectionSaved && financingConfigSaved && vr && (
-        <section>
-          <h3 className="text-lg font-semibold mb-4">Paso 5 — Valoración & Retornos ✓</h3>
+      {accepted && calc && usaliSaved && projectionSaved && financingConfigSaved && vr && (() => {
+        const keys = basicInfo.habitaciones;
+        const base = Number(financingConfig.precio_compra ?? 0) + Number(financingConfig.capex_inicial ?? 0);
+        const costs_buy = Number(financingConfig.coste_tx_compra_pct ?? 0.03) * base;
+        const loan0 = Number(financingConfig.ltv ?? 0) * base;
+        const equity0 = vr.returns.levered.equity0;
 
-          {/* Formulario de Valoración (read-only) */}
-          <div className="mb-6 opacity-75 pointer-events-none">
-            <ValuationForm
-              data={valuationConfig}
-              onChange={() => {}}
-              onSubmit={() => {}}
-              showSubmitButton={false}
+        // Calcular deuda pendiente al final
+        const lastYear = projectionAssumptions.horizonte;
+        const debtAtExit = debt?.schedule?.find((d: any) => d.anio === lastYear);
+        const saldoDeudaFinal = debtAtExit?.saldo_final ?? 0;
+
+        // Calcular NOI del último año
+        const lastAnnual = annuals?.find((a: any) => a.anio === lastYear);
+        const noiLastYear = lastAnnual?.ebitda_less_ffe ?? 0;
+
+        // Calcular totales acumulados de flujos operativos
+        const totals = annuals?.reduce((acc: any, year: any) => ({
+          ebitda_less_ffe: acc.ebitda_less_ffe + (year.ebitda_less_ffe || 0),
+        }), { ebitda_less_ffe: 0 }) ?? { ebitda_less_ffe: 0 };
+
+        // Calcular flujos totales de deuda
+        const totalIntereses = debt?.schedule?.reduce((sum: number, d: any) => sum + (d.intereses || 0), 0) ?? 0;
+        const totalAmortizacion = debt?.schedule?.reduce((sum: number, d: any) => sum + (d.amortizacion || 0), 0) ?? 0;
+        const totalCuota = totalIntereses + totalAmortizacion;
+
+        // Calcular equity en la salida
+        const equityAtExit = vr.valuation.valor_salida_neto - saldoDeudaFinal;
+
+        return (
+          <section>
+            <h3 className="text-lg font-semibold mb-6">Paso 5 — Valoración & Retornos ✓</h3>
+
+            {/* 1) VALORACIÓN */}
+            <div className="mb-6">
+              <div className="opacity-75 pointer-events-none">
+                <ValuationForm
+                  data={valuationConfig}
+                  onChange={() => {}}
+                  onSubmit={() => {}}
+                  showSubmitButton={false}
+                />
+              </div>
+              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded text-sm">
+                <strong>Contexto:</strong> Estos supuestos permiten validar si el exit es razonable para la rentabilidad esperada.
+              </div>
+            </div>
+
+            {/* 2) CHEQUEO DE PLAUSIBILIDAD DEL EXIT */}
+            <div className="mb-6 p-4 border-2 border-indigo-200 rounded-lg bg-indigo-50">
+              <h4 className="font-semibold text-lg mb-3">Chequeo de Plausibilidad del Exit</h4>
+              <p className="text-sm text-gray-700 mb-4">¿Me creo este valor de salida en el año {lastYear}?</p>
+
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="p-4 bg-white border-2 border-indigo-300 rounded-lg">
+                  <div className="text-sm text-gray-600 mb-1">Valor de Salida Total</div>
+                  <div className="text-2xl font-bold text-indigo-700">{fmt(vr.valuation.valor_salida_neto)}</div>
+                  <div className="text-xs text-gray-500 mt-1">(neto de costes transacción)</div>
+                </div>
+
+                <div className="p-4 bg-white border-2 border-indigo-300 rounded-lg">
+                  <div className="text-sm text-gray-600 mb-1">Valor de Salida por Key</div>
+                  <div className="text-2xl font-bold text-indigo-700">{fmt(vr.valuation.valor_salida_neto / keys)}</div>
+                  <div className="text-xs text-gray-500 mt-1">€ / habitación</div>
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded border border-indigo-200">
+                <div className="text-sm font-semibold mb-2">Indicadores de Plausibilidad</div>
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <div className="text-xs text-gray-600">NOI último año (EBITDA-FF&E)</div>
+                    <div className="font-semibold">{fmt(noiLastYear)}</div>
+                    <div className="text-xs text-gray-500">{fmt(noiLastYear / keys)} / key</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-600">Método de valoración</div>
+                    <div className="font-semibold">
+                      {valuationConfig.metodo_valoracion === 'cap_rate'
+                        ? `Cap Rate ${fmtDecimal((valuationConfig.cap_rate_salida ?? 0) * 100, 2)}%`
+                        : `Múltiplo ${fmtDecimal(valuationConfig.multiplo_salida ?? 0, 2)}x`
+                      }
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-600">Valor bruto / NOI</div>
+                    <div className="font-semibold">
+                      {noiLastYear > 0 ? `${fmtDecimal(vr.valuation.valor_salida_bruto / noiLastYear, 2)}x` : 'N/A'}
+                    </div>
+                    <div className="text-xs text-gray-500">(múltiplo implícito)</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3) FOTO DE LA INVERSIÓN - FUENTES & USOS */}
+            <div className="mb-6 p-4 border rounded-lg bg-gray-50">
+              <h4 className="font-semibold text-lg mb-3">Foto de la Inversión — Fuentes & Usos</h4>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* USOS */}
+                <div className="bg-white p-4 rounded border">
+                  <div className="font-semibold mb-3 text-blue-700">USOS</div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Precio compra:</span>
+                      <span className="font-semibold">{fmt(financingConfig.precio_compra)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Capex inicial:</span>
+                      <span className="font-semibold">{fmt(financingConfig.capex_inicial)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Costes transacción ({fmtDecimal((financingConfig.coste_tx_compra_pct ?? 0.03) * 100, 2)}%):</span>
+                      <span className="font-semibold">{fmt(costs_buy)}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t-2 border-blue-600 text-base">
+                      <span className="font-bold">Inversión Total:</span>
+                      <span className="font-bold">{fmt(base + costs_buy)}</span>
+                    </div>
+                    <div className="flex justify-between text-blue-600">
+                      <span className="font-bold">Por Key:</span>
+                      <span className="font-bold">{fmt((base + costs_buy) / keys)} €</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* FUENTES */}
+                <div className="bg-white p-4 rounded border">
+                  <div className="font-semibold mb-3 text-green-700">FUENTES</div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Deuda (LTV {fmtDecimal((financingConfig.ltv ?? 0) * 100, 2)}%):</span>
+                      <span className="font-semibold">{fmt(loan0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Equity:</span>
+                      <span className="font-semibold">{fmt(equity0)}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t-2 border-green-600 text-base">
+                      <span className="font-bold">Total Fuentes:</span>
+                      <span className="font-bold">{fmt(loan0 + equity0)}</span>
+                    </div>
+                    <div className="flex justify-between text-green-600">
+                      <span className="font-bold">Equity / Key:</span>
+                      <span className="font-bold">{fmt(equity0 / keys)} €</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 4) FLUJOS DE EFECTIVO AL EQUITY (PRE-IMPUESTOS) */}
+            <div className="mb-6 p-4 border rounded-lg bg-yellow-50">
+              <h4 className="font-semibold text-lg mb-2">Flujos de Efectivo al Equity (Pre-Impuestos)</h4>
+              <p className="text-xs text-gray-600 mb-4">
+                Resumen de flujos durante el holding ({projectionAssumptions.horizonte} años).
+                Los flujos son <strong>pre-impuestos</strong>, incluyen FF&E, no incluyen amortizaciones fiscales.
+              </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Flujos Operativos */}
+                <div className="bg-white p-4 rounded border">
+                  <div className="font-semibold mb-3">Flujos Operativos (Acumulado)</div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>EBITDA - FF&E (total):</span>
+                      <span className="font-semibold text-green-600">{fmt(totals.ebitda_less_ffe)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-600">
+                      <span>Por Key:</span>
+                      <span>{fmt(totals.ebitda_less_ffe / keys)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Impacto Deuda */}
+                <div className="bg-white p-4 rounded border">
+                  <div className="font-semibold mb-3">Impacto de la Deuda (Acumulado)</div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Servicio de deuda (total):</span>
+                      <span className="font-semibold text-red-600">-{fmt(totalCuota)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">└ Intereses:</span>
+                      <span className="text-gray-600">-{fmt(totalIntereses)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">└ Amortización:</span>
+                      <span className="text-gray-600">-{fmt(totalAmortizacion)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Caja Neta al Equity */}
+                <div className="bg-white p-4 rounded border border-blue-300">
+                  <div className="font-semibold mb-3 text-blue-700">Caja Neta al Equity (Acumulado)</div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Total durante holding:</span>
+                      <span className="font-semibold text-blue-700">{fmt(totals.ebitda_less_ffe - totalCuota)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-600">
+                      <span>Por Key:</span>
+                      <span>{fmt((totals.ebitda_less_ffe - totalCuota) / keys)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Caja en la Salida */}
+                <div className="bg-white p-4 rounded border border-purple-300">
+                  <div className="font-semibold mb-3 text-purple-700">Caja en la Salida (Año {lastYear})</div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">Valor salida neto:</span>
+                      <span className="text-gray-600">{fmt(vr.valuation.valor_salida_neto)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">Deuda pendiente:</span>
+                      <span className="text-gray-600">-{fmt(saldoDeudaFinal)}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t">
+                      <span className="font-semibold">Equity neto al exit:</span>
+                      <span className="font-semibold text-purple-700">{fmt(equityAtExit)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-600">
+                      <span>Por Key:</span>
+                      <span>{fmt(equityAtExit / keys)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 5) RETORNOS */}
+            <div className="mb-6 p-4 border rounded-lg bg-green-50">
+              <h4 className="font-semibold text-lg mb-2">Retornos (Pre-Impuestos)</h4>
+              <p className="text-xs text-gray-600 mb-4">
+                Los retornos calculados son <strong>pre-impuestos</strong> y se basan en los flujos de caja mostrados arriba.
+              </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-white border-2 border-gray-400 rounded-lg">
+                  <div className="font-semibold mb-3 text-gray-700">Unlevered (sin deuda)</div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm">IRR:</span>
+                      <span className="text-xl font-bold">{fmtDecimal(vr.returns.unlevered.irr * 100, 2)}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm">MOIC:</span>
+                      <span className="text-xl font-bold">{fmtDecimal(vr.returns.unlevered.moic, 2)}x</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-white border-2 border-green-600 rounded-lg">
+                  <div className="font-semibold mb-3 text-green-700">Levered (con deuda)</div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm">IRR:</span>
+                      <span className="text-xl font-bold text-green-600">{fmtDecimal(vr.returns.levered.irr * 100, 2)}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm">MOIC:</span>
+                      <span className="text-xl font-bold text-green-600">{fmtDecimal(vr.returns.levered.moic, 2)}x</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 p-3 bg-white rounded border text-sm">
+                <div className="flex justify-between">
+                  <span>Equity invertido (t0):</span>
+                  <span className="font-semibold">{fmt(equity0)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-gray-600 mt-1">
+                  <span>Por Key:</span>
+                  <span>{fmt(equity0 / keys)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 6) ANÁLISIS DE SENSIBILIDAD - STRESS TEST */}
+            <SensitivityAnalysis
+              projectId={projectId}
+              baseAssumptions={{
+                years: projectionAssumptions.horizonte,
+                adr_growth_pct: projectionAssumptions.adr_growth_pct,
+                occ_delta_pp: projectionAssumptions.occ_delta_pp,
+                occ_cap: projectionAssumptions.occ_cap,
+                cost_inflation_pct: projectionAssumptions.cost_inflation_pct,
+                undistributed_inflation_pct: projectionAssumptions.undistributed_inflation_pct,
+                nonop_inflation_pct: projectionAssumptions.nonop_inflation_pct,
+                fees_indexation_pct: projectionAssumptions.fees_indexation_pct
+              }}
+              baseIRR={vr.returns.levered.irr}
+              isFinalized={projectState === 'finalized'}
             />
-          </div>
 
-          {/* Resultados de Valoración */}
-          <div className="mt-5">
-            <h4 className="font-semibold">Valoración & Retornos</h4>
-            <div className="grid grid-cols-3 gap-3">
-              <Stat label="Valor salida bruto" value={vr.valuation.valor_salida_bruto}/>
-              <Stat label="Valor salida neto" value={vr.valuation.valor_salida_neto}/>
-              <Stat label="Equity inicial" value={vr.returns.levered.equity0}/>
-            </div>
-            <div className="grid grid-cols-2 gap-3 mt-3">
-              <div className="p-3 border rounded">
-                <div className="font-semibold mb-1">Unlevered</div>
-                <div>IRR: {fmtDecimal(vr.returns.unlevered.irr*100, 2)}%</div>
-                <div>MOIC: {fmtDecimal(vr.returns.unlevered.moic, 2)}x</div>
-              </div>
-              <div className="p-3 border rounded">
-                <div className="font-semibold mb-1">Levered</div>
-                <div>IRR: {fmtDecimal(vr.returns.levered.irr*100, 2)}%</div>
-                <div>MOIC: {fmtDecimal(vr.returns.levered.moic, 2)}x</div>
-              </div>
-            </div>
-          </div>
+            {/* 7) INSIGHTS DEL PROYECTO */}
+            <div className="mt-6 p-6 border-2 border-gray-800 rounded-lg bg-gray-100">
+              <h4 className="font-bold text-xl mb-4">INSIGHTS DEL PROYECTO</h4>
 
-          <SensitivityAnalysis
-            projectId={projectId}
-            baseAssumptions={{
-              years: projectionAssumptions.horizonte,
-              adr_growth_pct: projectionAssumptions.adr_growth_pct,
-              occ_delta_pp: projectionAssumptions.occ_delta_pp,
-              occ_cap: projectionAssumptions.occ_cap,
-              cost_inflation_pct: projectionAssumptions.cost_inflation_pct,
-              undistributed_inflation_pct: projectionAssumptions.undistributed_inflation_pct,
-              nonop_inflation_pct: projectionAssumptions.nonop_inflation_pct,
-              fees_indexation_pct: projectionAssumptions.fees_indexation_pct
-            }}
-            baseIRR={vr.returns.levered.irr}
-            isFinalized={projectState === 'finalized'}
-          />
-        </section>
-      )}
+              <div className="space-y-3 text-sm leading-relaxed bg-white p-4 rounded">
+                <p>
+                  <strong>Contexto del proyecto:</strong> {basicInfo.nombre} es un proyecto {basicInfo.segmento} {basicInfo.categoria}
+                  ubicado en {basicInfo.provincia}, {basicInfo.comunidad_autonoma}, con {keys} habitaciones.
+                </p>
+
+                <p>
+                  <strong>Inversión y equity:</strong> La inversión total asciende a {fmt(base + costs_buy)},
+                  lo que representa {fmt((base + costs_buy) / keys)} por habitación.
+                  El equity aportado es de {fmt(equity0)} ({fmt(equity0 / keys)} por key),
+                  con una financiación del {fmtDecimal((financingConfig.ltv ?? 0) * 100, 2)}% LTV
+                  ({fmt(loan0)} de deuda) a un tipo de interés del {fmtDecimal((financingConfig.interes ?? 0) * 100, 2)}%
+                  durante {financingConfig.plazo_anios} años con amortización {financingConfig.tipo_amortizacion === 'frances' ? 'francesa' : 'bullet'}.
+                </p>
+
+                <p>
+                  <strong>Operativa y generación de caja:</strong> Durante el período de holding de {projectionAssumptions.horizonte} años,
+                  el activo genera un EBITDA-FF&E acumulado de {fmt(totals.ebitda_less_ffe)}
+                  ({fmt(totals.ebitda_less_ffe / keys)} por key).
+                  Este flujo operativo es <strong>pre-impuestos</strong> e incluye la reserva de FF&E
+                  ({fmtDecimal((operationConfig.ffe ?? 0) * 100, 2)}% de ingresos), pero no contempla amortizaciones fiscales.
+                </p>
+
+                <p>
+                  <strong>Impacto de la financiación:</strong> El servicio total de la deuda durante el holding suma {fmt(totalCuota)},
+                  compuesto por {fmt(totalIntereses)} de intereses y {fmt(totalAmortizacion)} de amortización de principal.
+                  La caja neta disponible para el equity durante el período es de {fmt(totals.ebitda_less_ffe - totalCuota)}
+                  ({fmt((totals.ebitda_less_ffe - totalCuota) / keys)} por key).
+                </p>
+
+                <p>
+                  <strong>Valor de salida:</strong> La salida está prevista para el año {lastYear},
+                  con un valor de {fmt(vr.valuation.valor_salida_neto)} ({fmt(vr.valuation.valor_salida_neto / keys)} por key)
+                  aplicando {valuationConfig.metodo_valoracion === 'cap_rate'
+                    ? `un cap rate de salida del ${fmtDecimal((valuationConfig.cap_rate_salida ?? 0) * 100, 2)}%`
+                    : `un múltiplo de ${fmtDecimal(valuationConfig.multiplo_salida ?? 0, 2)}x`
+                  } sobre el NOI del último año ({fmt(noiLastYear)}).
+                  Tras liquidar la deuda pendiente ({fmt(saldoDeudaFinal)}),
+                  el equity neto al exit es de {fmt(equityAtExit)} ({fmt(equityAtExit / keys)} por key).
+                </p>
+
+                <p>
+                  <strong>Rentabilidad y robustez:</strong> El proyecto muestra un IRR levered (con deuda) <strong>pre-impuestos</strong> del {fmtDecimal(vr.returns.levered.irr * 100, 2)}%
+                  y un MOIC de {fmtDecimal(vr.returns.levered.moic, 2)}x.
+                  El IRR unlevered (sin deuda) es del {fmtDecimal(vr.returns.unlevered.irr * 100, 2)}%.
+                  {vr.returns.levered.irr > vr.returns.unlevered.irr
+                    ? 'El apalancamiento genera valor positivo para el equity.'
+                    : 'El apalancamiento reduce la rentabilidad del equity.'
+                  }
+                  {' '}La plausibilidad del exit debe evaluarse considerando que el valor por key de {fmt(vr.valuation.valor_salida_neto / keys)}
+                  se fundamenta en un NOI anual de {fmt(noiLastYear / keys)} por habitación.
+                </p>
+
+                <p className="pt-2 border-t border-gray-300 italic">
+                  <strong>Nota metodológica:</strong> Todos los flujos de caja y retornos presentados son <strong>pre-impuestos sobre sociedades (IS)</strong>.
+                  Se incluye la reserva de FF&E como salida de caja operativa.
+                  No se contemplan amortizaciones contables (al ser un cálculo de caja, no de P&L fiscal).
+                  La deuda pendiente se liquida íntegramente en la salida antes de calcular el equity neto.
+                </p>
+              </div>
+            </div>
+          </section>
+        );
+      })()}
     </div>
   );
 }
