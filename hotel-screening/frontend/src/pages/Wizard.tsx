@@ -1046,20 +1046,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               />
             </div>
 
-            {/* Tabla de Proyección (read-only) */}
-            {annuals && (
-              <>
-                <div className="opacity-75 pointer-events-none">
-                  <AnnualUsaliTable
-                    data={annuals}
-                    editable={false}
-                    onChange={() => {}}
-                    diasModificados={diasModificados}
-                  />
-                </div>
-
-              {/* Banner de Totales Acumulados por Key */}
-              {(() => {
+            {/* Banner de Totales Acumulados por Key */}
+            {annuals && (() => {
                 // Calcular totales acumulados
                 const totals = annuals.reduce((acc, year) => ({
                   operating_revenue: acc.operating_revenue + (year.operating_revenue || 0),
@@ -1135,8 +1123,6 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                   </div>
                 );
               })()}
-              </>
-            )}
             <EditedFieldsNote editedFields={formatEditedFieldsStep3()} />
           </section>
         );
