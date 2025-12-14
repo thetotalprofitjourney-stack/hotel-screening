@@ -412,4 +412,74 @@ router.post('/v1/projects/:id/edited-fields', async (req, res) => {
   res.json({ success: true, count: fields.length });
 });
 
+// GET /v1/projects/:id/sensitivity-scenarios - Obtener escenarios de sensibilidad del proyecto
+router.get('/v1/projects/:id/sensitivity-scenarios', async (req, res) => {
+  const email = (req as any).userEmail as string;
+  const projectId = req.params.id;
+
+  // Verificar que el usuario es dueño del proyecto
+  const [projectRows] = await pool.query<any[]>(
+    `SELECT * FROM projects WHERE project_id=? AND owner_email=?`,
+    [projectId, email]
+  );
+  if (!projectRows || projectRows.length === 0) {
+    return res.status(404).json({ error: 'Proyecto no encontrado' });
+  }
+
+  // Obtener escenarios
+  const [scenarios] = await pool.query<any[]>(
+    `SELECT scenario_id as id, scenario_name as name, adr_delta_pct, occ_delta_pp
+     FROM sensitivity_scenarios
+     WHERE project_id=?
+     ORDER BY created_at ASC`,
+    [projectId]
+  );
+
+  res.json(scenarios);
+});
+
+// POST /v1/projects/:id/sensitivity-scenarios - Guardar escenarios de sensibilidad del proyecto
+router.post('/v1/projects/:id/sensitivity-scenarios', async (req, res) => {
+  const email = (req as any).userEmail as string;
+  const projectId = req.params.id;
+
+  // Verificar que el usuario es dueño del proyecto
+  const [projectRows] = await pool.query<any[]>(
+    `SELECT * FROM projects WHERE project_id=? AND owner_email=?`,
+    [projectId, email]
+  );
+  if (!projectRows || projectRows.length === 0) {
+    return res.status(404).json({ error: 'Proyecto no encontrado' });
+  }
+
+  // Esperar un array de objetos: [{ name: 'Escenario', adr_delta_pct: 0.02, occ_delta_pp: 1.0 }, ...]
+  const scenarios = req.body;
+  if (!Array.isArray(scenarios)) {
+    return res.status(400).json({ error: 'Se esperaba un array de escenarios' });
+  }
+
+  // Eliminar escenarios antiguos del proyecto
+  await pool.query(
+    `DELETE FROM sensitivity_scenarios WHERE project_id=?`,
+    [projectId]
+  );
+
+  // Insertar nuevos escenarios
+  if (scenarios.length > 0) {
+    const values = scenarios.map((s: any) => [
+      projectId,
+      s.name,
+      s.adr_delta_pct,
+      s.occ_delta_pp
+    ]);
+
+    await pool.query(
+      `INSERT INTO sensitivity_scenarios (project_id, scenario_name, adr_delta_pct, occ_delta_pp) VALUES ?`,
+      [values]
+    );
+  }
+
+  res.json({ success: true, count: scenarios.length });
+});
+
 export default router;

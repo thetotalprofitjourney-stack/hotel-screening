@@ -63,18 +63,65 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
   const [newScenarioADR, setNewScenarioADR] = useState(0);
   const [newScenarioOcc, setNewScenarioOcc] = useState(0);
   const hasRunAutoAnalysis = useRef(false);
+  const [scenariosLoaded, setScenariosLoaded] = useState(false);
+
+  // Cargar escenarios guardados al montar
+  useEffect(() => {
+    loadScenarios();
+  }, [projectId]);
+
+  async function loadScenarios() {
+    try {
+      const savedScenarios = await api(`/v1/projects/${projectId}/sensitivity-scenarios`);
+
+      // Si hay escenarios guardados, usarlos; si no, usar los predeterminados
+      if (savedScenarios && savedScenarios.length > 0) {
+        setScenarios(savedScenarios);
+      } else {
+        setScenarios(DEFAULT_SCENARIOS);
+      }
+      setScenariosLoaded(true);
+    } catch (error) {
+      console.error('Error cargando escenarios:', error);
+      setScenarios(DEFAULT_SCENARIOS);
+      setScenariosLoaded(true);
+    }
+  }
+
+  async function saveScenarios() {
+    try {
+      await api(`/v1/projects/${projectId}/sensitivity-scenarios`, {
+        method: 'POST',
+        body: JSON.stringify(scenarios)
+      });
+    } catch (error) {
+      console.error('Error guardando escenarios:', error);
+    }
+  }
+
+  // Guardar escenarios cuando cambien (con debounce)
+  useEffect(() => {
+    if (scenariosLoaded && scenarios.length > 0) {
+      const timeoutId = setTimeout(() => {
+        saveScenarios();
+      }, 1000); // Esperar 1 segundo después del último cambio
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [scenarios, scenariosLoaded]);
 
   // Ejecutar análisis automáticamente al montar si baseIRR está disponible
   useEffect(() => {
-    if (baseIRR !== null && baseIRR !== undefined && !hasRunAutoAnalysis.current && !loading) {
+    if (baseIRR !== null && baseIRR !== undefined && !hasRunAutoAnalysis.current && !loading && scenariosLoaded) {
       hasRunAutoAnalysis.current = true;
       runSensitivityAnalysis();
     }
-  }, [baseIRR]);
+  }, [baseIRR, scenariosLoaded]);
 
   const loadDefaultScenarios = () => {
     setScenarios(DEFAULT_SCENARIOS);
     setEditMode(false);
+    // Los escenarios se guardarán automáticamente por el useEffect
   };
 
   const addScenario = () => {
