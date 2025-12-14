@@ -151,7 +151,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
           plazo_anios: data.plazo_anios ?? 10,
           tipo_amortizacion: data.tipo_amortizacion ?? 'frances'
         });
-        setFinancingConfigSaved(true);
+        // NO marcar como guardado automáticamente - solo cargar valores
+        // El usuario debe hacer clic en "Guardar Paso 4" explícitamente
       }
 
       // Cargar configuración de valoración
@@ -186,6 +187,9 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         if (project.estado === 'projection_2n' || project.estado === 'finalized') {
           setProjectionSaved(true);
           setProjectionAssumptionsSaved(true);
+        }
+        if (project.estado === 'finalized') {
+          setFinancingConfigSaved(true);
         }
       }
     } catch (error) {
