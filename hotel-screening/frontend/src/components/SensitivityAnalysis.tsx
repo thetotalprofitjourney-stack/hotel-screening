@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
 
 // Funciones de formateo de números (formato español)
@@ -61,6 +61,15 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
   const [newScenarioName, setNewScenarioName] = useState('');
   const [newScenarioADR, setNewScenarioADR] = useState(0);
   const [newScenarioOcc, setNewScenarioOcc] = useState(0);
+  const hasRunAutoAnalysis = useRef(false);
+
+  // Ejecutar análisis automáticamente al montar si baseIRR está disponible
+  useEffect(() => {
+    if (baseIRR !== null && baseIRR !== undefined && !hasRunAutoAnalysis.current && !loading) {
+      hasRunAutoAnalysis.current = true;
+      runSensitivityAnalysis();
+    }
+  }, [baseIRR]);
 
   const loadDefaultScenarios = () => {
     setScenarios(DEFAULT_SCENARIOS);
@@ -355,23 +364,24 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
           {/* Visualización gráfica simple */}
           <div className="mt-4">
             <h5 className="font-medium mb-2">Sensibilidad del IRR Levered</h5>
-            <div className="space-y-2">
+            <div className="space-y-2 max-w-full overflow-hidden">
               {results.map((r, idx) => {
                 const isBase = Math.abs(r.adr_growth_pct - baseAssumptions.adr_growth_pct) < 0.001 &&
                                Math.abs(r.occ_delta_pp - baseAssumptions.occ_delta_pp) < 0.001;
-                const barWidth = Math.max(5, (r.irr_levered * 100) * 4); // Escala visual
+                // Limitar el ancho máximo del gráfico al 100% para evitar scroll horizontal
+                const barWidth = Math.min(100, Math.max(5, (r.irr_levered * 100) * 4)); // Escala visual limitada
 
                 return (
                   <div key={idx} className="flex items-center gap-3">
-                    <div className="w-32 text-xs text-right truncate" title={r.scenario.name}>
+                    <div className="w-32 text-xs text-right truncate shrink-0" title={r.scenario.name}>
                       {r.scenario.name}
                     </div>
-                    <div className="flex-1 bg-gray-200 rounded-full h-6 relative">
+                    <div className="flex-1 bg-gray-200 rounded-full h-6 relative max-w-full">
                       <div
                         className={`h-6 rounded-full flex items-center justify-end pr-2 text-xs text-white ${
                           isBase ? 'bg-blue-600' : 'bg-gray-500'
                         }`}
-                        style={{ width: `${barWidth}%` }}
+                        style={{ width: `${barWidth}%`, maxWidth: '100%' }}
                       >
                         {fmtDecimal(r.irr_levered * 100, 2)}%
                       </div>
