@@ -57,6 +57,7 @@ interface UsaliEditorProps {
   ffePercent?: number; // FF&E como porcentaje (0-1)
   habitaciones?: number; // Número de habitaciones del hotel
   diasData?: Array<{ mes: number; dias: number }>; // Días de operativa por mes
+  onFieldEdit?: (mes: number, campo: string) => void;
 }
 
 // Funciones de formateo de números (formato español)
@@ -83,7 +84,7 @@ function fmtDecimal(n: number, decimals: number = 2) {
   });
 }
 
-export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = false, occupancyData = [], showSaveButton = true, onChange, showSummaryView = true, showBannerTop = true, feeParams, nonopTotal = 0, ffePercent = 0, habitaciones = 0, diasData = [] }: UsaliEditorProps) {
+export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = false, occupancyData = [], showSaveButton = true, onChange, showSummaryView = true, showBannerTop = true, feeParams, nonopTotal = 0, ffePercent = 0, habitaciones = 0, diasData = [], onFieldEdit }: UsaliEditorProps) {
   const [data, setData] = useState<UsaliMonthData[]>(calculatedData);
   const [saving, setSaving] = useState(false);
 
@@ -155,6 +156,12 @@ export default function UsaliEditor({ calculatedData, onSave, isGestionPropia = 
 
     const newData = [...data];
     newData[mesIndex] = { ...newData[mesIndex], [field]: value };
+
+    // Registrar edición manual
+    const mes = newData[mesIndex].mes;
+    if (onFieldEdit && field !== 'mes' && field !== 'rn') {
+      onFieldEdit(mes, field as string);
+    }
 
     // Recalcular totales para ese mes
     const m = newData[mesIndex];

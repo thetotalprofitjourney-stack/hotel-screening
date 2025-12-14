@@ -9,6 +9,7 @@ interface NumericInputProps {
   disabled?: boolean;
   decimals?: number;
   onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
+  onBlur?: () => void;
   allowNegative?: boolean;
 }
 
@@ -28,6 +29,7 @@ export default function NumericInput({
   disabled = false,
   decimals = 2,
   onFocus,
+  onBlur,
   allowNegative = true
 }: NumericInputProps) {
   const [displayValue, setDisplayValue] = useState<string>('');
@@ -62,6 +64,7 @@ export default function NumericInput({
 
     if (displayValue === '' || displayValue === '-') {
       onChange(0);
+      onBlur?.();
       return;
     }
 
@@ -76,6 +79,8 @@ export default function NumericInput({
     } else {
       onChange(0);
     }
+
+    onBlur?.();
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

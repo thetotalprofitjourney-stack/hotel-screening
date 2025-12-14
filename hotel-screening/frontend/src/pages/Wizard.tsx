@@ -98,6 +98,12 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     valuation: false
   });
 
+  // Registro de campos editados manualmente por el usuario
+  type EditedField = { mes?: number; anio?: number; campo: string };
+  const [editedFieldsStep1, setEditedFieldsStep1] = useState<EditedField[]>([]);
+  const [editedFieldsStep2, setEditedFieldsStep2] = useState<EditedField[]>([]);
+  const [editedFieldsStep3, setEditedFieldsStep3] = useState<EditedField[]>([]);
+
   async function loadAllConfig() {
     try {
       const data = await api(`/v1/projects/${projectId}/config`);
@@ -424,60 +430,61 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     setMeses(benchmarkData.meses);
   }
 
-  // Función para detectar campos editados en Paso 1
-  function getEditedFieldsStep1(): string[] {
-    if (!benchmarkMeses.length || !meses.length) return [];
+  // Funciones para registrar ediciones manuales del usuario
+  function registerEditStep1(mes: number, campo: 'dias' | 'occ' | 'adr') {
+    setEditedFieldsStep1(prev => {
+      // Evitar duplicados
+      const exists = prev.some(e => e.mes === mes && e.campo === campo);
+      if (exists) return prev;
+      return [...prev, { mes, campo }];
+    });
+  }
 
+  function registerEditStep2(mes: number, campo: string) {
+    setEditedFieldsStep2(prev => {
+      const exists = prev.some(e => e.mes === mes && e.campo === campo);
+      if (exists) return prev;
+      return [...prev, { mes, campo }];
+    });
+  }
+
+  function registerEditStep3(anio: number, campo: string) {
+    setEditedFieldsStep3(prev => {
+      const exists = prev.some(e => e.anio === anio && e.campo === campo);
+      if (exists) return prev;
+      return [...prev, { anio, campo }];
+    });
+  }
+
+  // Funciones para formatear las notas de campos editados
+  function formatEditedFieldsStep1(): string[] {
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
                         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-    // Agrupar meses por campo editado
-    const editedFields: { [field: string]: string[] } = {
-      'Días de operativa': [],
-      'Ocupación': [],
-      'ADR': []
+    const fieldLabels: { [key: string]: string } = {
+      'dias': 'Días de operativa',
+      'occ': 'Ocupación',
+      'adr': 'ADR'
     };
 
-    meses.forEach((current, idx) => {
-      const benchmark = benchmarkMeses[idx];
-      if (!benchmark) return;
+    // Agrupar por campo
+    const grouped: { [field: string]: string[] } = {};
 
-      const monthName = monthNames[current.mes - 1];
+    editedFieldsStep1.forEach(edit => {
+      const fieldLabel = fieldLabels[edit.campo] || edit.campo;
+      const monthName = edit.mes ? monthNames[edit.mes - 1] : '';
 
-      // Extraer valores
-      const currentDias = current.dias || 0;
-      const benchmarkDias = benchmark.dias || 0;
-      const currentOcc = current.occ || 0;
-      const benchmarkOcc = benchmark.occ || 0;
-      const currentAdr = current.adr || 0;
-      const benchmarkAdr = benchmark.adr || 0;
-
-      // Comparar días (permitir pequeña tolerancia por redondeo)
-      const diasChanged = Math.abs(currentDias - benchmarkDias) > 0.01;
-      if (diasChanged) {
-        editedFields['Días de operativa'].push(monthName);
+      if (!grouped[fieldLabel]) {
+        grouped[fieldLabel] = [];
       }
-
-      // Solo comparar ocupación y ADR si días es mayor que 0 en AMBOS casos
-      // (para evitar falsos positivos cuando días=0 normaliza occ y ADR a 0)
-      const shouldCheckOccAdr = currentDias > 0 && benchmarkDias > 0;
-
-      if (shouldCheckOccAdr) {
-        // Comparar ocupación (permitir pequeña tolerancia por redondeo)
-        if (Math.abs(currentOcc - benchmarkOcc) > 0.001) {
-          editedFields['Ocupación'].push(monthName);
-        }
-
-        // Comparar ADR (permitir pequeña tolerancia por redondeo)
-        if (Math.abs(currentAdr - benchmarkAdr) > 0.01) {
-          editedFields['ADR'].push(monthName);
-        }
+      if (monthName && !grouped[fieldLabel].includes(monthName)) {
+        grouped[fieldLabel].push(monthName);
       }
     });
 
-    // Formatear resultado agrupado
+    // Formatear resultado
     const result: string[] = [];
-    Object.entries(editedFields).forEach(([field, months]) => {
+    Object.entries(grouped).forEach(([field, months]) => {
       if (months.length > 0) {
         result.push(`${field} (${months.join(', ')})`);
       }
@@ -486,55 +493,81 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     return result;
   }
 
-  // Función para detectar campos editados en Paso 2
-  function getEditedFieldsStep2(): string[] {
-    if (!calculatedUsali.length || !calc?.y1_mensual?.length) return [];
-
+  function formatEditedFieldsStep2(): string[] {
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
                         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-    const editableFields = [
-      { key: 'fb', label: 'F&B' },
-      { key: 'other_operated', label: 'Other Operated' },
-      { key: 'misc_income', label: 'Misc Income' },
-      { key: 'dept_rooms', label: 'Dept Rooms' },
-      { key: 'dept_fb', label: 'Dept F&B' },
-      { key: 'dept_other', label: 'Dept Other' },
-      { key: 'und_ag', label: 'A&G' },
-      { key: 'und_it', label: 'IT' },
-      { key: 'und_sm', label: 'Sales & Marketing' },
-      { key: 'und_pom', label: 'POM' },
-      { key: 'und_eww', label: 'Energy/Water/Waste' }
-    ];
+    const fieldLabels: { [key: string]: string } = {
+      'fb': 'F&B',
+      'other_operated': 'Other Operated',
+      'misc_income': 'Misc Income',
+      'dept_rooms': 'Dept Rooms',
+      'dept_fb': 'Dept F&B',
+      'dept_other': 'Dept Other',
+      'und_ag': 'A&G',
+      'und_it': 'IT',
+      'und_sm': 'Sales & Marketing',
+      'und_pom': 'POM',
+      'und_eww': 'Energy/Water/Waste'
+    };
 
-    // Agrupar meses por campo editado
-    const editedFieldsMap: { [label: string]: string[] } = {};
+    // Agrupar por campo
+    const grouped: { [field: string]: string[] } = {};
 
-    calc.y1_mensual.forEach((current: any, idx: number) => {
-      const calculated = calculatedUsali[idx];
-      if (!calculated) return;
+    editedFieldsStep2.forEach(edit => {
+      const fieldLabel = fieldLabels[edit.campo] || edit.campo;
+      const monthName = edit.mes ? monthNames[edit.mes - 1] : '';
 
-      const monthName = monthNames[current.mes - 1];
-
-      editableFields.forEach(({ key, label }) => {
-        const currentVal = current[key] || 0;
-        const calcVal = calculated[key] || 0;
-
-        // Permitir tolerancia de 1€ por redondeo
-        if (Math.abs(currentVal - calcVal) > 1) {
-          if (!editedFieldsMap[label]) {
-            editedFieldsMap[label] = [];
-          }
-          editedFieldsMap[label].push(monthName);
-        }
-      });
+      if (!grouped[fieldLabel]) {
+        grouped[fieldLabel] = [];
+      }
+      if (monthName && !grouped[fieldLabel].includes(monthName)) {
+        grouped[fieldLabel].push(monthName);
+      }
     });
 
-    // Formatear resultado agrupado
+    // Formatear resultado
     const result: string[] = [];
-    Object.entries(editedFieldsMap).forEach(([field, months]) => {
+    Object.entries(grouped).forEach(([field, months]) => {
       if (months.length > 0) {
         result.push(`${field} (${months.join(', ')})`);
+      }
+    });
+
+    return result;
+  }
+
+  function formatEditedFieldsStep3(): string[] {
+    const fieldLabels: { [key: string]: string } = {
+      'operating_revenue': 'Total Rev',
+      'dept_total': 'Dept Total',
+      'und_total': 'Undistributed',
+      'fees': 'Fees',
+      'nonop': 'Non-Op',
+      'ffe': 'FF&E'
+    };
+
+    // Agrupar por campo
+    const grouped: { [field: string]: number[] } = {};
+
+    editedFieldsStep3.forEach(edit => {
+      const fieldLabel = fieldLabels[edit.campo] || edit.campo;
+      const anio = edit.anio;
+
+      if (!grouped[fieldLabel]) {
+        grouped[fieldLabel] = [];
+      }
+      if (anio && !grouped[fieldLabel].includes(anio)) {
+        grouped[fieldLabel].push(anio);
+      }
+    });
+
+    // Formatear resultado
+    const result: string[] = [];
+    Object.entries(grouped).forEach(([field, years]) => {
+      if (years.length > 0) {
+        const sortedYears = years.sort((a, b) => a - b);
+        result.push(`${field} (Año ${sortedYears.join(', ')})`);
       }
     });
 
@@ -775,7 +808,12 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       {basicInfoSaved && !accepted && (
         <section>
           <h3 className="text-lg font-semibold mb-2">Paso 1 — Validación comercial Y1</h3>
-          <MonthlyTable rows={meses} onChange={setMeses} habitaciones={basicInfo.habitaciones} />
+          <MonthlyTable
+            rows={meses}
+            onChange={setMeses}
+            habitaciones={basicInfo.habitaciones}
+            onFieldEdit={registerEditStep1}
+          />
           <button className="mt-3 px-3 py-2 bg-black text-white rounded" onClick={accept}>
             Guardar Paso 1 (Aceptar Y1 comercial)
           </button>
@@ -787,7 +825,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         <section>
           <h3 className="text-lg font-semibold mb-2">Paso 1 — Validación comercial Y1 ✓</h3>
           <MonthlyTable rows={meses} onChange={() => {}} habitaciones={basicInfo.habitaciones} />
-          <EditedFieldsNote editedFields={getEditedFieldsStep1()} />
+          <EditedFieldsNote editedFields={formatEditedFieldsStep1()} />
         </section>
       )}
 
@@ -834,6 +872,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                 ffePercent={operationConfig.ffe}
                 habitaciones={basicInfo.habitaciones}
                 diasData={meses.map(m => ({ mes: m.mes, dias: m.dias }))}
+                onFieldEdit={registerEditStep2}
               />
             )}
 
@@ -895,7 +934,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
             habitaciones={basicInfo.habitaciones}
             diasData={meses.map(m => ({ mes: m.mes, dias: m.dias }))}
           />
-          <EditedFieldsNote editedFields={getEditedFieldsStep2()} />
+          <EditedFieldsNote editedFields={formatEditedFieldsStep2()} />
         </section>
       )}
 
@@ -926,6 +965,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                     editable={true}
                     onChange={setAnnuals}
                     diasModificados={diasModificados}
+                    onFieldEdit={registerEditStep3}
                   />
                 </div>
 
@@ -1055,6 +1095,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               })()}
               </>
             )}
+            <EditedFieldsNote editedFields={formatEditedFieldsStep3()} />
           </section>
         );
       })()}
