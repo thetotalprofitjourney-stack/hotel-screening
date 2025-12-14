@@ -22,6 +22,7 @@ interface SensitivityAnalysisProps {
     fees_indexation_pct: number | null;
   };
   baseIRR: number | null;
+  isFinalized?: boolean;
 }
 
 interface Scenario {
@@ -52,7 +53,7 @@ const DEFAULT_SCENARIOS: Scenario[] = [
   { id: '5', name: 'Agresivo', adr_delta_pct: 0.04, occ_delta_pp: 2.0 },
 ];
 
-export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIRR }: SensitivityAnalysisProps) {
+export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIRR, isFinalized = false }: SensitivityAnalysisProps) {
   const [results, setResults] = useState<SensitivityResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
@@ -194,14 +195,14 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
           <button
             className="px-3 py-2 bg-gray-600 text-white rounded text-sm disabled:bg-gray-400"
             onClick={() => setEditMode(!editMode)}
-            disabled={loading}
+            disabled={loading || isFinalized}
           >
             {editMode ? 'Ver Escenarios' : 'Editar Escenarios'}
           </button>
           <button
             className="px-4 py-2 bg-blue-600 text-white rounded disabled:bg-gray-400"
             onClick={runSensitivityAnalysis}
-            disabled={loading || baseIRR === null || baseIRR === undefined || scenarios.length === 0}
+            disabled={loading || baseIRR === null || baseIRR === undefined || scenarios.length === 0 || isFinalized}
           >
             {loading ? 'Calculando...' : 'Ejecutar análisis'}
           </button>
@@ -365,30 +366,35 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
           <div className="mt-4">
             <h5 className="font-medium mb-2">Sensibilidad del IRR Levered</h5>
             <div className="space-y-2 max-w-full overflow-hidden">
-              {results.map((r, idx) => {
-                const isBase = Math.abs(r.adr_growth_pct - baseAssumptions.adr_growth_pct) < 0.001 &&
-                               Math.abs(r.occ_delta_pp - baseAssumptions.occ_delta_pp) < 0.001;
-                // Limitar el ancho máximo del gráfico al 100% para evitar scroll horizontal
-                const barWidth = Math.min(100, Math.max(5, (r.irr_levered * 100) * 4)); // Escala visual limitada
+              {(() => {
+                // Calcular el máximo IRR para escalar las barras
+                const maxIRR = Math.max(...results.map(r => r.irr_levered));
 
-                return (
-                  <div key={idx} className="flex items-center gap-3">
-                    <div className="w-32 text-xs text-right truncate shrink-0" title={r.scenario.name}>
-                      {r.scenario.name}
-                    </div>
-                    <div className="flex-1 bg-gray-200 rounded-full h-6 relative max-w-full">
-                      <div
-                        className={`h-6 rounded-full flex items-center justify-end pr-2 text-xs text-white ${
-                          isBase ? 'bg-blue-600' : 'bg-gray-500'
-                        }`}
-                        style={{ width: `${barWidth}%`, maxWidth: '100%' }}
-                      >
-                        {fmtDecimal(r.irr_levered * 100, 2)}%
+                return results.map((r, idx) => {
+                  const isBase = Math.abs(r.adr_growth_pct - baseAssumptions.adr_growth_pct) < 0.001 &&
+                                 Math.abs(r.occ_delta_pp - baseAssumptions.occ_delta_pp) < 0.001;
+                  // Escalar basándose en el máximo IRR (el máximo será 100%, los demás proporcionalmente)
+                  const barWidth = maxIRR > 0 ? Math.max(5, (r.irr_levered / maxIRR) * 100) : 5;
+
+                  return (
+                    <div key={idx} className="flex items-center gap-3">
+                      <div className="w-32 text-xs text-right truncate shrink-0" title={r.scenario.name}>
+                        {r.scenario.name}
+                      </div>
+                      <div className="flex-1 bg-gray-200 rounded-full h-6 relative max-w-full">
+                        <div
+                          className={`h-6 rounded-full flex items-center justify-end pr-2 text-xs text-white ${
+                            isBase ? 'bg-blue-600' : 'bg-gray-500'
+                          }`}
+                          style={{ width: `${barWidth}%`, maxWidth: '100%' }}
+                        >
+                          {fmtDecimal(r.irr_levered * 100, 2)}%
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           </div>
 

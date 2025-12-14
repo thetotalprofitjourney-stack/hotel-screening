@@ -66,7 +66,7 @@ const updateConfigSchema = z.object({
 router.get('/v1/projects', async (req, res) => {
   const email = (req as any).userEmail as string;
   const [rows] = await pool.query(
-    `SELECT project_id, nombre, rol, comunidad_autonoma, provincia, zona, segmento, categoria, horizonte, estado, updated_at
+    `SELECT project_id, nombre, rol, comunidad_autonoma, provincia, zona, segmento, categoria, horizonte, estado, created_at, updated_at
        FROM projects
       WHERE owner_email=?
       ORDER BY updated_at DESC`,
@@ -317,6 +317,29 @@ router.put('/v1/projects/:id/config', async (req, res) => {
       [...values, projectId]
     );
   }
+
+  res.json({ success: true, project_id: projectId });
+});
+
+// DELETE /v1/projects/:id - Eliminar proyecto (eliminación en cascada automática)
+router.delete('/v1/projects/:id', async (req, res) => {
+  const email = (req as any).userEmail as string;
+  const projectId = req.params.id;
+
+  // Verificar que el usuario es dueño del proyecto
+  const [projectRows] = await pool.query<any[]>(
+    `SELECT * FROM projects WHERE project_id=? AND owner_email=?`,
+    [projectId, email]
+  );
+  if (!projectRows || projectRows.length === 0) {
+    return res.status(404).json({ error: 'Proyecto no encontrado' });
+  }
+
+  // Eliminar el proyecto (la cascada eliminará automáticamente todos los datos relacionados)
+  await pool.query(
+    `DELETE FROM projects WHERE project_id=?`,
+    [projectId]
+  );
 
   res.json({ success: true, project_id: projectId });
 });
