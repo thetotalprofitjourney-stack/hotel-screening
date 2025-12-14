@@ -1334,6 +1334,48 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded text-sm">
                 <strong>Contexto:</strong> Estos supuestos permiten validar si el exit es razonable para la rentabilidad esperada.
               </div>
+
+              {/* INSIGHT SOBRE NOI ESTABILIZADO */}
+              {vr.valuation.noi_details && (
+                <div className="mt-4 p-4 bg-amber-50 border-2 border-amber-300 rounded-lg">
+                  <h5 className="font-semibold text-amber-900 mb-2 flex items-center gap-2">
+                    <span>ℹ️</span>
+                    <span>Nota sobre el valor de salida</span>
+                  </h5>
+                  <p className="text-sm text-amber-900 mb-3">
+                    El valor de salida se calcula capitalizando un <strong>NOI estabilizado</strong> del activo,
+                    obtenido a partir de los resultados operativos de los últimos{' '}
+                    <strong>{vr.valuation.noi_details.years_used} años</strong>, ajustados al año de salida
+                    con un crecimiento prudente del <strong>{fmtDecimal(vr.valuation.noi_details.growth_rate * 100, 1)}% anual</strong>.
+                  </p>
+                  <p className="text-sm text-amber-900 mb-3">
+                    Esta metodología evita que un único ejercicio puntual distorsione la valoración del activo
+                    y se alinea con las prácticas habituales en inversión hotelera.
+                  </p>
+                  <div className="bg-white p-3 rounded border border-amber-200">
+                    <div className="text-xs font-semibold text-amber-900 mb-2">Detalle del cálculo:</div>
+                    <div className="space-y-1 text-xs text-gray-700">
+                      {vr.valuation.noi_details.adjusted_nois.map((item: any, idx: number) => (
+                        <div key={idx} className="flex justify-between">
+                          <span>
+                            Año {item.anio}: {fmt(item.noi_year)}
+                            {item.years_to_exit > 0 && (
+                              <span className="text-gray-500">
+                                {' '}× (1.02)^{item.years_to_exit}
+                              </span>
+                            )}
+                          </span>
+                          <span className="font-semibold">{fmt(item.adjusted_noi)}</span>
+                        </div>
+                      ))}
+                      <div className="pt-2 mt-2 border-t border-amber-200 flex justify-between font-semibold">
+                        <span>NOI Estabilizado (media):</span>
+                        <span className="text-amber-900">{fmt(vr.valuation.noi_estabilizado)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 2) CHEQUEO DE PLAUSIBILIDAD DEL EXIT */}
@@ -1629,7 +1671,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                   aplicando {valuationConfig.metodo_valoracion === 'cap_rate'
                     ? `un cap rate de salida del ${fmtDecimal((valuationConfig.cap_rate_salida ?? 0) * 100, 2)}%`
                     : `un múltiplo de ${fmtDecimal(valuationConfig.multiplo_salida ?? 0, 2)}x`
-                  } sobre el NOI del último año ({fmt(noiLastYear)}).
+                  } sobre un NOI estabilizado de {fmt(vr.valuation.noi_estabilizado ?? noiLastYear)}
+                  {vr.valuation.noi_details && ` (media ajustada de los últimos ${vr.valuation.noi_details.years_used} años)`}.
                   Tras liquidar la deuda pendiente ({fmt(saldoDeudaFinal)}),
                   el equity neto al exit es de {fmt(equityAtExit)} ({fmt(equityAtExit / keys)} por key).
                 </p>
@@ -1643,7 +1686,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                     : 'El apalancamiento reduce la rentabilidad del equity.'
                   }
                   {' '}La plausibilidad del exit debe evaluarse considerando que el valor por key de {fmt(vr.valuation.valor_salida_neto / keys)}
-                  se fundamenta en un NOI anual de {fmt(noiLastYear / keys)} por habitación.
+                  se fundamenta en un NOI estabilizado de {fmt((vr.valuation.noi_estabilizado ?? noiLastYear) / keys)} por habitación.
                 </p>
 
                 <p className="pt-2 border-t border-gray-300 italic">

@@ -53,8 +53,25 @@ export async function valuationAndReturns(project_id:string) {
   );
 
   const years = annRows[annRows.length - 1].anio;
-  const exitBase = annRows.find((r:any)=> r.anio===years);
-  const noi = Number(exitBase.ebitda_less_ffe ?? exitBase.ebitda); // NOI proxy
+
+  // ✅ NUEVO CÁLCULO: NOI ESTABILIZADO (últimos 4 años ajustados al año de salida con 2% anual)
+  const GROWTH_RATE = 0.02; // Parámetro interno fijo: 2% anual
+  const NUM_YEARS_AVG = 4;  // Últimos 4 años
+
+  // Tomar los últimos N años disponibles (máximo 4)
+  const yearsToAvg = Math.min(NUM_YEARS_AVG, annRows.length);
+  const relevantYears = annRows.slice(-yearsToAvg);
+
+  // Ajustar cada NOI al año de salida
+  const adjustedNOIs = relevantYears.map((r: any) => {
+    const noi_year = Number(r.ebitda_less_ffe ?? r.ebitda);
+    const years_to_exit = years - r.anio;
+    const adjusted_noi = noi_year * Math.pow(1 + GROWTH_RATE, years_to_exit);
+    return { anio: r.anio, noi_year, years_to_exit, adjusted_noi };
+  });
+
+  // Calcular media de los NOI ajustados
+  const noi = adjustedNOIs.reduce((sum: number, item: any) => sum + item.adjusted_noi, 0) / yearsToAvg;
 
   let valor_salida_bruto = 0;
   if (ps.metodo_valoracion === 'multiplo') {
@@ -138,7 +155,16 @@ export async function valuationAndReturns(project_id:string) {
   await pool.query(`UPDATE projects SET estado='finalized', updated_at=NOW(3) WHERE project_id=?`, [project_id]);
 
   return {
-    valuation: { valor_salida_bruto, valor_salida_neto },
+    valuation: {
+      valor_salida_bruto,
+      valor_salida_neto,
+      noi_estabilizado: noi,
+      noi_details: {
+        years_used: yearsToAvg,
+        growth_rate: GROWTH_RATE,
+        adjusted_nois: adjustedNOIs
+      }
+    },
     returns: {
       unlevered: { irr: irr_unlev, moic: moic_unlev },
       levered:   { irr: irr_lev,   moic: moic_lev, equity0 }
