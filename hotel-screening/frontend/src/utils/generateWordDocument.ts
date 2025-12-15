@@ -53,21 +53,29 @@ interface GenerateWordDocumentParams {
 }
 
 export async function generateWordDocument(params: GenerateWordDocumentParams) {
-  const {
-    basicInfo,
-    operationConfig,
-    projectionAssumptions,
-    financingConfig,
-    valuationConfig,
-    meses,
-    calculatedUsali,
-    editedUsaliData,
-    annuals,
-    debt,
-    vr
-  } = params;
+  try {
+    console.log('Iniciando generación de documento Word...', params);
 
-  const keys = basicInfo.habitaciones;
+    const {
+      basicInfo,
+      operationConfig,
+      projectionAssumptions,
+      financingConfig,
+      valuationConfig,
+      meses,
+      calculatedUsali,
+      editedUsaliData,
+      annuals,
+      debt,
+      vr
+    } = params;
+
+    // Validar datos esenciales
+    if (!basicInfo || !annuals || !vr) {
+      throw new Error('Faltan datos esenciales para generar el documento');
+    }
+
+    const keys = basicInfo.habitaciones;
   const base = financingConfig.precio_compra ?? 0;
   const capex = financingConfig.capex_inicial ?? 0;
   const costs_buy = (base + capex) * (financingConfig.coste_tx_compra_pct ?? 0);
@@ -103,17 +111,20 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
   const equityAtExit = vr.valuation.valor_salida_neto - saldoDeudaFinal;
 
   // Usar editedUsaliData si existe, sino usar calculatedUsali
-  const usaliData = editedUsaliData && editedUsaliData.length > 0 ? editedUsaliData : calculatedUsali;
-  const firstYearUsali = usaliData.find((u: any) => u.anio === annuals[0].anio);
+    const usaliData = editedUsaliData && editedUsaliData.length > 0 ? editedUsaliData : calculatedUsali;
+    const firstYearUsali = usaliData && usaliData.length > 0 ? usaliData.find((u: any) => u.anio === annuals[0]?.anio) : null;
 
-  // Calcular promedios del primer año
-  const avgOcc = meses.reduce((sum, m) => sum + (m.ocupacion ?? 0), 0) / 12;
-  const avgAdr = meses.reduce((sum, m) => sum + (m.adr ?? 0), 0) / 12;
-  const totalRoomnights = meses.reduce((sum, m) => sum + (m.roomnights ?? 0), 0);
-  const totalRoomsRevenue = meses.reduce((sum, m) => sum + (m.rooms_revenue ?? 0), 0);
-  const avgRevPAR = totalRoomsRevenue / (keys * 12 * 30.42); // aproximado
+    // Calcular promedios del primer año
+    const avgOcc = meses && meses.length > 0 ? meses.reduce((sum, m) => sum + (m.ocupacion ?? 0), 0) / 12 : 0;
+    const avgAdr = meses && meses.length > 0 ? meses.reduce((sum, m) => sum + (m.adr ?? 0), 0) / 12 : 0;
+    const totalRoomnights = meses && meses.length > 0 ? meses.reduce((sum, m) => sum + (m.roomnights ?? 0), 0) : 0;
+    const totalRoomsRevenue = meses && meses.length > 0 ? meses.reduce((sum, m) => sum + (m.rooms_revenue ?? 0), 0) : 0;
+    const avgRevPAR = keys > 0 ? totalRoomsRevenue / (keys * 12 * 30.42) : 0; // aproximado
 
-  const sections = [];
+    console.log('Datos calculados:', { keys, totalInvestment, equity0, totals, lastYear });
+
+    const sections = [];
+    console.log('Iniciando construcción de secciones...');
 
   // ========================================
   // 1. PORTADA
@@ -283,20 +294,22 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
   );
 
   // Tabla mensual
-  const monthlyTableRows = [
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'Mes', bold: true })], shading: { fill: 'D9E9F7' } }),
-        new TableCell({ children: [new Paragraph({ text: 'Ocupación', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-        new TableCell({ children: [new Paragraph({ text: 'ADR (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-        new TableCell({ children: [new Paragraph({ text: 'Roomnights', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-        new TableCell({ children: [new Paragraph({ text: 'Revenue (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-      ],
-    }),
-  ];
+    console.log('Creando tabla mensual con', meses?.length || 0, 'meses');
+    const monthlyTableRows = [
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Mes', bold: true })], shading: { fill: 'D9E9F7' } }),
+          new TableCell({ children: [new Paragraph({ text: 'Ocupación', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
+          new TableCell({ children: [new Paragraph({ text: 'ADR (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
+          new TableCell({ children: [new Paragraph({ text: 'Roomnights', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
+          new TableCell({ children: [new Paragraph({ text: 'Revenue (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
+        ],
+      }),
+    ];
 
-  const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-  meses.forEach((mes, idx) => {
+    const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    if (meses && meses.length > 0) {
+      meses.forEach((mes, idx) => {
     monthlyTableRows.push(
       new TableRow({
         children: [
@@ -309,8 +322,9 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
       })
     );
   });
+    }
 
-  // Fila de totales/promedios
+    // Fila de totales/promedios
   monthlyTableRows.push(
     new TableRow({
       children: [
@@ -1125,15 +1139,27 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
   );
 
   // Crear el documento
-  const doc = new Document({
-    sections: [{
-      properties: {},
-      children: sections,
-    }],
-  });
+    console.log('Creando documento Word con', sections.length, 'secciones...');
+    const doc = new Document({
+      sections: [{
+        properties: {},
+        children: sections,
+      }],
+    });
 
-  // Generar el archivo
-  const blob = await Packer.toBlob(doc);
-  const fileName = `${basicInfo.nombre || 'Proyecto'}_Screening_${new Date().toISOString().split('T')[0]}.docx`;
-  saveAs(blob, fileName);
+    // Generar el archivo
+    console.log('Generando blob...');
+    const blob = await Packer.toBlob(doc);
+    const fileName = `${basicInfo.nombre || 'Proyecto'}_Screening_${new Date().toISOString().split('T')[0]}.docx`;
+    console.log('Descargando archivo:', fileName);
+    saveAs(blob, fileName);
+    console.log('Documento generado exitosamente');
+  } catch (error) {
+    console.error('Error detallado al generar documento Word:', error);
+    if (error instanceof Error) {
+      console.error('Mensaje de error:', error.message);
+      console.error('Stack trace:', error.stack);
+    }
+    throw error;
+  }
 }
