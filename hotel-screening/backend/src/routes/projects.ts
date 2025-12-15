@@ -66,7 +66,7 @@ const updateConfigSchema = z.object({
 router.get('/v1/projects', async (req, res) => {
   const email = (req as any).userEmail as string;
   const [rows] = await pool.query(
-    `SELECT project_id, nombre, rol, comunidad_autonoma, provincia, zona, segmento, categoria, horizonte, estado, created_at, updated_at
+    `SELECT project_id, nombre, rol, comunidad_autonoma, provincia, zona, segmento, categoria, horizonte, estado, snapshot_finalizado, created_at, updated_at
        FROM projects
       WHERE owner_email=?
       ORDER BY updated_at DESC`,
@@ -495,6 +495,93 @@ router.post('/v1/projects/:id/sensitivity-scenarios', async (req, res) => {
   }
 
   res.json({ success: true, count: scenarios.length });
+});
+
+// POST /v1/projects/:id/finalize - Finalizar proyecto y guardar snapshot HTML
+router.post('/v1/projects/:id/finalize', async (req, res) => {
+  const email = (req as any).userEmail as string;
+  const projectId = req.params.id;
+
+  // Verificar que el usuario es dueño del proyecto
+  const [projectRows] = await pool.query<any[]>(
+    `SELECT * FROM projects WHERE project_id=? AND owner_email=?`,
+    [projectId, email]
+  );
+  if (!projectRows || projectRows.length === 0) {
+    return res.status(404).json({ error: 'Proyecto no encontrado' });
+  }
+
+  const project = projectRows[0];
+
+  // Verificar que el proyecto esté en estado 'finalized'
+  if (project.estado !== 'finalized') {
+    return res.status(400).json({ error: 'El proyecto debe estar en estado finalized para poder finalizarse definitivamente' });
+  }
+
+  // Validar que tenga HTML content
+  const htmlContent = req.body.htmlContent;
+  if (!htmlContent || typeof htmlContent !== 'string') {
+    return res.status(400).json({ error: 'Se requiere htmlContent en el body' });
+  }
+
+  try {
+    // Guardar o actualizar el snapshot HTML
+    await pool.query(
+      `INSERT INTO project_snapshots (project_id, html_content, finalized_at)
+       VALUES (?, ?, NOW(3))
+       ON DUPLICATE KEY UPDATE html_content=VALUES(html_content), finalized_at=NOW(3)`,
+      [projectId, htmlContent]
+    );
+
+    // Marcar el proyecto como snapshot_finalizado
+    await pool.query(
+      `UPDATE projects SET snapshot_finalizado=TRUE, updated_at=NOW(3) WHERE project_id=?`,
+      [projectId]
+    );
+
+    res.json({ success: true, message: 'Proyecto finalizado exitosamente' });
+  } catch (e: any) {
+    console.error('Error finalizando proyecto:', e);
+    res.status(500).json({ error: 'Error al finalizar proyecto: ' + e.message });
+  }
+});
+
+// GET /v1/projects/:id/snapshot - Obtener snapshot HTML del proyecto finalizado
+router.get('/v1/projects/:id/snapshot', async (req, res) => {
+  const email = (req as any).userEmail as string;
+  const projectId = req.params.id;
+
+  // Verificar que el usuario es dueño del proyecto
+  const [projectRows] = await pool.query<any[]>(
+    `SELECT snapshot_finalizado FROM projects WHERE project_id=? AND owner_email=?`,
+    [projectId, email]
+  );
+  if (!projectRows || projectRows.length === 0) {
+    return res.status(404).json({ error: 'Proyecto no encontrado' });
+  }
+
+  const project = projectRows[0];
+
+  // Verificar que el proyecto tenga snapshot
+  if (!project.snapshot_finalizado) {
+    return res.status(404).json({ error: 'El proyecto no tiene snapshot finalizado' });
+  }
+
+  // Obtener el snapshot
+  const [snapshotRows] = await pool.query<any[]>(
+    `SELECT html_content, finalized_at FROM project_snapshots WHERE project_id=?`,
+    [projectId]
+  );
+
+  if (!snapshotRows || snapshotRows.length === 0) {
+    return res.status(404).json({ error: 'Snapshot no encontrado' });
+  }
+
+  const snapshot = snapshotRows[0];
+  res.json({
+    htmlContent: snapshot.html_content,
+    finalizedAt: snapshot.finalized_at
+  });
 });
 
 export default router;
