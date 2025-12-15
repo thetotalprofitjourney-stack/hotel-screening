@@ -19,7 +19,6 @@ interface SensitivityAnalysisProps {
     cost_inflation_pct: number;
     undistributed_inflation_pct: number;
     nonop_inflation_pct: number;
-    fees_indexation_pct: number | null;
   };
   baseIRR: number | null;
   isFinalized?: boolean;

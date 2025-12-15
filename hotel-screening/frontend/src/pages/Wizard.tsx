@@ -56,8 +56,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     occ_cap: 0.92,
     cost_inflation_pct: 0.02,
     undistributed_inflation_pct: 0.02,
-    nonop_inflation_pct: 0.02,
-    fees_indexation_pct: null
+    nonop_inflation_pct: 0.02
   });
   const [projectionAssumptionsSaved, setProjectionAssumptionsSaved] = useState(false);
 
@@ -781,8 +780,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         occ_cap: projectionAssumptions.occ_cap,
         cost_inflation_pct: projectionAssumptions.cost_inflation_pct,
         undistributed_inflation_pct: projectionAssumptions.undistributed_inflation_pct,
-        nonop_inflation_pct: projectionAssumptions.nonop_inflation_pct,
-        fees_indexation_pct: projectionAssumptions.fees_indexation_pct
+        nonop_inflation_pct: projectionAssumptions.nonop_inflation_pct
       };
       const r = await api(`/v1/projects/${projectId}/projection`, { method:'POST', body: JSON.stringify(ass) });
       setAnnuals(r.annuals);
@@ -1733,8 +1731,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                 occ_cap: projectionAssumptions.occ_cap,
                 cost_inflation_pct: projectionAssumptions.cost_inflation_pct,
                 undistributed_inflation_pct: projectionAssumptions.undistributed_inflation_pct,
-                nonop_inflation_pct: projectionAssumptions.nonop_inflation_pct,
-                fees_indexation_pct: projectionAssumptions.fees_indexation_pct
+                nonop_inflation_pct: projectionAssumptions.nonop_inflation_pct
               }}
               baseIRR={vr.returns.levered.irr}
               isFinalized={projectState === 'finalized'}

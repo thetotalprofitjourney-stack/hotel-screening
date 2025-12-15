@@ -11,7 +11,6 @@ type Assumptions = {
   cost_inflation_pct: number;     // aplica a % dept y F&B %
   undistributed_inflation_pct: number; // aplica a % undistributed
   nonop_inflation_pct: number;    // aplica a non-operating € (impuestos, seguros, etc.)
-  fees_indexation_pct?: number | null; // override (si null usa operator_contracts)
 };
 
 // Helper para sumar campos de y1_commercial
@@ -28,7 +27,7 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
   const [[prj]]: any = await pool.query(
     `SELECT p.horizonte, p.segmento, p.categoria, p.habitaciones,
             ps.ffe,
-            oc.operacion_tipo, oc.fee_base_anual, oc.fee_pct_gop, oc.fee_incentive_pct, oc.fee_hurdle_gop_margin, oc.gop_ajustado, oc.fees_indexacion_pct_anual,
+            oc.operacion_tipo, oc.fee_base_anual, oc.fee_pct_total_rev, oc.fee_pct_gop, oc.fee_incentive_pct, oc.fee_hurdle_gop_margin, oc.gop_ajustado,
             no.nonop_taxes_anual, no.nonop_insurance_anual, no.nonop_rent_anual, no.nonop_other_anual
        FROM projects p
        JOIN project_settings ps ON ps.project_id=p.project_id
@@ -143,11 +142,11 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
 
   // Leo fees y non-op iniciales
   const base_fee = Number(prj.fee_base_anual ?? 0);
+  const fee_pct_total_rev = Number(prj.fee_pct_total_rev ?? 0);
   const fee_pct_gop = Number(prj.fee_pct_gop ?? 0);
   const fee_incentive_pct = Number(prj.fee_incentive_pct ?? 0);
   const fee_hurdle = Number(prj.fee_hurdle_gop_margin ?? 0);
   const gop_ajustado = Boolean(prj.gop_ajustado ?? false);
-  let fee_base_year = base_fee;
 
   let nonop = {
     taxes: Number(prj.nonop_taxes_anual ?? 0),
@@ -219,15 +218,19 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
     // ✅ CORRECCIÓN: Usar suma de días de operativa del año 1, no 365 días
     const rn = occ * prj.habitaciones * suma_dias_y1;
 
-    // ✅ CORRECCIÓN: Aplicar inflación de costes sobre valores absolutos del año anterior
-    // (no sobre porcentajes, para evitar efecto compuesto con crecimiento de ingresos)
+    // ✅ CORRECCIÓN: Aplicar inflación de costes sobre €/RN (igual que Total Rev)
     const kDept = (1 + (assumptions.cost_inflation_pct ?? 0));
     const kUnd  = (1 + (assumptions.undistributed_inflation_pct ?? 0));
 
-    // Calcular costes departamentales aplicando inflación sobre año anterior
-    const dept_rooms = prev_year.dept_total * (prev_year.rooms_rev / (prev_year.rooms_rev + prev_year.fb + prev_year.other_operated)) * kDept;
-    const dept_fb = prev_year.dept_total * (prev_year.fb / (prev_year.rooms_rev + prev_year.fb + prev_year.other_operated)) * kDept;
-    const dept_other = prev_year.dept_total * (prev_year.other_operated / (prev_year.rooms_rev + prev_year.fb + prev_year.other_operated)) * kDept;
+    // Calcular dept_total aplicando inflación sobre €/RN del año anterior
+    const prev_dept_total_per_rn = prev_year.rn > 0 ? prev_year.dept_total / prev_year.rn : 0;
+    const dept_total = prev_dept_total_per_rn * kDept * rn;
+
+    // Distribuir dept_total entre componentes según proporciones de ingresos
+    const total_operated_rev = rooms_rev + fb + other;
+    const dept_rooms = total_operated_rev > 0 ? dept_total * (rooms_rev / total_operated_rev) : 0;
+    const dept_fb = total_operated_rev > 0 ? dept_total * (fb / total_operated_rev) : 0;
+    const dept_other = total_operated_rev > 0 ? dept_total * (other / total_operated_rev) : 0;
 
     // Recalcular porcentajes para referencia (no se usan en cálculos posteriores)
     pct.dept_rooms_pct = rooms_rev > 0 ? dept_rooms / rooms_rev : pct.dept_rooms_pct;
@@ -247,10 +250,6 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
     const und_pom = suma_pct_und > 0 ? und_total_inflado * (pct.und_pom_pct / suma_pct_und) : und_total_inflado / 5;
     const und_eww = suma_pct_und > 0 ? und_total_inflado * (pct.und_eww_pct / suma_pct_und) : und_total_inflado / 5;
 
-    // indexación fees base
-    const indexPct = (assumptions.fees_indexation_pct ?? prj.fees_indexacion_pct_anual ?? 0);
-    fee_base_year = fee_base_year * (1 + indexPct);
-
     // non-op inflación
     const kNonOp = (1 + (assumptions.nonop_inflation_pct ?? 0));
     nonop = {
@@ -259,7 +258,6 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
       rent: nonop.rent * kNonOp,
       other: nonop.other * kNonOp
     };
-    const dept_total = dept_rooms + dept_fb + dept_other;
     const dept_profit = total_rev - dept_total;
 
     // Undistributed (ya calculados arriba con inflación)
@@ -273,8 +271,9 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
     // Determinar GOP base para cálculo de fees (GOP estándar o GOP ajustado)
     const gop_for_fees = gop_ajustado ? (gop - ffe_amount) : gop;
 
-    // Fees operador
-    const fees_base = prj.operacion_tipo === 'operador' ? fee_base_year : 0;
+    // Fees operador - Recalcular en función de KPIs del año actual
+    const fee_total_rev = prj.operacion_tipo === 'operador' ? (fee_pct_total_rev * total_rev) : 0;
+    const fees_base = prj.operacion_tipo === 'operador' ? (base_fee + fee_total_rev) : 0;
     const fees_variable = prj.operacion_tipo === 'operador' ? (fee_pct_gop * gop_for_fees) : 0;
     const fees_incentive = (prj.operacion_tipo === 'operador' && fee_incentive_pct && fee_hurdle && (gop_for_fees/total_rev >= fee_hurdle))
       ? (fee_incentive_pct * gop_for_fees) : 0;

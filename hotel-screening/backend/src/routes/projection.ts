@@ -119,8 +119,7 @@ const assumptionsSchema = z.object({
   occ_cap: z.number().min(0).max(1),
   cost_inflation_pct: z.number().min(-0.5).max(2).default(0),
   undistributed_inflation_pct: z.number().min(-0.5).max(2).default(0),
-  nonop_inflation_pct: z.number().min(-0.5).max(2).default(0),
-  fees_indexation_pct: z.number().min(-0.5).max(2).nullable().optional()
+  nonop_inflation_pct: z.number().min(-0.5).max(2).default(0)
 });
 
 // 1) Proyección Y2..N (persiste en usali_annual)
