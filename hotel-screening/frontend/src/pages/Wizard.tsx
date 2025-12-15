@@ -53,7 +53,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     horizonte: 7,
     adr_growth_pct: 0.05,
     occ_delta_pp: 1.0,
-    occ_cap: 0.85,
+    occ_cap: 0.92,
     cost_inflation_pct: 0.02,
     undistributed_inflation_pct: 0.02,
     nonop_inflation_pct: 0.02,

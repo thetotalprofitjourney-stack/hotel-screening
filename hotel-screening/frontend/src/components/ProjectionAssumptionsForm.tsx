@@ -59,15 +59,13 @@ export default function ProjectionAssumptionsForm({ data, onChange, onSubmit, sh
           </label>
 
           <label className="flex flex-col">
-            <span className="text-sm font-medium mb-1">Δ Ocupación (pp/año) *</span>
-            <input
+            <span className="text-sm font-medium mb-1">Δ Ocupación % *</span>
+            <NumericInput
               required
               className="border px-3 py-2 rounded"
-              type="number"
-              step="0.1"
               value={data.occ_delta_pp}
-              onChange={e => updateField('occ_delta_pp', Number(e.target.value))}
-              onFocus={e => e.target.select()}
+              onChange={val => updateField('occ_delta_pp', val)}
+              decimals={2}
             />
           </label>
 
