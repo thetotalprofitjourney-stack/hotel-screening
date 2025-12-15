@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { pool } from '../db.js';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
+import HTMLtoDOCX from 'html-to-docx';
 
 const router = Router();
 
@@ -633,6 +634,151 @@ router.get('/v1/projects/:id/snapshot', async (req, res) => {
     htmlContent: snapshot.html_content,
     finalizedAt: snapshot.finalized_at
   });
+});
+
+// POST /v1/projects/:id/snapshot/word - Generar Word desde snapshot HTML
+router.post('/v1/projects/:id/snapshot/word', async (req, res) => {
+  const email = (req as any).userEmail as string;
+  const projectId = req.params.id;
+
+  try {
+    // Verificar que el usuario es dueño del proyecto
+    const [projectRows] = await pool.query<any[]>(
+      `SELECT nombre, snapshot_finalizado FROM projects WHERE project_id=? AND owner_email=?`,
+      [projectId, email]
+    );
+    if (!projectRows || projectRows.length === 0) {
+      return res.status(404).json({ error: 'Proyecto no encontrado' });
+    }
+
+    const project = projectRows[0];
+
+    // Verificar que el proyecto tenga snapshot
+    if (!project.snapshot_finalizado) {
+      return res.status(404).json({ error: 'El proyecto no tiene snapshot finalizado' });
+    }
+
+    // Obtener el snapshot
+    const [snapshotRows] = await pool.query<any[]>(
+      `SELECT html_content FROM project_snapshots WHERE project_id=?`,
+      [projectId]
+    );
+
+    if (!snapshotRows || snapshotRows.length === 0) {
+      return res.status(404).json({ error: 'Snapshot no encontrado' });
+    }
+
+    const htmlContent = snapshotRows[0].html_content;
+
+    if (!htmlContent || typeof htmlContent !== 'string') {
+      return res.status(400).json({ error: 'El contenido HTML está vacío o es inválido' });
+    }
+
+    // Envolver el HTML en una estructura completa de documento si no lo está ya
+    const fullHtml = htmlContent.includes('<!DOCTYPE') ? htmlContent : `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body {
+              font-family: 'Calibri', 'Arial', sans-serif;
+              font-size: 11pt;
+              line-height: 1.15;
+            }
+            h1 {
+              color: #1f2937;
+              font-size: 24pt;
+              font-weight: bold;
+              margin-bottom: 12pt;
+            }
+            h2 {
+              color: #374151;
+              font-size: 18pt;
+              font-weight: bold;
+              margin-bottom: 10pt;
+              margin-top: 16pt;
+            }
+            h3 {
+              color: #4b5563;
+              font-size: 14pt;
+              font-weight: bold;
+              margin-bottom: 8pt;
+              margin-top: 12pt;
+            }
+            table {
+              border-collapse: collapse;
+              width: 100%;
+              margin: 10pt 0;
+            }
+            th, td {
+              border: 1pt solid #d1d5db;
+              padding: 6pt 8pt;
+              text-align: left;
+            }
+            th {
+              background-color: #f3f4f6;
+              font-weight: bold;
+            }
+            .text-center { text-align: center; }
+            .text-right { text-align: right; }
+            .font-bold { font-weight: bold; }
+            .text-green-600 { color: #059669; }
+            .text-red-600 { color: #dc2626; }
+            .text-blue-600 { color: #2563eb; }
+            .bg-green-50 { background-color: #f0fdf4; }
+            .bg-red-50 { background-color: #fef2f2; }
+            .bg-blue-50 { background-color: #eff6ff; }
+            .bg-gray-50 { background-color: #f9fafb; }
+            .bg-gray-100 { background-color: #f3f4f6; }
+            p { margin: 6pt 0; }
+            .mb-4 { margin-bottom: 12pt; }
+            .mt-4 { margin-top: 12pt; }
+            .space-y-4 > * + * { margin-top: 12pt; }
+          </style>
+        </head>
+        <body>
+          ${htmlContent}
+        </body>
+      </html>
+    `;
+
+    console.log('Convirtiendo HTML a DOCX en el servidor...');
+
+    // Convertir HTML a DOCX
+    const docxBuffer = await HTMLtoDOCX(fullHtml, null, {
+      table: {
+        row: {
+          cantSplit: true
+        }
+      },
+      footer: true,
+      pageNumber: true,
+      font: 'Calibri',
+      fontSize: 22, // 11pt en half-points
+      orientation: 'portrait',
+      margins: {
+        top: 1440, // 1 inch en twips (1440 twips = 1 inch)
+        bottom: 1440,
+        left: 1440,
+        right: 1440
+      }
+    });
+
+    console.log(`DOCX generado: ${docxBuffer.length} bytes`);
+
+    // Generar nombre del archivo
+    const fileName = `${project.nombre || 'Proyecto'}_APP_${new Date().toISOString().split('T')[0]}.docx`;
+
+    // Enviar el archivo como descarga
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
+    res.setHeader('Content-Length', docxBuffer.length);
+    res.send(docxBuffer);
+  } catch (error: any) {
+    console.error('Error generando Word desde HTML:', error);
+    res.status(500).json({ error: 'Error al generar documento Word: ' + error.message });
+  }
 });
 
 export default router;
