@@ -140,6 +140,13 @@ router.get('/v1/projects/:id/config', async (req, res) => {
   );
   const nonop = nonopRows?.[0] || {};
 
+  // Obtener projection assumptions
+  const [projectionRows] = await pool.query<any[]>(
+    `SELECT * FROM projection_assumptions WHERE project_id=?`,
+    [projectId]
+  );
+  const projectionAssumptions = projectionRows?.[0] || {};
+
   // Combinar todo
   const config = {
     // Proyecto
@@ -184,6 +191,14 @@ router.get('/v1/projects/:id/config', async (req, res) => {
     nonop_insurance_anual: nonop.nonop_insurance_anual,
     nonop_rent_anual: nonop.nonop_rent_anual,
     nonop_other_anual: nonop.nonop_other_anual,
+
+    // Projection assumptions
+    adr_growth_pct: projectionAssumptions.adr_growth_pct,
+    occ_delta_pp: projectionAssumptions.occ_delta_pp,
+    occ_cap: projectionAssumptions.occ_cap,
+    cost_inflation_pct: projectionAssumptions.cost_inflation_pct,
+    undistributed_inflation_pct: projectionAssumptions.undistributed_inflation_pct,
+    nonop_inflation_pct: projectionAssumptions.nonop_inflation_pct,
   };
 
   res.json(config);

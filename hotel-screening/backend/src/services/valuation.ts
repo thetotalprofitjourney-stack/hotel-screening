@@ -151,9 +151,9 @@ export async function valuationAndReturns(project_id:string) {
 
   // Persist
   await pool.query(
-    `REPLACE INTO valuations (project_id, valor_salida_bruto, valor_salida_neto, ltv_salida)
-     VALUES (?,?,?,?)`,
-    [project_id, valor_salida_bruto, valor_salida_neto, ltv_salida]
+    `REPLACE INTO valuations (project_id, valor_salida_bruto, valor_salida_neto, ltv_salida, noi_estabilizado, precio_compra_implicito, discount_rate)
+     VALUES (?,?,?,?,?,?,?)`,
+    [project_id, valor_salida_bruto, valor_salida_neto, ltv_salida, noi, precio_compra_implicito, discount_rate]
   );
   // Calcular yield on cost del año 1 (buscando explícitamente anio=1)
   const y1 = annRows.find((r:any) => r.anio === 1);

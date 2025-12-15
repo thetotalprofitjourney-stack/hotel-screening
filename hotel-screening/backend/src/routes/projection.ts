@@ -61,7 +61,7 @@ router.get('/v1/projects/:id/debt', async (req, res) => {
 router.get('/v1/projects/:id/valuation-and-returns', async (req, res) => {
   try {
     const [[valuation]]: any = await pool.query(
-      `SELECT valor_salida_bruto, valor_salida_neto FROM valuations WHERE project_id=?`,
+      `SELECT valor_salida_bruto, valor_salida_neto, noi_estabilizado, precio_compra_implicito, discount_rate FROM valuations WHERE project_id=?`,
       [req.params.id]
     );
 
@@ -92,7 +92,11 @@ router.get('/v1/projects/:id/valuation-and-returns', async (req, res) => {
     res.json({
       valuation: {
         valor_salida_bruto: Number(valuation.valor_salida_bruto),
-        valor_salida_neto: Number(valuation.valor_salida_neto)
+        valor_salida_neto: Number(valuation.valor_salida_neto),
+        noi_estabilizado: Number(valuation.noi_estabilizado ?? 0),
+        precio_compra_implicito: Number(valuation.precio_compra_implicito ?? 0),
+        precio_compra_real: base,
+        discount_rate: Number(valuation.discount_rate ?? 0)
       },
       returns: {
         unlevered: {

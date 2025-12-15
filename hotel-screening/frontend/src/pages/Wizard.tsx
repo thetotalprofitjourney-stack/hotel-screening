@@ -179,7 +179,14 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       if (data.horizonte) {
         setProjectionAssumptions(prev => ({
           ...prev,
-          horizonte: data.horizonte
+          horizonte: data.horizonte,
+          // Cargar todos los campos de projection_assumptions si están disponibles
+          adr_growth_pct: data.adr_growth_pct ?? prev.adr_growth_pct,
+          occ_delta_pp: data.occ_delta_pp ?? prev.occ_delta_pp,
+          occ_cap: data.occ_cap ?? prev.occ_cap,
+          cost_inflation_pct: data.cost_inflation_pct ?? prev.cost_inflation_pct,
+          undistributed_inflation_pct: data.undistributed_inflation_pct ?? prev.undistributed_inflation_pct,
+          nonop_inflation_pct: data.nonop_inflation_pct ?? prev.nonop_inflation_pct
         }));
       }
 
