@@ -1101,13 +1101,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
             try {
               setLoading(prev => ({ ...prev, word: true }));
 
-              // Load config to get project name
-              const configData = await api(`/v1/projects/${projectId}/config`);
 
-              await generateWordFromHtml({
-                htmlContent: snapshotHtml,
-                projectName: configData.nombre || 'Proyecto'
-              });
+              await generateWordFromHtml({ projectId });
 
               setLoading(prev => ({ ...prev, word: false }));
             } catch (error) {
@@ -2134,14 +2129,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               <button
                 onClick={async () => {
                   try {
-                    if (snapshotHtml) {
-                      await generateWordFromHtml({
-                        htmlContent: snapshotHtml,
-                        projectName: basicInfo.nombre || 'Proyecto'
-                      });
-                    } else {
-                      alert('No hay snapshot HTML disponible. Por favor, recarga la página.');
-                    }
+                    await generateWordFromHtml({ projectId });
                   } catch (error) {
                     console.error('Error generando documento Word desde HTML:', error);
                     alert('Hubo un error al generar el documento desde HTML. Por favor, intenta de nuevo.');
