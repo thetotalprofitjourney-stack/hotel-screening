@@ -5,79 +5,141 @@ import { v4 as uuidv4 } from 'uuid';
 import HTMLtoDOCX from 'html-to-docx';
 import htmlDocx from 'html-docx-js';
 import JSZip from 'jszip';
+import * as cheerio from 'cheerio';
 
 const router = Router();
 
 /**
- * Transforma HTML moderno (flex, grid) a HTML compatible con Word (tablas).
+ * Transforma HTML moderno (flex, grid) a HTML compatible con Word usando cheerio.
  * Convierte layouts CSS complejos a tablas HTML tradicionales.
  */
 function transformHtmlForWord(html: string): string {
-  console.log('Transformando HTML para compatibilidad con Word...');
+  console.log('Transformando HTML para compatibilidad con Word (con cheerio)...');
 
-  let transformed = html;
+  const $ = cheerio.load(html);
 
-  // 1. Convertir divs con display:flex a tablas
-  // Patrón: <div style="display: flex">...</div>
-  // → <table><tr><td>...</td></tr></table>
+  // 1. Convertir divs con display:flex/grid a tablas
+  $('[style*="display: flex"], [style*="display:flex"], [style*="display: grid"], [style*="display:grid"]').each((i, elem) => {
+    const $elem = $(elem);
+    const children = $elem.children();
 
-  // Regex para encontrar divs con flex (simplificado)
-  // Esto es una aproximación - en producción usarías un parser DOM
+    if (children.length > 0) {
+      // Crear una tabla con una fila
+      const $table = $('<table border="1" cellpadding="5" cellspacing="0" width="100%"></table>');
+      const $tr = $('<tr></tr>');
 
-  // 2. Eliminar estilos CSS complejos que Word no soporta
-  const unsupportedStyles = [
-    'display:\\s*flex',
-    'display:\\s*grid',
-    'flex-direction',
-    'justify-content',
-    'align-items',
-    'gap',
-    'grid-template',
-    'transform',
-    'box-shadow',
-    'border-radius',
-  ];
+      // Cada hijo se convierte en una celda
+      children.each((j, child) => {
+        const $child = $(child);
+        const $td = $('<td></td>');
 
-  unsupportedStyles.forEach(style => {
-    const regex = new RegExp(`${style}:[^;]+;?`, 'gi');
-    transformed = transformed.replace(regex, '');
+        // Preservar el contenido y estilos del hijo
+        $td.html($child.html() || '');
+
+        // Copiar estilos relevantes
+        const childStyle = $child.attr('style') || '';
+        const preservedStyles: string[] = [];
+
+        if (childStyle.includes('text-align')) preservedStyles.push(childStyle.match(/text-align:[^;]+/)?.[0] || '');
+        if (childStyle.includes('color')) preservedStyles.push(childStyle.match(/color:[^;]+/)?.[0] || '');
+        if (childStyle.includes('background')) preservedStyles.push(childStyle.match(/background[^;]*:[^;]+/)?.[0] || '');
+        if (childStyle.includes('font-weight')) preservedStyles.push(childStyle.match(/font-weight:[^;]+/)?.[0] || '');
+
+        if (preservedStyles.length > 0) {
+          $td.attr('style', preservedStyles.filter(s => s).join('; '));
+        }
+
+        $tr.append($td);
+      });
+
+      $table.append($tr);
+      $elem.replaceWith($table);
+    }
   });
 
-  // 3. Convertir clases de Tailwind/utility a estilos inline simples
-  // Reemplazar clases comunes por estilos equivalentes
-  const classReplacements: Record<string, string> = {
-    'flex': 'display: block;',  // Convertir flex a block
-    'grid': 'display: block;',  // Convertir grid a block
-    'text-center': 'text-align: center;',
-    'text-right': 'text-align: right;',
-    'text-left': 'text-align: left;',
-    'font-bold': 'font-weight: bold;',
-    'text-green-600': 'color: #059669;',
-    'text-red-600': 'color: #dc2626;',
-    'text-blue-600': 'color: #2563eb;',
-    'bg-gray-50': 'background-color: #f9fafb;',
-    'bg-gray-100': 'background-color: #f3f4f6;',
-  };
+  // 2. Eliminar estilos CSS no soportados por Word
+  $('[style]').each((i, elem) => {
+    const $elem = $(elem);
+    let style = $elem.attr('style') || '';
 
-  Object.entries(classReplacements).forEach(([className, style]) => {
-    const regex = new RegExp(`class="([^"]*\\b${className}\\b[^"]*)"`, 'g');
-    transformed = transformed.replace(regex, (match, classes) => {
-      // Verificar si ya tiene atributo style
-      const hasStyle = match.includes('style=');
-      if (hasStyle) {
-        return match.replace(/style="([^"]*)"/, `style="$1 ${style}"`);
-      } else {
-        return `${match.slice(0, -1)} style="${style}"`;
-      }
+    // Lista de propiedades a eliminar
+    const unsupportedProps = [
+      'display:\\s*flex',
+      'display:\\s*grid',
+      'flex-direction',
+      'justify-content',
+      'align-items',
+      'align-content',
+      'flex-wrap',
+      'flex-grow',
+      'flex-shrink',
+      'gap',
+      'row-gap',
+      'column-gap',
+      'grid-template',
+      'grid-column',
+      'grid-row',
+      'transform',
+      'box-shadow',
+      'border-radius',
+      'transition',
+      'animation',
+    ];
+
+    unsupportedProps.forEach(prop => {
+      const regex = new RegExp(`${prop}[^;]*;?`, 'gi');
+      style = style.replace(regex, '');
     });
+
+    // Limpiar estilos vacíos
+    style = style.replace(/;\s*;/g, ';').trim();
+
+    if (style) {
+      $elem.attr('style', style);
+    } else {
+      $elem.removeAttr('style');
+    }
   });
 
-  // 4. Asegurar que las tablas tengan bordes explícitos
-  transformed = transformed.replace(/<table/g, '<table border="1" cellpadding="5" cellspacing="0"');
+  // 3. Asegurar que las tablas tengan atributos correctos
+  $('table').each((i, elem) => {
+    const $table = $(elem);
+    if (!$table.attr('border')) $table.attr('border', '1');
+    if (!$table.attr('cellpadding')) $table.attr('cellpadding', '5');
+    if (!$table.attr('cellspacing')) $table.attr('cellspacing', '0');
+    if (!$table.attr('width')) $table.attr('width', '100%');
+  });
 
-  // 5. Forzar anchos de tabla a 100%
-  transformed = transformed.replace(/<table([^>]*)>/g, '<table$1 width="100%">');
+  // 4. Convertir inputs a texto visible (los valores)
+  $('input').each((i, elem) => {
+    const $input = $(elem);
+    const value = $input.attr('value') || $input.val() || '';
+    const type = $input.attr('type') || 'text';
 
+    if (type === 'checkbox' || type === 'radio') {
+      const checked = $input.attr('checked') !== undefined;
+      $input.replaceWith(`<span>${checked ? '☑' : '☐'}</span>`);
+    } else {
+      $input.replaceWith(`<span>${value}</span>`);
+    }
+  });
+
+  // 5. Convertir textareas a texto visible
+  $('textarea').each((i, elem) => {
+    const $textarea = $(elem);
+    const value = $textarea.val() || $textarea.text() || '';
+    $textarea.replaceWith(`<span style="white-space: pre-wrap;">${value}</span>`);
+  });
+
+  // 6. Convertir select a texto visible (opción seleccionada)
+  $('select').each((i, elem) => {
+    const $select = $(elem);
+    const $selected = $select.find('option[selected]');
+    const value = $selected.text() || $select.find('option').first().text() || '';
+    $select.replaceWith(`<span>${value}</span>`);
+  });
+
+  const transformed = $.html();
   console.log(`HTML transformado: ${html.length} → ${transformed.length} caracteres`);
 
   return transformed;
