@@ -76,41 +76,41 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     }
 
     const keys = basicInfo.habitaciones;
-  const base = financingConfig.precio_compra ?? 0;
-  const capex = financingConfig.capex_inicial ?? 0;
-  const costs_buy = (base + capex) * (financingConfig.coste_tx_compra_pct ?? 0);
-  const totalInvestment = base + capex + costs_buy;
-  const loan0 = totalInvestment * (financingConfig.ltv ?? 0);
-  const equity0 = totalInvestment - loan0;
+    const base = financingConfig.precio_compra ?? 0;
+    const capex = financingConfig.capex_inicial ?? 0;
+    const costs_buy = (base + capex) * (financingConfig.coste_tx_compra_pct ?? 0);
+    const totalInvestment = base + capex + costs_buy;
+    const loan0 = totalInvestment * (financingConfig.ltv ?? 0);
+    const equity0 = totalInvestment - loan0;
 
-  // Calcular totales acumulados
-  const totals = annuals.reduce((acc: any, year: any) => ({
-    operating_revenue: acc.operating_revenue + (year.operating_revenue || 0),
-    gop: acc.gop + (year.gop || 0),
-    fees: acc.fees + (year.fees || 0),
-    ebitda: acc.ebitda + (year.ebitda || 0),
-    ffe: acc.ffe + (year.ffe || 0),
-    ebitda_less_ffe: acc.ebitda_less_ffe + (year.ebitda_less_ffe || 0),
-  }), {
-    operating_revenue: 0,
-    gop: 0,
-    fees: 0,
-    ebitda: 0,
-    ffe: 0,
-    ebitda_less_ffe: 0,
-  });
+    // Calcular totales acumulados
+    const totals = annuals.reduce((acc: any, year: any) => ({
+      operating_revenue: acc.operating_revenue + (year.operating_revenue || 0),
+      gop: acc.gop + (year.gop || 0),
+      fees: acc.fees + (year.fees || 0),
+      ebitda: acc.ebitda + (year.ebitda || 0),
+      ffe: acc.ffe + (year.ffe || 0),
+      ebitda_less_ffe: acc.ebitda_less_ffe + (year.ebitda_less_ffe || 0),
+    }), {
+      operating_revenue: 0,
+      gop: 0,
+      fees: 0,
+      ebitda: 0,
+      ffe: 0,
+      ebitda_less_ffe: 0,
+    });
 
-  const totalIntereses = debt?.schedule?.reduce((sum: number, d: any) => sum + (d.intereses || 0), 0) ?? 0;
-  const totalAmortizacion = debt?.schedule?.reduce((sum: number, d: any) => sum + (d.amortizacion || 0), 0) ?? 0;
-  const totalCuota = totalIntereses + totalAmortizacion;
+    const totalIntereses = debt?.schedule?.reduce((sum: number, d: any) => sum + (d.intereses || 0), 0) ?? 0;
+    const totalAmortizacion = debt?.schedule?.reduce((sum: number, d: any) => sum + (d.amortizacion || 0), 0) ?? 0;
+    const totalCuota = totalIntereses + totalAmortizacion;
 
-  const lastYear = annuals[annuals.length - 1]?.anio;
-  const lastAnnual = annuals[annuals.length - 1];
-  const noiLastYear = lastAnnual?.ebitda_less_ffe ?? 0;
-  const saldoDeudaFinal = debt?.schedule?.find((d: any) => d.anio === lastYear)?.saldo ?? 0;
-  const equityAtExit = vr.valuation.valor_salida_neto - saldoDeudaFinal;
+    const lastYear = annuals[annuals.length - 1]?.anio;
+    const lastAnnual = annuals[annuals.length - 1];
+    const noiLastYear = lastAnnual?.ebitda_less_ffe ?? 0;
+    const saldoDeudaFinal = debt?.schedule?.find((d: any) => d.anio === lastYear)?.saldo ?? 0;
+    const equityAtExit = vr.valuation.valor_salida_neto - saldoDeudaFinal;
 
-  // Usar editedUsaliData si existe, sino usar calculatedUsali
+    // Usar editedUsaliData si existe, sino usar calculatedUsali
     const usaliData = editedUsaliData && editedUsaliData.length > 0 ? editedUsaliData : calculatedUsali;
     const firstYearUsali = usaliData && usaliData.length > 0 ? usaliData.find((u: any) => u.anio === annuals[0]?.anio) : null;
 
@@ -119,912 +119,803 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     const avgAdr = meses && meses.length > 0 ? meses.reduce((sum, m) => sum + (m.adr ?? 0), 0) / 12 : 0;
     const totalRoomnights = meses && meses.length > 0 ? meses.reduce((sum, m) => sum + (m.roomnights ?? 0), 0) : 0;
     const totalRoomsRevenue = meses && meses.length > 0 ? meses.reduce((sum, m) => sum + (m.rooms_revenue ?? 0), 0) : 0;
-    const avgRevPAR = keys > 0 ? totalRoomsRevenue / (keys * 12 * 30.42) : 0; // aproximado
+    const avgRevPAR = keys > 0 ? totalRoomsRevenue / (keys * 12 * 30.42) : 0;
 
     console.log('Datos calculados:', { keys, totalInvestment, equity0, totals, lastYear });
 
     const sections = [];
     console.log('Iniciando construcción de secciones...');
 
-  // ========================================
-  // 1. PORTADA
-  // ========================================
-  sections.push(
-    new Paragraph({
-      text: basicInfo.nombre || 'Proyecto sin nombre',
-      heading: HeadingLevel.TITLE,
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 200 },
-    }),
-    new Paragraph({
-      text: 'Informe de análisis preliminar de inversión hotelera',
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 400 },
-      italics: true,
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Ubicación: ', bold: true }),
-        new TextRun({ text: `${basicInfo.provincia}, ${basicInfo.comunidad_autonoma}` }),
-      ],
-      spacing: { after: 100 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Segmento: ', bold: true }),
-        new TextRun({ text: basicInfo.segmento }),
-      ],
-      spacing: { after: 100 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Categoría: ', bold: true }),
-        new TextRun({ text: basicInfo.categoria }),
-      ],
-      spacing: { after: 100 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Número de habitaciones: ', bold: true }),
-        new TextRun({ text: keys.toString() }),
-      ],
-      spacing: { after: 100 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Fecha del informe: ', bold: true }),
-        new TextRun({ text: new Date().toLocaleDateString('es-ES') }),
-      ],
-      spacing: { after: 400 },
-    }),
-    new Paragraph({
-      text: '',
-      pageBreakBefore: true,
-    }),
-
     // ========================================
-    // 2. RESUMEN EJECUTIVO
+    // 1. PORTADA
     // ========================================
-    new Paragraph({
-      text: '1. Resumen Ejecutivo',
-      heading: HeadingLevel.HEADING_1,
-      spacing: { after: 200 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: `${basicInfo.nombre} es un proyecto ${basicInfo.segmento} ${basicInfo.categoria} ubicado en ${basicInfo.provincia}, ${basicInfo.comunidad_autonoma}, con ${keys} habitaciones. `,
-        }),
-        new TextRun({
-          text: `La inversión total asciende a ${fmt(totalInvestment)} (${fmt(totalInvestment / keys)} por habitación), `,
-        }),
-        new TextRun({
-          text: `requiriendo un equity de ${fmt(equity0)} (${fmt(equity0 / keys)} por key). `,
-        }),
-      ],
-      spacing: { after: 150 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: `El proyecto contempla una salida en el año ${lastYear} con un valor estimado de ${fmt(vr.valuation.valor_salida_neto)} (${fmt(vr.valuation.valor_salida_neto / keys)} por habitación). `,
-        }),
-        new TextRun({
-          text: `Los retornos esperados incluyen un IRR levered del ${fmtPct(vr.returns.levered.irr)} y un MOIC de ${fmtDecimal(vr.returns.levered.moic, 2)}x. `,
-        }),
-      ],
-      spacing: { after: 150 },
-    }),
-    new Paragraph({
-      text: 'El análisis preliminar muestra una propuesta de inversión basada en supuestos de mercado y proyecciones operativas que requieren validación adicional antes de la toma de decisiones.',
-      spacing: { after: 400 },
-    }),
-    new Paragraph({
-      text: '',
-      pageBreakBefore: true,
-    }),
-
-    // ========================================
-    // 3. DESCRIPCIÓN DEL ACTIVO Y SUPUESTOS CLAVE
-    // ========================================
-    new Paragraph({
-      text: '2. Descripción del Activo y Supuestos Clave',
-      heading: HeadingLevel.HEADING_1,
-      spacing: { after: 200 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Contexto del proyecto: ', bold: true }),
-        new TextRun({
-          text: `${basicInfo.nombre} es un proyecto ${basicInfo.segmento} ${basicInfo.categoria} ubicado en ${basicInfo.provincia}, ${basicInfo.comunidad_autonoma}, con ${keys} habitaciones.`,
-        }),
-      ],
-      spacing: { after: 150 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Horizonte temporal: ', bold: true }),
-        new TextRun({ text: `${projectionAssumptions.horizonte} años` }),
-      ],
-      spacing: { after: 150 },
-    }),
-    new Paragraph({
-      text: 'Supuestos de crecimiento:',
-      bold: true,
-      spacing: { after: 100 },
-    }),
-    new Paragraph({
-      text: `• Crecimiento anual ADR: ${fmtPct(projectionAssumptions.adr_growth_pct)}`,
-      spacing: { after: 50 },
-      bullet: { level: 0 },
-    }),
-    new Paragraph({
-      text: `• Delta ocupación anual: ${fmtDecimal(projectionAssumptions.occ_delta_pp, 1)} pp`,
-      spacing: { after: 50 },
-      bullet: { level: 0 },
-    }),
-    new Paragraph({
-      text: `• Cap ocupación: ${fmtPct(projectionAssumptions.occ_cap)}`,
-      spacing: { after: 50 },
-      bullet: { level: 0 },
-    }),
-    new Paragraph({
-      text: `• Inflación costes directos: ${fmtPct(projectionAssumptions.cost_inflation_pct)}`,
-      spacing: { after: 50 },
-      bullet: { level: 0 },
-    }),
-    new Paragraph({
-      text: `• Inflación undistributed: ${fmtPct(projectionAssumptions.undistributed_inflation_pct)}`,
-      spacing: { after: 400 },
-      bullet: { level: 0 },
-    }),
-    new Paragraph({
-      text: '',
-      pageBreakBefore: true,
-    }),
-
-    // ========================================
-    // 4. VALIDACIÓN COMERCIAL - AÑO 1
-    // ========================================
-    new Paragraph({
-      text: '3. Validación Comercial – Año 1',
-      heading: HeadingLevel.HEADING_1,
-      spacing: { after: 200 },
-    }),
-  );
-
-  // Tabla mensual
-    console.log('Creando tabla mensual con', meses?.length || 0, 'meses');
-    const monthlyTableRows = [
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Mes', bold: true })], shading: { fill: 'D9E9F7' } }),
-          new TableCell({ children: [new Paragraph({ text: 'Ocupación', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-          new TableCell({ children: [new Paragraph({ text: 'ADR (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-          new TableCell({ children: [new Paragraph({ text: 'Roomnights', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-          new TableCell({ children: [new Paragraph({ text: 'Revenue (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-        ],
-      }),
-    ];
-
-    const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    if (meses && meses.length > 0) {
-      meses.forEach((mes, idx) => {
-    monthlyTableRows.push(
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: monthNames[idx] })] }),
-          new TableCell({ children: [new Paragraph({ text: fmtPct(mes.ocupacion ?? 0), alignment: AlignmentType.RIGHT })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(mes.adr ?? 0), alignment: AlignmentType.RIGHT })] }),
-          new TableCell({ children: [new Paragraph({ text: Math.round(mes.roomnights ?? 0).toString(), alignment: AlignmentType.RIGHT })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(mes.rooms_revenue ?? 0), alignment: AlignmentType.RIGHT })] }),
-        ],
-      })
-    );
-  });
-    }
-
-    // Fila de totales/promedios
-  monthlyTableRows.push(
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'Promedio/Total', bold: true })], shading: { fill: 'F2F2F2' } }),
-        new TableCell({ children: [new Paragraph({ text: fmtPct(avgOcc), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-        new TableCell({ children: [new Paragraph({ text: fmt(avgAdr), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-        new TableCell({ children: [new Paragraph({ text: Math.round(totalRoomnights).toString(), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-        new TableCell({ children: [new Paragraph({ text: fmt(totalRoomsRevenue), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-      ],
-    })
-  );
-
-  sections.push(
-    new Table({
-      rows: monthlyTableRows,
-      width: { size: 100, type: WidthType.PERCENTAGE },
-    }),
-    new Paragraph({
-      text: `RevPAR promedio anual: ${fmt(avgRevPAR)}`,
-      spacing: { before: 200, after: 150 },
-    }),
-    new Paragraph({
-      text: `El año 1 muestra una ocupación promedio del ${fmtPct(avgOcc)} con un ADR medio de ${fmt(avgAdr)}, generando ${fmt(totalRoomsRevenue)} en revenue de habitaciones.`,
-      spacing: { after: 400 },
-    }),
-    new Paragraph({
-      text: '',
-      pageBreakBefore: true,
-    })
-  );
-
-  // ========================================
-  // 5. CUENTA DE RESULTADOS USALI - AÑO 1
-  // ========================================
-  if (firstYearUsali) {
     sections.push(
       new Paragraph({
-        text: '4. Cuenta de Resultados USALI – Año 1',
-        heading: HeadingLevel.HEADING_1,
-        spacing: { after: 200 },
-      })
-    );
-
-    const usaliRows = [
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Concepto', bold: true })], shading: { fill: 'D9E9F7' } }),
-          new TableCell({ children: [new Paragraph({ text: 'Total (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-          new TableCell({ children: [new Paragraph({ text: '€/hab', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-          new TableCell({ children: [new Paragraph({ text: '% Revenue', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-        ],
-      }),
-    ];
-
-    const totalRev = firstYearUsali.operating_revenue ?? 0;
-    const usaliItems = [
-      { label: 'Total Revenue', value: totalRev },
-      { label: 'Department Profit', value: firstYearUsali.department_profit ?? 0 },
-      { label: 'GOP', value: firstYearUsali.gop ?? 0 },
-      { label: 'Fees Operador', value: firstYearUsali.fees ?? 0 },
-      { label: 'EBITDA', value: firstYearUsali.ebitda ?? 0 },
-      { label: 'FF&E Reserve', value: firstYearUsali.ffe ?? 0 },
-      { label: 'EBITDA - FF&E', value: firstYearUsali.ebitda_less_ffe ?? 0 },
-    ];
-
-    usaliItems.forEach(item => {
-      usaliRows.push(
-        new TableRow({
-          children: [
-            new TableCell({ children: [new Paragraph({ text: item.label })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(item.value), alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(item.value / keys), alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmtPct(item.value / totalRev), alignment: AlignmentType.RIGHT })] }),
-          ],
-        })
-      );
-    });
-
-    sections.push(
-      new Table({
-        rows: usaliRows,
-        width: { size: 100, type: WidthType.PERCENTAGE },
+        text: basicInfo.nombre || 'Proyecto sin nombre',
+        heading: HeadingLevel.TITLE,
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 400 },
       }),
       new Paragraph({
-        text: '',
+        text: 'Informe preliminar de análisis de inversión hotelera',
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 600 },
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: 'Ubicación: ', bold: true }),
+          new TextRun({ text: `${basicInfo.provincia}, ${basicInfo.comunidad_autonoma}` }),
+        ],
+        spacing: { after: 150 },
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: 'Segmento: ', bold: true }),
+          new TextRun({ text: basicInfo.segmento }),
+        ],
+        spacing: { after: 150 },
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: 'Categoría: ', bold: true }),
+          new TextRun({ text: basicInfo.categoria }),
+        ],
+        spacing: { after: 150 },
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: 'Número de habitaciones: ', bold: true }),
+          new TextRun({ text: keys.toString() }),
+        ],
+        spacing: { after: 150 },
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: 'Fecha de generación: ', bold: true }),
+          new TextRun({ text: new Date().toLocaleDateString('es-ES') }),
+        ],
         spacing: { after: 400 },
       }),
       new Paragraph({
         text: '',
         pageBreakBefore: true,
-      })
-    );
-  }
-
-  // ========================================
-  // 6. PROYECCIÓN OPERATIVA (HORIZONTE COMPLETO)
-  // ========================================
-  sections.push(
-    new Paragraph({
-      text: '5. Proyección Operativa – Horizonte Completo',
-      heading: HeadingLevel.HEADING_1,
-      spacing: { after: 200 },
-    })
-  );
-
-  const projectionRows = [
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'Año', bold: true })], shading: { fill: 'D9E9F7' } }),
-        new TableCell({ children: [new Paragraph({ text: 'Total Revenue (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-        new TableCell({ children: [new Paragraph({ text: 'GOP (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-        new TableCell({ children: [new Paragraph({ text: 'Fees (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-        new TableCell({ children: [new Paragraph({ text: 'EBITDA (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-        new TableCell({ children: [new Paragraph({ text: 'FF&E (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-        new TableCell({ children: [new Paragraph({ text: 'EBITDA-FF&E (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-      ],
-    }),
-  ];
-
-  annuals.forEach(year => {
-    projectionRows.push(
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: year.anio.toString() })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(year.operating_revenue ?? 0), alignment: AlignmentType.RIGHT })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(year.gop ?? 0), alignment: AlignmentType.RIGHT })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(year.fees ?? 0), alignment: AlignmentType.RIGHT })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(year.ebitda ?? 0), alignment: AlignmentType.RIGHT })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(year.ffe ?? 0), alignment: AlignmentType.RIGHT })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(year.ebitda_less_ffe ?? 0), alignment: AlignmentType.RIGHT })] }),
-        ],
-      })
-    );
-  });
-
-  // Fila de totales
-  projectionRows.push(
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'TOTAL', bold: true })], shading: { fill: 'F2F2F2' } }),
-        new TableCell({ children: [new Paragraph({ text: fmt(totals.operating_revenue), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-        new TableCell({ children: [new Paragraph({ text: fmt(totals.gop), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-        new TableCell({ children: [new Paragraph({ text: fmt(totals.fees), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-        new TableCell({ children: [new Paragraph({ text: fmt(totals.ebitda), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-        new TableCell({ children: [new Paragraph({ text: fmt(totals.ffe), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-        new TableCell({ children: [new Paragraph({ text: fmt(totals.ebitda_less_ffe), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-      ],
-    })
-  );
-
-  sections.push(
-    new Table({
-      rows: projectionRows,
-      width: { size: 100, type: WidthType.PERCENTAGE },
-    }),
-    new Paragraph({
-      text: `Durante el período de holding de ${projectionAssumptions.horizonte} años, el activo genera un EBITDA-FF&E acumulado de ${fmt(totals.ebitda_less_ffe)} (${fmt(totals.ebitda_less_ffe / keys)} por key), reflejando la estabilización operativa y capacidad de generación de caja del proyecto.`,
-      spacing: { before: 200, after: 400 },
-    }),
-    new Paragraph({
-      text: '',
-      pageBreakBefore: true,
-    })
-  );
-
-  // ========================================
-  // 7. ESTRUCTURA DE INVERSIÓN - FUENTES & USOS
-  // ========================================
-  sections.push(
-    new Paragraph({
-      text: '6. Estructura de Inversión – Fuentes & Usos',
-      heading: HeadingLevel.HEADING_1,
-      spacing: { after: 200 },
-    })
-  );
-
-  const investmentRows = [
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'USOS', bold: true, alignment: AlignmentType.CENTER })], shading: { fill: 'D9E9F7' }, columnSpan: 2 }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'Precio de compra' })] }),
-        new TableCell({ children: [new Paragraph({ text: fmt(base), alignment: AlignmentType.RIGHT })] }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'Capex inicial' })] }),
-        new TableCell({ children: [new Paragraph({ text: fmt(capex), alignment: AlignmentType.RIGHT })] }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'Costes de transacción' })] }),
-        new TableCell({ children: [new Paragraph({ text: fmt(costs_buy), alignment: AlignmentType.RIGHT })] }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'Inversión Total', bold: true })], shading: { fill: 'F2F2F2' } }),
-        new TableCell({ children: [new Paragraph({ text: fmt(totalInvestment), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: '' })], borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } } }),
-        new TableCell({ children: [new Paragraph({ text: '' })], borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } } }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'FUENTES', bold: true, alignment: AlignmentType.CENTER })], shading: { fill: 'D9E9F7' }, columnSpan: 2 }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: `Deuda (${fmtPct(financingConfig.ltv ?? 0)} LTV)` })] }),
-        new TableCell({ children: [new Paragraph({ text: fmt(loan0), alignment: AlignmentType.RIGHT })] }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'Equity' })] }),
-        new TableCell({ children: [new Paragraph({ text: fmt(equity0), alignment: AlignmentType.RIGHT })] }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'Total Fuentes', bold: true })], shading: { fill: 'F2F2F2' } }),
-        new TableCell({ children: [new Paragraph({ text: fmt(totalInvestment), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-      ],
-    }),
-  ];
-
-  sections.push(
-    new Table({
-      rows: investmentRows,
-      width: { size: 70, type: WidthType.PERCENTAGE },
-    }),
-    new Paragraph({
-      text: `Equity por habitación: ${fmt(equity0 / keys)}`,
-      spacing: { before: 200, after: 400 },
-      bold: true,
-    }),
-    new Paragraph({
-      text: '',
-      pageBreakBefore: true,
-    })
-  );
-
-  // ========================================
-  // 8. FINANCIACIÓN Y DEUDA
-  // ========================================
-  sections.push(
-    new Paragraph({
-      text: '7. Financiación y Deuda',
-      heading: HeadingLevel.HEADING_1,
-      spacing: { after: 200 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Tipo de amortización: ', bold: true }),
-        new TextRun({ text: financingConfig.tipo_amortizacion === 'frances' ? 'Francesa' : 'Bullet' }),
-      ],
-      spacing: { after: 100 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Tipo de interés: ', bold: true }),
-        new TextRun({ text: fmtPct(financingConfig.interes ?? 0) }),
-      ],
-      spacing: { after: 100 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Plazo: ', bold: true }),
-        new TextRun({ text: `${financingConfig.plazo_anios} años` }),
-      ],
-      spacing: { after: 200 },
-    })
-  );
-
-  const debtRows = [
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'Concepto', bold: true })], shading: { fill: 'D9E9F7' } }),
-        new TableCell({ children: [new Paragraph({ text: 'Importe (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'Principal inicial' })] }),
-        new TableCell({ children: [new Paragraph({ text: fmt(loan0), alignment: AlignmentType.RIGHT })] }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: `Deuda pendiente año ${lastYear}` })] }),
-        new TableCell({ children: [new Paragraph({ text: fmt(saldoDeudaFinal), alignment: AlignmentType.RIGHT })] }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'Total intereses pagados (holding)' })] }),
-        new TableCell({ children: [new Paragraph({ text: fmt(totalIntereses), alignment: AlignmentType.RIGHT })] }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'Total principal amortizado (holding)' })] }),
-        new TableCell({ children: [new Paragraph({ text: fmt(totalAmortizacion), alignment: AlignmentType.RIGHT })] }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'Servicio total de deuda', bold: true })], shading: { fill: 'F2F2F2' } }),
-        new TableCell({ children: [new Paragraph({ text: fmt(totalCuota), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-      ],
-    }),
-  ];
-
-  sections.push(
-    new Table({
-      rows: debtRows,
-      width: { size: 70, type: WidthType.PERCENTAGE },
-    }),
-    new Paragraph({
-      text: `El servicio total de la deuda durante el holding suma ${fmt(totalCuota)}, compuesto por ${fmt(totalIntereses)} de intereses y ${fmt(totalAmortizacion)} de amortización de principal.`,
-      spacing: { before: 200, after: 400 },
-    }),
-    new Paragraph({
-      text: '',
-      pageBreakBefore: true,
-    })
-  );
-
-  // ========================================
-  // 9. VALORACIÓN DEL ACTIVO (EXIT)
-  // ========================================
-  sections.push(
-    new Paragraph({
-      text: '8. Valoración del Activo (Exit)',
-      heading: HeadingLevel.HEADING_1,
-      spacing: { after: 200 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Método de valoración: ', bold: true }),
-        new TextRun({ text: valuationConfig.metodo_valoracion === 'cap_rate' ? 'Cap Rate' : 'Múltiplo' }),
-      ],
-      spacing: { after: 100 },
-    })
-  );
-
-  if (valuationConfig.metodo_valoracion === 'cap_rate') {
-    sections.push(
-      new Paragraph({
-        children: [
-          new TextRun({ text: 'Cap rate de salida: ', bold: true }),
-          new TextRun({ text: fmtPct(valuationConfig.cap_rate_salida ?? 0) }),
-        ],
-        spacing: { after: 100 },
-      })
-    );
-  } else {
-    sections.push(
-      new Paragraph({
-        children: [
-          new TextRun({ text: 'Múltiplo de salida: ', bold: true }),
-          new TextRun({ text: `${fmtDecimal(valuationConfig.multiplo_salida ?? 0, 2)}x` }),
-        ],
-        spacing: { after: 100 },
-      })
-    );
-  }
-
-  sections.push(
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Costes de transacción de venta: ', bold: true }),
-        new TextRun({ text: fmtPct(valuationConfig.coste_tx_venta_pct ?? 0) }),
-      ],
-      spacing: { after: 200 },
-    })
-  );
-
-  // NOI estabilizado
-  if (vr.valuation.noi_details && vr.valuation.noi_details.last_years_noi && Array.isArray(vr.valuation.noi_details.last_years_noi)) {
-    sections.push(
-      new Paragraph({
-        text: 'Cálculo del NOI estabilizado:',
-        bold: true,
-        spacing: { after: 100 },
-      })
-    );
-
-    const noiRows = [
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Año', bold: true })], shading: { fill: 'D9E9F7' } }),
-          new TableCell({ children: [new Paragraph({ text: 'NOI (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-        ],
       }),
-    ];
 
-    vr.valuation.noi_details.last_years_noi.forEach((noi: number, idx: number) => {
-      const yearNum = lastYear - vr.valuation.noi_details.years_used + idx + 1;
-      noiRows.push(
-        new TableRow({
-          children: [
-            new TableCell({ children: [new Paragraph({ text: `Año ${yearNum}` })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(noi), alignment: AlignmentType.RIGHT })] }),
-          ],
+      // ========================================
+      // 2. RESUMEN EJECUTIVO
+      // ========================================
+      new Paragraph({
+        text: '1. Resumen Ejecutivo',
+        heading: HeadingLevel.HEADING_1,
+        spacing: { after: 300 },
+      }),
+      new Paragraph({
+        text: `${basicInfo.nombre} es un activo hotelero ${basicInfo.segmento.toLowerCase()} de categoría ${basicInfo.categoria}, ubicado en ${basicInfo.provincia}, ${basicInfo.comunidad_autonoma}, con ${keys} habitaciones. La inversión total requerida asciende a ${fmt(totalInvestment)}, equivalente a ${fmt(totalInvestment / keys)} por habitación. Esta cifra incluye un precio de compra de ${fmt(base)}, un capex inicial de ${fmt(capex)} y costes de transacción estimados en ${fmt(costs_buy)}.`,
+        spacing: { after: 200 },
+      }),
+      new Paragraph({
+        text: `La estructura de financiación contempla un apalancamiento del ${fmtPct(financingConfig.ltv ?? 0)} (${fmt(loan0)}) mediante un préstamo ${financingConfig.tipo_amortizacion === 'frances' ? 'con amortización francesa' : 'bullet'} a ${financingConfig.plazo_anios} años al ${fmtPct(financingConfig.interes ?? 0)} de interés, lo que requiere una aportación de equity de ${fmt(equity0)} (${fmt(equity0 / keys)} por habitación).`,
+        spacing: { after: 200 },
+      }),
+      new Paragraph({
+        text: `El horizonte de inversión se establece en ${projectionAssumptions.horizonte} años, con estrategia de operación y posterior desinversión. La salida está prevista en el año ${lastYear} con un valor estimado de ${fmt(vr.valuation.valor_salida_neto)} (${fmt(vr.valuation.valor_salida_neto / keys)} por habitación), calculado mediante ${valuationConfig.metodo_valoracion === 'cap_rate' ? `cap rate de ${fmtPct(valuationConfig.cap_rate_salida ?? 0)}` : `múltiplo de ${fmtDecimal(valuationConfig.multiplo_salida ?? 0, 2)}x`} sobre un NOI estabilizado.`,
+        spacing: { after: 200 },
+      }),
+      new Paragraph({
+        text: `Los retornos esperados muestran un IRR levered del ${fmtPct(vr.returns.levered.irr)} y un MOIC de ${fmtDecimal(vr.returns.levered.moic, 2)}x. Sin apalancamiento, el proyecto arroja un IRR unlevered del ${fmtPct(vr.returns.unlevered.irr)} y un MOIC de ${fmtDecimal(vr.returns.unlevered.moic, 2)}x.`,
+        spacing: { after: 200 },
+      })
+    );
+
+    // Agregar análisis de precio implícito en resumen ejecutivo si existe
+    if (vr.purchase_price_analysis) {
+      const ppa = vr.purchase_price_analysis;
+      const precioStatus = ppa.diferencia_absoluta < 0 ? 'por debajo' : 'por encima';
+      sections.push(
+        new Paragraph({
+          text: `El análisis de precio de compra muestra que el precio introducido (${fmt(ppa.precio_introducido)}) se sitúa ${precioStatus} del precio implícito según flujos proyectados (${fmt(ppa.precio_implicito)}), con una diferencia del ${fmtPct(ppa.diferencia_porcentual)}. ${ppa.diferencia_absoluta < 0 ? 'Esto sugiere un margen de seguridad en la adquisición según los supuestos utilizados.' : 'Esto indica que se está pagando una prima respecto al valor que justifican los flujos proyectados según los supuestos utilizados.'}`,
+          spacing: { after: 200 },
         })
       );
-    });
-
-    noiRows.push(
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Ajuste al año de salida (+2%/año)', bold: true })] }),
-          new TableCell({ children: [new Paragraph({ text: `+${vr.valuation.noi_details.adjustment_years} años`, alignment: AlignmentType.RIGHT })] }),
-        ],
-      })
-    );
-
-    noiRows.push(
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'NOI Estabilizado (media ajustada)', bold: true })], shading: { fill: 'F2F2F2' } }),
-          new TableCell({ children: [new Paragraph({ text: fmt(vr.valuation.noi_estabilizado ?? 0), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-        ],
-      })
-    );
+    }
 
     sections.push(
-      new Table({
-        rows: noiRows,
-        width: { size: 60, type: WidthType.PERCENTAGE },
+      new Paragraph({
+        text: 'Este informe presenta un análisis preliminar basado en supuestos de mercado y proyecciones operativas que requieren validación con due diligence detallada antes de la toma de decisiones de inversión. Los flujos y retornos son pre-impuestos.',
+        spacing: { after: 400 },
       }),
-      new Paragraph({
-        text: '',
-        spacing: { after: 200 },
-      })
-    );
-  }
 
-  sections.push(
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Valor de salida total: ', bold: true }),
-        new TextRun({ text: fmt(vr.valuation.valor_salida_neto) }),
-      ],
-      spacing: { after: 100 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Valor de salida por habitación: ', bold: true }),
-        new TextRun({ text: fmt(vr.valuation.valor_salida_neto / keys) }),
-      ],
-      spacing: { after: 200 },
-    }),
-    new Paragraph({
-      text: 'Nota metodológica:',
-      bold: true,
-      spacing: { after: 100 },
-    }),
-    new Paragraph({
-      text: 'El NOI estabilizado se calcula como la media ajustada de los últimos años del holding, proyectada al año de salida con un crecimiento del 2% anual. Este enfoque busca reflejar la capacidad operativa recurrente del activo en condiciones estabilizadas.',
-      italics: true,
-      spacing: { after: 400 },
-    }),
-    new Paragraph({
-      text: '',
-      pageBreakBefore: true,
-    })
-  );
-
-  // ========================================
-  // 10. ANÁLISIS DE PRECIO DE COMPRA
-  // ========================================
-  if (vr.purchase_price_analysis) {
-    const ppa = vr.purchase_price_analysis;
-    sections.push(
+      // ========================================
+      // 3. DESCRIPCIÓN DEL ACTIVO Y SUPUESTOS DEL MODELO
+      // ========================================
       new Paragraph({
-        text: '9. Análisis de Precio de Compra',
+        text: '2. Descripción del Activo y Supuestos del Modelo',
         heading: HeadingLevel.HEADING_1,
+        spacing: { after: 300 },
+      }),
+      new Paragraph({
+        text: `El proyecto analizado corresponde a un establecimiento ${basicInfo.segmento.toLowerCase()} de ${keys} habitaciones, categorizado como ${basicInfo.categoria}, localizado en ${basicInfo.provincia}, dentro de la comunidad autónoma de ${basicInfo.comunidad_autonoma}. El análisis contempla un horizonte temporal de ${projectionAssumptions.horizonte} años desde la adquisición hasta la salida.`,
         spacing: { after: 200 },
+      }),
+      new Paragraph({
+        text: 'El modelo de proyección se sustenta en los siguientes supuestos operativos y de crecimiento:',
+        spacing: { after: 200 },
+        bold: true,
       })
     );
 
-    const ppaRows = [
+    // Tabla de supuestos
+    const assumptionsRows = [
       new TableRow({
         children: [
-          new TableCell({ children: [new Paragraph({ text: 'Concepto', bold: true })], shading: { fill: 'D9E9F7' } }),
-          new TableCell({ children: [new Paragraph({ text: 'Importe (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
+          new TableCell({ children: [new Paragraph({ text: 'Supuesto', bold: true })], shading: { fill: 'E7E6E6' } }),
+          new TableCell({ children: [new Paragraph({ text: 'Valor', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
         ],
       }),
       new TableRow({
         children: [
-          new TableCell({ children: [new Paragraph({ text: 'Precio de compra introducido' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(ppa.precio_introducido), alignment: AlignmentType.RIGHT })] }),
+          new TableCell({ children: [new Paragraph({ text: 'Crecimiento anual ADR' })] }),
+          new TableCell({ children: [new Paragraph({ text: fmtPct(projectionAssumptions.adr_growth_pct), alignment: AlignmentType.RIGHT })] }),
         ],
       }),
       new TableRow({
         children: [
-          new TableCell({ children: [new Paragraph({ text: 'Precio de compra implícito' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(ppa.precio_implicito), alignment: AlignmentType.RIGHT })] }),
+          new TableCell({ children: [new Paragraph({ text: 'Incremento ocupación anual' })] }),
+          new TableCell({ children: [new Paragraph({ text: `${fmtDecimal(projectionAssumptions.occ_delta_pp, 1)} pp`, alignment: AlignmentType.RIGHT })] }),
         ],
       }),
       new TableRow({
         children: [
-          new TableCell({ children: [new Paragraph({ text: 'Diferencia absoluta', bold: true })], shading: { fill: 'F2F2F2' } }),
-          new TableCell({ children: [new Paragraph({ text: fmt(ppa.diferencia_absoluta), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+          new TableCell({ children: [new Paragraph({ text: 'Cap de ocupación' })] }),
+          new TableCell({ children: [new Paragraph({ text: fmtPct(projectionAssumptions.occ_cap), alignment: AlignmentType.RIGHT })] }),
         ],
       }),
       new TableRow({
         children: [
-          new TableCell({ children: [new Paragraph({ text: 'Diferencia porcentual', bold: true })], shading: { fill: 'F2F2F2' } }),
-          new TableCell({ children: [new Paragraph({ text: fmtPct(ppa.diferencia_porcentual), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+          new TableCell({ children: [new Paragraph({ text: 'Inflación costes directos' })] }),
+          new TableCell({ children: [new Paragraph({ text: fmtPct(projectionAssumptions.cost_inflation_pct), alignment: AlignmentType.RIGHT })] }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Inflación costes undistributed' })] }),
+          new TableCell({ children: [new Paragraph({ text: fmtPct(projectionAssumptions.undistributed_inflation_pct), alignment: AlignmentType.RIGHT })] }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Horizonte de análisis' })] }),
+          new TableCell({ children: [new Paragraph({ text: `${projectionAssumptions.horizonte} años`, alignment: AlignmentType.RIGHT })] }),
         ],
       }),
     ];
 
     sections.push(
       new Table({
-        rows: ppaRows,
+        rows: assumptionsRows,
         width: { size: 70, type: WidthType.PERCENTAGE },
       }),
       new Paragraph({
-        text: ppa.interpretacion,
-        spacing: { before: 200, after: 200 },
+        text: 'Estos parámetros configuran la base del modelo de proyección operativa y permiten evaluar la evolución del activo bajo distintas condiciones de mercado durante el período de holding.',
+        spacing: { before: 200, after: 400 },
       }),
+
+      // ========================================
+      // 4. ANÁLISIS COMERCIAL - AÑO 1
+      // ========================================
       new Paragraph({
-        text: 'Nota metodológica:',
-        bold: true,
-        spacing: { after: 100 },
-      }),
-      new Paragraph({
-        text: 'El precio de compra implícito se calcula utilizando el cap rate de salida como tasa implícita de descuento, reflejando el precio máximo que soportaría los flujos proyectados y el exit esperado para alcanzar la rentabilidad objetivo.',
-        italics: true,
-        spacing: { after: 400 },
-      }),
-      new Paragraph({
-        text: '',
-        pageBreakBefore: true,
-      })
-    );
-  }
-
-  // ========================================
-  // 11. FLUJOS DE CAJA AL EQUITY
-  // ========================================
-  sections.push(
-    new Paragraph({
-      text: '10. Flujos de Caja al Equity',
-      heading: HeadingLevel.HEADING_1,
-      spacing: { after: 200 },
-    })
-  );
-
-  const cashFlowData = [
-    { label: 'Flujos operativos acumulados (EBITDA-FF&E)', value: totals.ebitda_less_ffe },
-    { label: 'Servicio de deuda acumulado', value: totalCuota },
-    { label: 'Caja neta al equity durante holding', value: totals.ebitda_less_ffe - totalCuota },
-    { label: 'Equity neto al exit', value: equityAtExit },
-  ];
-
-  const cashFlowRows = [
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'Concepto', bold: true })], shading: { fill: 'D9E9F7' } }),
-        new TableCell({ children: [new Paragraph({ text: 'Total (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-        new TableCell({ children: [new Paragraph({ text: '€/habitación', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-      ],
-    }),
-  ];
-
-  cashFlowData.forEach(item => {
-    cashFlowRows.push(
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: item.label })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(item.value), alignment: AlignmentType.RIGHT })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(item.value / keys), alignment: AlignmentType.RIGHT })] }),
-        ],
-      })
-    );
-  });
-
-  sections.push(
-    new Table({
-      rows: cashFlowRows,
-      width: { size: 100, type: WidthType.PERCENTAGE },
-    }),
-    new Paragraph({
-      text: '',
-      spacing: { after: 400 },
-    }),
-    new Paragraph({
-      text: '',
-      pageBreakBefore: true,
-    })
-  );
-
-  // ========================================
-  // 12. RETORNOS DEL PROYECTO
-  // ========================================
-  sections.push(
-    new Paragraph({
-      text: '11. Retornos del Proyecto',
-      heading: HeadingLevel.HEADING_1,
-      spacing: { after: 200 },
-    })
-  );
-
-  const returnsRows = [
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'Métrica', bold: true })], shading: { fill: 'D9E9F7' } }),
-        new TableCell({ children: [new Paragraph({ text: 'Valor', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'IRR unlevered' })] }),
-        new TableCell({ children: [new Paragraph({ text: fmtPct(vr.returns.unlevered.irr), alignment: AlignmentType.RIGHT })] }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'MOIC unlevered' })] }),
-        new TableCell({ children: [new Paragraph({ text: `${fmtDecimal(vr.returns.unlevered.moic, 2)}x`, alignment: AlignmentType.RIGHT })] }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'IRR levered', bold: true })] }),
-        new TableCell({ children: [new Paragraph({ text: fmtPct(vr.returns.levered.irr), bold: true, alignment: AlignmentType.RIGHT })] }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'MOIC levered', bold: true })] }),
-        new TableCell({ children: [new Paragraph({ text: `${fmtDecimal(vr.returns.levered.moic, 2)}x`, bold: true, alignment: AlignmentType.RIGHT })] }),
-      ],
-    }),
-    new TableRow({
-      children: [
-        new TableCell({ children: [new Paragraph({ text: 'Equity invertido (t0)' })] }),
-        new TableCell({ children: [new Paragraph({ text: fmt(equity0), alignment: AlignmentType.RIGHT })] }),
-      ],
-    }),
-  ];
-
-  sections.push(
-    new Table({
-      rows: returnsRows,
-      width: { size: 60, type: WidthType.PERCENTAGE },
-    }),
-    new Paragraph({
-      text: 'Nota: Todos los retornos son pre-impuestos y están basados en flujos de caja.',
-      italics: true,
-      spacing: { before: 200, after: 400 },
-    }),
-    new Paragraph({
-      text: '',
-      pageBreakBefore: true,
-    })
-  );
-
-  // ========================================
-  // 13. STRESS TEST Y ROBUSTEZ
-  // ========================================
-  if (vr.sensitivity) {
-    sections.push(
-      new Paragraph({
-        text: '12. Stress Test y Robustez',
+        text: '3. Análisis Comercial – Año 1',
         heading: HeadingLevel.HEADING_1,
-        spacing: { after: 200 },
+        spacing: { after: 300 },
       }),
       new Paragraph({
-        text: 'Análisis de sensibilidad del IRR levered bajo diferentes escenarios:',
-        spacing: { after: 150 },
+        text: `El primer año de operación proyecta una ocupación media anual del ${fmtPct(avgOcc)} con un ADR promedio de ${fmt(avgAdr)}, resultando en un RevPAR de ${fmt(avgRevPAR)}. Sobre una capacidad de ${totalRoomnights.toFixed(0)} roomnights vendidas, se estima generar ${fmt(totalRoomsRevenue)} en ingresos por habitaciones.`,
+        spacing: { after: 200 },
       })
     );
 
-    const sensitivityRows = [
+    // Tabla resumida año 1 - solo totales
+    const year1CommercialRows = [
       new TableRow({
         children: [
-          new TableCell({ children: [new Paragraph({ text: 'Escenario', bold: true })], shading: { fill: 'D9E9F7' } }),
-          new TableCell({ children: [new Paragraph({ text: 'IRR Levered', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D9E9F7' } }),
+          new TableCell({ children: [new Paragraph({ text: 'Métrica', bold: true })], shading: { fill: 'E7E6E6' } }),
+          new TableCell({ children: [new Paragraph({ text: 'Valor', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Ocupación promedio' })] }),
+          new TableCell({ children: [new Paragraph({ text: fmtPct(avgOcc), alignment: AlignmentType.RIGHT })] }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'ADR promedio' })] }),
+          new TableCell({ children: [new Paragraph({ text: fmt(avgAdr), alignment: AlignmentType.RIGHT })] }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'RevPAR' })] }),
+          new TableCell({ children: [new Paragraph({ text: fmt(avgRevPAR), alignment: AlignmentType.RIGHT })] }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Rooms Revenue total' })] }),
+          new TableCell({ children: [new Paragraph({ text: fmt(totalRoomsRevenue), alignment: AlignmentType.RIGHT })] }),
         ],
       }),
     ];
 
-    if (vr.sensitivity.scenarios && Array.isArray(vr.sensitivity.scenarios)) {
+    sections.push(
+      new Table({
+        rows: year1CommercialRows,
+        width: { size: 60, type: WidthType.PERCENTAGE },
+      }),
+      new Paragraph({
+        text: 'Estos indicadores comerciales del primer año reflejan el posicionamiento de mercado proyectado y constituyen la base sobre la cual se construye la rampa de crecimiento hacia la estabilización operativa.',
+        spacing: { before: 200, after: 400 },
+      }),
+
+      // ========================================
+      // 5. CUENTA DE RESULTADOS OPERATIVA (USALI) - AÑO 1
+      // ========================================
+      new Paragraph({
+        text: '4. Cuenta de Resultados Operativa (USALI)',
+        heading: HeadingLevel.HEADING_1,
+        spacing: { after: 300 },
+      })
+    );
+
+    if (firstYearUsali) {
+      const totalRev = firstYearUsali.operating_revenue ?? 0;
+      const usaliSummaryRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Concepto', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Total (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: '€/hab', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: '% Revenue', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Total Revenue' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totalRev), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totalRev / keys), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: '100.0%', alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'GOP' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(firstYearUsali.gop ?? 0), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt((firstYearUsali.gop ?? 0) / keys), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct((firstYearUsali.gop ?? 0) / totalRev), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'EBITDA' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(firstYearUsali.ebitda ?? 0), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt((firstYearUsali.ebitda ?? 0) / keys), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct((firstYearUsali.ebitda ?? 0) / totalRev), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'EBITDA - FF&E' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(firstYearUsali.ebitda_less_ffe ?? 0), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt((firstYearUsali.ebitda_less_ffe ?? 0) / keys), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct((firstYearUsali.ebitda_less_ffe ?? 0) / totalRev), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+      ];
+
+      sections.push(
+        new Table({
+          rows: usaliSummaryRows,
+          width: { size: 100, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: `La estructura operativa del año 1 muestra un margen GOP del ${fmtPct((firstYearUsali.gop ?? 0) / totalRev)} y un EBITDA del ${fmtPct((firstYearUsali.ebitda ?? 0) / totalRev)}. Tras deducir los fees de operador (${fmt(firstYearUsali.fees ?? 0)}) y la reserva FF&E del ${fmtPct(operationConfig.ffe ?? 0)}, el EBITDA-FF&E alcanza ${fmt(firstYearUsali.ebitda_less_ffe ?? 0)}, equivalente a ${fmt((firstYearUsali.ebitda_less_ffe ?? 0) / keys)} por habitación.`,
+          spacing: { before: 200, after: 400 },
+        })
+      );
+    }
+
+    sections.push(
+      // ========================================
+      // 6. PROYECCIÓN OPERATIVA Y GENERACIÓN DE CAJA
+      // ========================================
+      new Paragraph({
+        text: '5. Proyección Operativa y Generación de Caja',
+        heading: HeadingLevel.HEADING_1,
+        spacing: { after: 300 },
+      })
+    );
+
+    // Tabla anual resumida
+    const projectionRows = [
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Año', bold: true })], shading: { fill: 'E7E6E6' } }),
+          new TableCell({ children: [new Paragraph({ text: 'Revenue (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          new TableCell({ children: [new Paragraph({ text: 'EBITDA (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          new TableCell({ children: [new Paragraph({ text: 'FF&E (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          new TableCell({ children: [new Paragraph({ text: 'EBITDA-FF&E (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+        ],
+      }),
+    ];
+
+    annuals.forEach(year => {
+      projectionRows.push(
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: year.anio.toString() })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(year.operating_revenue ?? 0), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(year.ebitda ?? 0), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(year.ffe ?? 0), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(year.ebitda_less_ffe ?? 0), alignment: AlignmentType.RIGHT })] }),
+          ],
+        })
+      );
+    });
+
+    // Fila de totales
+    projectionRows.push(
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'TOTAL', bold: true })], shading: { fill: 'F2F2F2' } }),
+          new TableCell({ children: [new Paragraph({ text: fmt(totals.operating_revenue), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+          new TableCell({ children: [new Paragraph({ text: fmt(totals.ebitda), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+          new TableCell({ children: [new Paragraph({ text: fmt(totals.ffe), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+          new TableCell({ children: [new Paragraph({ text: fmt(totals.ebitda_less_ffe), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+        ],
+      })
+    );
+
+    sections.push(
+      new Table({
+        rows: projectionRows,
+        width: { size: 100, type: WidthType.PERCENTAGE },
+      }),
+      new Paragraph({
+        text: `Durante el horizonte completo de ${projectionAssumptions.horizonte} años, el activo genera un EBITDA acumulado de ${fmt(totals.ebitda)} y un EBITDA-FF&E de ${fmt(totals.ebitda_less_ffe)} (${fmt(totals.ebitda_less_ffe / keys)} por habitación). La evolución de los flujos refleja la maduración operativa del activo y la estabilización de márgenes conforme se consolida el posicionamiento de mercado. La capacidad de generación de caja del proyecto constituye la base para el servicio de deuda y la rentabilidad del equity.`,
+        spacing: { before: 200, after: 400 },
+      }),
+
+      // ========================================
+      // 7. ESTRUCTURA DE LA INVERSIÓN (FUENTES & USOS)
+      // ========================================
+      new Paragraph({
+        text: '6. Estructura de la Inversión',
+        heading: HeadingLevel.HEADING_1,
+        spacing: { after: 300 },
+      })
+    );
+
+    const investmentRows = [
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'USOS', bold: true })], shading: { fill: 'E7E6E6' }, columnSpan: 2 }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Precio de compra' })] }),
+          new TableCell({ children: [new Paragraph({ text: fmt(base), alignment: AlignmentType.RIGHT })] }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Capex inicial' })] }),
+          new TableCell({ children: [new Paragraph({ text: fmt(capex), alignment: AlignmentType.RIGHT })] }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Costes de transacción' })] }),
+          new TableCell({ children: [new Paragraph({ text: fmt(costs_buy), alignment: AlignmentType.RIGHT })] }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Inversión Total', bold: true })], shading: { fill: 'F2F2F2' } }),
+          new TableCell({ children: [new Paragraph({ text: fmt(totalInvestment), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: '' })], borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } } }),
+          new TableCell({ children: [new Paragraph({ text: '' })], borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } } }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'FUENTES', bold: true })], shading: { fill: 'E7E6E6' }, columnSpan: 2 }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: `Deuda (${fmtPct(financingConfig.ltv ?? 0)} LTV)` })] }),
+          new TableCell({ children: [new Paragraph({ text: fmt(loan0), alignment: AlignmentType.RIGHT })] }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Equity' })] }),
+          new TableCell({ children: [new Paragraph({ text: fmt(equity0), alignment: AlignmentType.RIGHT })] }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Total Fuentes', bold: true })], shading: { fill: 'F2F2F2' } }),
+          new TableCell({ children: [new Paragraph({ text: fmt(totalInvestment), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+        ],
+      }),
+    ];
+
+    sections.push(
+      new Table({
+        rows: investmentRows,
+        width: { size: 70, type: WidthType.PERCENTAGE },
+      }),
+      new Paragraph({
+        text: `La estructura de capital contempla un apalancamiento del ${fmtPct(financingConfig.ltv ?? 0)} sobre la inversión total, requiriendo una aportación de equity de ${fmt(equity0)}, equivalente a ${fmt(equity0 / keys)} por habitación. Esta configuración busca optimizar el retorno al capital mediante el uso eficiente de deuda senior.`,
+        spacing: { before: 200, after: 400 },
+      }),
+
+      // ========================================
+      // 8. FINANCIACIÓN Y PERFIL DE DEUDA
+      // ========================================
+      new Paragraph({
+        text: '7. Financiación y Perfil de Deuda',
+        heading: HeadingLevel.HEADING_1,
+        spacing: { after: 300 },
+      }),
+      new Paragraph({
+        text: `El proyecto contempla financiación mediante préstamo ${financingConfig.tipo_amortizacion === 'frances' ? 'con amortización francesa' : 'bullet'} a ${financingConfig.plazo_anios} años, con tipo de interés del ${fmtPct(financingConfig.interes ?? 0)}. El principal inicial asciende a ${fmt(loan0)}, sobre el cual se calcula el servicio de deuda durante el período de holding.`,
+        spacing: { after: 200 },
+      })
+    );
+
+    const debtRows = [
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Concepto', bold: true })], shading: { fill: 'E7E6E6' } }),
+          new TableCell({ children: [new Paragraph({ text: 'Importe (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Principal inicial' })] }),
+          new TableCell({ children: [new Paragraph({ text: fmt(loan0), alignment: AlignmentType.RIGHT })] }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: `Deuda pendiente año ${lastYear}` })] }),
+          new TableCell({ children: [new Paragraph({ text: fmt(saldoDeudaFinal), alignment: AlignmentType.RIGHT })] }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Intereses pagados (holding)' })] }),
+          new TableCell({ children: [new Paragraph({ text: fmt(totalIntereses), alignment: AlignmentType.RIGHT })] }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Principal amortizado (holding)' })] }),
+          new TableCell({ children: [new Paragraph({ text: fmt(totalAmortizacion), alignment: AlignmentType.RIGHT })] }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Servicio total de deuda', bold: true })], shading: { fill: 'F2F2F2' } }),
+          new TableCell({ children: [new Paragraph({ text: fmt(totalCuota), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+        ],
+      }),
+    ];
+
+    sections.push(
+      new Table({
+        rows: debtRows,
+        width: { size: 70, type: WidthType.PERCENTAGE },
+      }),
+      new Paragraph({
+        text: `El servicio acumulado de deuda suma ${fmt(totalCuota)} durante el holding, de los cuales ${fmt(totalIntereses)} corresponden a intereses y ${fmt(totalAmortizacion)} a amortización de principal. Al momento de la salida en el año ${lastYear}, la deuda pendiente asciende a ${fmt(saldoDeudaFinal)}, importe que será liquidado con cargo al valor de exit antes de distribuir el equity neto.`,
+        spacing: { before: 200, after: 200 },
+      }),
+      new Paragraph({
+        text: '',
+        pageBreakBefore: true,
+      }),
+
+      // ========================================
+      // 9. VALORACIÓN DEL ACTIVO Y EXIT
+      // ========================================
+      new Paragraph({
+        text: '8. Valoración del Activo y Exit',
+        heading: HeadingLevel.HEADING_1,
+        spacing: { after: 300 },
+      }),
+      new Paragraph({
+        text: `La valoración del activo al momento de la salida se realiza mediante ${valuationConfig.metodo_valoracion === 'cap_rate' ? `cap rate de ${fmtPct(valuationConfig.cap_rate_salida ?? 0)}` : `múltiplo de ${fmtDecimal(valuationConfig.multiplo_salida ?? 0, 2)}x`}, aplicado sobre un NOI estabilizado. Los costes de transacción de venta se estiman en ${fmtPct(valuationConfig.coste_tx_venta_pct ?? 0)} del valor bruto.`,
+        spacing: { after: 200 },
+      })
+    );
+
+    // Explicación NOI estabilizado
+    if (vr.valuation.noi_details && vr.valuation.noi_details.last_years_noi && Array.isArray(vr.valuation.noi_details.last_years_noi)) {
+      sections.push(
+        new Paragraph({
+          text: 'El NOI estabilizado se calcula como la media de los últimos años del holding, ajustada al año de salida con un crecimiento interno del 2% anual. Este enfoque permite reflejar la capacidad operativa recurrente del activo en condiciones normalizadas:',
+          spacing: { after: 200 },
+        })
+      );
+
+      const noiRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Año', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'NOI (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+      ];
+
+      vr.valuation.noi_details.last_years_noi.forEach((noi: number, idx: number) => {
+        const yearNum = lastYear - vr.valuation.noi_details.years_used + idx + 1;
+        noiRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph({ text: `Año ${yearNum}` })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(noi), alignment: AlignmentType.RIGHT })] }),
+            ],
+          })
+        );
+      });
+
+      noiRows.push(
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Media simple' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(vr.valuation.noi_details.last_years_noi.reduce((sum: number, noi: number) => sum + noi, 0) / vr.valuation.noi_details.last_years_noi.length), alignment: AlignmentType.RIGHT })] }),
+          ],
+        })
+      );
+
+      noiRows.push(
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: `Ajuste al año de salida (+2%/año × ${vr.valuation.noi_details.adjustment_years} años)` })] }),
+            new TableCell({ children: [new Paragraph({ text: `Factor ${fmtDecimal(Math.pow(1.02, vr.valuation.noi_details.adjustment_years), 3)}x`, alignment: AlignmentType.RIGHT })] }),
+          ],
+        })
+      );
+
+      noiRows.push(
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'NOI Estabilizado', bold: true })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmt(vr.valuation.noi_estabilizado ?? 0), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+          ],
+        })
+      );
+
+      sections.push(
+        new Table({
+          rows: noiRows,
+          width: { size: 70, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: '',
+          spacing: { after: 200 },
+        })
+      );
+    }
+
+    sections.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: 'Valor de salida total: ', bold: true }),
+          new TextRun({ text: fmt(vr.valuation.valor_salida_neto) }),
+        ],
+        spacing: { after: 150 },
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: 'Valor por habitación: ', bold: true }),
+          new TextRun({ text: fmt(vr.valuation.valor_salida_neto / keys) }),
+        ],
+        spacing: { after: 200 },
+      }),
+      new Paragraph({
+        text: `El valor de salida neto asciende a ${fmt(vr.valuation.valor_salida_neto)}, lo que representa ${fmt(vr.valuation.valor_salida_neto / keys)} por habitación. Esta valoración refleja la capacidad del activo de generar un NOI estabilizado de ${fmt(vr.valuation.noi_estabilizado ?? noiLastYear)} (${fmt((vr.valuation.noi_estabilizado ?? noiLastYear) / keys)} por key), valorado al ${valuationConfig.metodo_valoracion === 'cap_rate' ? `cap rate del ${fmtPct(valuationConfig.cap_rate_salida ?? 0)}` : `múltiplo de ${fmtDecimal(valuationConfig.multiplo_salida ?? 0, 2)}x`}.`,
+        spacing: { after: 400 },
+      }),
+
+      // ========================================
+      // 10. ANÁLISIS DE PRECIO DE COMPRA
+      // ========================================
+      new Paragraph({
+        text: '9. Análisis de Precio de Compra',
+        heading: HeadingLevel.HEADING_1,
+        spacing: { after: 300 },
+      })
+    );
+
+    if (vr.purchase_price_analysis) {
+      const ppa = vr.purchase_price_analysis;
+      sections.push(
+        new Paragraph({
+          text: 'El análisis de coherencia económica compara el precio de compra introducido con el precio implícito que justificarían los flujos proyectados y el valor de salida, utilizando el cap rate de exit como tasa de descuento implícita.',
+          spacing: { after: 200 },
+        })
+      );
+
+      const ppaRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Concepto', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Importe (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Precio de compra introducido' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(ppa.precio_introducido), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Precio implícito según flujos y exit' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(ppa.precio_implicito), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Diferencia (€)', bold: true })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmt(ppa.diferencia_absoluta), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Diferencia (%)', bold: true })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(ppa.diferencia_porcentual), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+          ],
+        }),
+      ];
+
+      sections.push(
+        new Table({
+          rows: ppaRows,
+          width: { size: 70, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: ppa.interpretacion,
+          spacing: { before: 200, after: 200 },
+        }),
+        new Paragraph({
+          text: 'Este análisis no constituye una recomendación de inversión, sino una evaluación de la coherencia económica del precio respecto a los supuestos operativos y de salida configurados. La diferencia entre ambos precios indica el margen de seguridad (si es negativa) o la prima pagada (si es positiva) según el modelo.',
+          spacing: { after: 400 },
+        }),
+
+        // ========================================
+        // 11. FLUJOS AL EQUITY Y RETORNOS
+        // ========================================
+        new Paragraph({
+          text: '10. Flujos al Equity y Retornos',
+          heading: HeadingLevel.HEADING_1,
+          spacing: { after: 300 },
+        }),
+        new Paragraph({
+          text: `Los flujos de caja al equity se calculan restando al EBITDA-FF&E acumulado el servicio total de deuda durante el holding. Al momento de la salida, se liquida la deuda pendiente con cargo al valor de exit, distribuyendo el equity neto restante.`,
+          spacing: { after: 200 },
+        })
+      );
+
+      const cashFlowRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Concepto', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Total (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Equity invertido (t0)' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(-equity0), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Caja neta durante el holding' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totals.ebitda_less_ffe - totalCuota), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Equity neto al exit' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(equityAtExit), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+      ];
+
+      sections.push(
+        new Table({
+          rows: cashFlowRows,
+          width: { size: 70, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: '',
+          spacing: { after: 300 },
+        })
+      );
+
+      const returnsRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Métrica', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Unlevered', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Levered', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'IRR' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(vr.returns.unlevered.irr), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(vr.returns.levered.irr), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'MOIC' })] }),
+            new TableCell({ children: [new Paragraph({ text: `${fmtDecimal(vr.returns.unlevered.moic, 2)}x`, alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: `${fmtDecimal(vr.returns.levered.moic, 2)}x`, alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+      ];
+
+      sections.push(
+        new Table({
+          rows: returnsRows,
+          width: { size: 70, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: `El proyecto muestra un IRR levered del ${fmtPct(vr.returns.levered.irr)} y un MOIC de ${fmtDecimal(vr.returns.levered.moic, 2)}x. ${vr.returns.levered.irr > vr.returns.unlevered.irr ? 'El apalancamiento genera valor positivo para el equity, dado que el coste de la deuda es inferior a la rentabilidad unlevered del proyecto.' : 'El apalancamiento reduce la rentabilidad del equity, dado que el coste de la deuda supera la rentabilidad unlevered del activo.'} Todos los retornos son pre-impuestos y se calculan sobre flujos de caja, no sobre resultados contables.`,
+          spacing: { before: 200, after: 400 },
+        })
+      );
+    }
+
+    // ========================================
+    // 12. STRESS TEST Y ROBUSTEZ
+    // ========================================
+    if (vr.sensitivity && vr.sensitivity.scenarios && Array.isArray(vr.sensitivity.scenarios) && vr.sensitivity.scenarios.length > 0) {
+      sections.push(
+        new Paragraph({
+          text: '11. Stress Test y Robustez',
+          heading: HeadingLevel.HEADING_1,
+          spacing: { after: 300 },
+        }),
+        new Paragraph({
+          text: 'El análisis de sensibilidad evalúa la variabilidad del IRR levered bajo diferentes escenarios de mercado, permitiendo valorar la robustez del proyecto ante desviaciones respecto al caso base.',
+          spacing: { after: 200 },
+        })
+      );
+
+      const sensitivityRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Escenario', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'IRR Levered', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+      ];
+
       vr.sensitivity.scenarios.forEach((scenario: any) => {
         sensitivityRows.push(
           new TableRow({
@@ -1035,110 +926,86 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
           })
         );
       });
+
+      // Calcular rango de variabilidad
+      const irrs = vr.sensitivity.scenarios.map((s: any) => s.irr_levered);
+      const minIRR = Math.min(...irrs);
+      const maxIRR = Math.max(...irrs);
+
+      sections.push(
+        new Table({
+          rows: sensitivityRows,
+          width: { size: 70, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: `El rango de variabilidad del IRR levered se sitúa entre ${fmtPct(minIRR)} y ${fmtPct(maxIRR)}, reflejando ${maxIRR - minIRR < 0.05 ? 'una alta robustez del proyecto ante variaciones de mercado' : maxIRR - minIRR < 0.10 ? 'una robustez moderada del proyecto ante variaciones de mercado' : 'una sensibilidad significativa del proyecto ante variaciones de mercado'}. La evaluación de riesgo debe considerar la probabilidad de materialización de cada escenario y su impacto sobre la viabilidad del proyecto.`,
+          spacing: { before: 200, after: 400 },
+        })
+      );
+    }
+
+    // ========================================
+    // 13. CONCLUSIONES E INSIGHTS FINALES
+    // ========================================
+    sections.push(
+      new Paragraph({
+        text: vr.sensitivity ? '12. Conclusiones e Insights Finales' : '11. Conclusiones e Insights Finales',
+        heading: HeadingLevel.HEADING_1,
+        spacing: { after: 300 },
+      }),
+      new Paragraph({
+        text: `${basicInfo.nombre} representa una oportunidad de inversión en el sector hotelero ${basicInfo.segmento.toLowerCase()} de ${basicInfo.provincia}, con una inversión total de ${fmt(totalInvestment)} (${fmt(totalInvestment / keys)} por habitación) y una aportación de equity de ${fmt(equity0)}.`,
+        spacing: { after: 200 },
+      }),
+      new Paragraph({
+        text: `La proyección operativa estima generar ${fmt(totals.ebitda_less_ffe)} de EBITDA-FF&E acumulado durante ${projectionAssumptions.horizonte} años de holding. Tras atender el servicio de deuda (${fmt(totalCuota)}), la caja neta disponible para el equity durante el período asciende a ${fmt(totals.ebitda_less_ffe - totalCuota)}.`,
+        spacing: { after: 200 },
+      }),
+      new Paragraph({
+        text: `La estrategia de salida contempla una desinversión en el año ${lastYear} con un valor estimado de ${fmt(vr.valuation.valor_salida_neto)}, basado en un NOI estabilizado de ${fmt(vr.valuation.noi_estabilizado ?? noiLastYear)} valorado ${valuationConfig.metodo_valoracion === 'cap_rate' ? `al ${fmtPct(valuationConfig.cap_rate_salida ?? 0)} cap rate` : `a ${fmtDecimal(valuationConfig.multiplo_salida ?? 0, 2)}x múltiplo`}. Tras liquidar la deuda pendiente (${fmt(saldoDeudaFinal)}), el equity neto recuperable alcanza ${fmt(equityAtExit)}.`,
+        spacing: { after: 200 },
+      }),
+      new Paragraph({
+        text: `Los retornos proyectados muestran un IRR levered del ${fmtPct(vr.returns.levered.irr)} y un MOIC de ${fmtDecimal(vr.returns.levered.moic, 2)}x. ${vr.returns.levered.irr > vr.returns.unlevered.irr ? `El apalancamiento aporta valor al equity, incrementando el IRR desde ${fmtPct(vr.returns.unlevered.irr)} (unlevered) hasta ${fmtPct(vr.returns.levered.irr)} (levered).` : `El coste de financiación reduce el retorno al equity respecto al unlevered (${fmtPct(vr.returns.unlevered.irr)}).`}`,
+        spacing: { after: 200 },
+      })
+    );
+
+    if (vr.purchase_price_analysis) {
+      const ppa = vr.purchase_price_analysis;
+      sections.push(
+        new Paragraph({
+          text: `El análisis de precio de compra revela que el precio introducido (${fmt(ppa.precio_introducido)}) se sitúa ${ppa.diferencia_absoluta < 0 ? `${fmt(Math.abs(ppa.diferencia_absoluta))} por debajo` : `${fmt(ppa.diferencia_absoluta)} por encima`} del precio implícito según flujos proyectados (${fmt(ppa.precio_implicito)}), representando ${ppa.diferencia_absoluta < 0 ? 'un margen de seguridad' : 'una prima'} del ${fmtPct(Math.abs(ppa.diferencia_porcentual))} sobre el valor que justifican los supuestos utilizados.`,
+          spacing: { after: 200 },
+        })
+      );
+    }
+
+    if (vr.sensitivity && vr.sensitivity.scenarios && Array.isArray(vr.sensitivity.scenarios) && vr.sensitivity.scenarios.length > 0) {
+      const irrs = vr.sensitivity.scenarios.map((s: any) => s.irr_levered);
+      const minIRR = Math.min(...irrs);
+      const maxIRR = Math.max(...irrs);
+      sections.push(
+        new Paragraph({
+          text: `El análisis de sensibilidad indica que el IRR levered podría oscilar entre ${fmtPct(minIRR)} y ${fmtPct(maxIRR)} según distintos escenarios de mercado, sugiriendo ${maxIRR - minIRR < 0.05 ? 'una alta robustez estructural del proyecto' : maxIRR - minIRR < 0.10 ? 'una sensibilidad moderada a variaciones de mercado' : 'una elevada sensibilidad a las condiciones de mercado'}.`,
+          spacing: { after: 300 },
+        })
+      );
     }
 
     sections.push(
-      new Table({
-        rows: sensitivityRows,
-        width: { size: 60, type: WidthType.PERCENTAGE },
+      new Paragraph({
+        text: 'Nota metodológica',
+        bold: true,
+        spacing: { after: 150 },
       }),
       new Paragraph({
-        text: 'El análisis de sensibilidad muestra la variabilidad de retornos bajo diferentes condiciones de mercado, permitiendo evaluar la robustez del proyecto ante escenarios adversos.',
-        spacing: { before: 200, after: 400 },
-      }),
-      new Paragraph({
-        text: '',
-        pageBreakBefore: true,
+        text: `Todos los flujos de caja y retornos presentados son pre-impuestos sobre sociedades. El EBITDA-FF&E incluye la reserva de FF&E (${fmtPct(operationConfig.ffe ?? 0)} de ingresos) como salida de caja operativa. No se contemplan amortizaciones contables dado que el análisis se fundamenta en flujos de caja reales, no en resultados contables. La deuda pendiente se liquida íntegramente al momento de la salida antes de distribuir el equity neto. Este análisis constituye un screening preliminar y no sustituye un proceso completo de due diligence operativa, legal, fiscal y técnica.`,
+        spacing: { after: 200 },
       })
     );
-  }
 
-  // ========================================
-  // 14. INSIGHTS FINALES DEL PROYECTO
-  // ========================================
-  sections.push(
-    new Paragraph({
-      text: '13. Insights Finales del Proyecto',
-      heading: HeadingLevel.HEADING_1,
-      spacing: { after: 200 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Contexto del proyecto: ', bold: true }),
-        new TextRun({
-          text: `${basicInfo.nombre} es un proyecto ${basicInfo.segmento} ${basicInfo.categoria} ubicado en ${basicInfo.provincia}, ${basicInfo.comunidad_autonoma}, con ${keys} habitaciones.`,
-        }),
-      ],
-      spacing: { after: 150 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Inversión y equity: ', bold: true }),
-        new TextRun({
-          text: `La inversión total asciende a ${fmt(totalInvestment)}, lo que representa ${fmt(totalInvestment / keys)} por habitación. El equity aportado es de ${fmt(equity0)} (${fmt(equity0 / keys)} por key), con una financiación del ${fmtPct(financingConfig.ltv ?? 0)} LTV (${fmt(loan0)} de deuda) a un tipo de interés del ${fmtPct(financingConfig.interes ?? 0)} durante ${financingConfig.plazo_anios} años con amortización ${financingConfig.tipo_amortizacion === 'frances' ? 'francesa' : 'bullet'}.`,
-        }),
-      ],
-      spacing: { after: 150 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Operativa y generación de caja: ', bold: true }),
-        new TextRun({
-          text: `Durante el período de holding de ${projectionAssumptions.horizonte} años, el activo genera un EBITDA-FF&E acumulado de ${fmt(totals.ebitda_less_ffe)} (${fmt(totals.ebitda_less_ffe / keys)} por key). Este flujo operativo es pre-impuestos e incluye la reserva de FF&E (${fmtPct(operationConfig.ffe ?? 0)} de ingresos), pero no contempla amortizaciones fiscales.`,
-        }),
-      ],
-      spacing: { after: 150 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Impacto de la financiación: ', bold: true }),
-        new TextRun({
-          text: `El servicio total de la deuda durante el holding suma ${fmt(totalCuota)}, compuesto por ${fmt(totalIntereses)} de intereses y ${fmt(totalAmortizacion)} de amortización de principal. La caja neta disponible para el equity durante el período es de ${fmt(totals.ebitda_less_ffe - totalCuota)} (${fmt((totals.ebitda_less_ffe - totalCuota) / keys)} por key).`,
-        }),
-      ],
-      spacing: { after: 150 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Valor de salida: ', bold: true }),
-        new TextRun({
-          text: `La salida está prevista para el año ${lastYear}, con un valor de ${fmt(vr.valuation.valor_salida_neto)} (${fmt(vr.valuation.valor_salida_neto / keys)} por key) aplicando ${
-            valuationConfig.metodo_valoracion === 'cap_rate'
-              ? `un cap rate de salida del ${fmtPct(valuationConfig.cap_rate_salida ?? 0)}`
-              : `un múltiplo de ${fmtDecimal(valuationConfig.multiplo_salida ?? 0, 2)}x`
-          } sobre un NOI estabilizado de ${fmt(vr.valuation.noi_estabilizado ?? noiLastYear)}${
-            vr.valuation.noi_details ? ` (media ajustada de los últimos ${vr.valuation.noi_details.years_used} años)` : ''
-          }. Tras liquidar la deuda pendiente (${fmt(saldoDeudaFinal)}), el equity neto al exit es de ${fmt(equityAtExit)} (${fmt(equityAtExit / keys)} por key).`,
-        }),
-      ],
-      spacing: { after: 150 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Rentabilidad y robustez: ', bold: true }),
-        new TextRun({
-          text: `El proyecto muestra un IRR levered (con deuda) pre-impuestos del ${fmtPct(vr.returns.levered.irr)} y un MOIC de ${fmtDecimal(vr.returns.levered.moic, 2)}x. El IRR unlevered (sin deuda) es del ${fmtPct(vr.returns.unlevered.irr)}. ${
-            vr.returns.levered.irr > vr.returns.unlevered.irr
-              ? 'El apalancamiento genera valor positivo para el equity.'
-              : 'El apalancamiento reduce la rentabilidad del equity.'
-          } La plausibilidad del exit debe evaluarse considerando que el valor por key de ${fmt(vr.valuation.valor_salida_neto / keys)} se fundamenta en un NOI estabilizado de ${fmt((vr.valuation.noi_estabilizado ?? noiLastYear) / keys)} por habitación.`,
-        }),
-      ],
-      spacing: { after: 200 },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: 'Nota metodológica: ', bold: true }),
-        new TextRun({
-          text: 'Todos los flujos de caja y retornos presentados son pre-impuestos sobre sociedades (IS). Se incluye la reserva de FF&E como salida de caja operativa. No se contemplan amortizaciones contables (al ser un cálculo de caja, no de P&L fiscal). La deuda pendiente se liquida íntegramente en la salida antes de calcular el equity neto.',
-          italics: true,
-        }),
-      ],
-      spacing: { after: 200 },
-    })
-  );
-
-  // Crear el documento
+    // Crear el documento
     console.log('Creando documento Word con', sections.length, 'secciones...');
     const doc = new Document({
       sections: [{
@@ -1150,7 +1017,7 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     // Generar el archivo
     console.log('Generando blob...');
     const blob = await Packer.toBlob(doc);
-    const fileName = `${basicInfo.nombre || 'Proyecto'}_Screening_${new Date().toISOString().split('T')[0]}.docx`;
+    const fileName = `${basicInfo.nombre || 'Proyecto'}_Investment_Screening_${new Date().toISOString().split('T')[0]}.docx`;
     console.log('Descargando archivo:', fileName);
     saveAs(blob, fileName);
     console.log('Documento generado exitosamente');
