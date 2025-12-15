@@ -50,9 +50,19 @@ interface AnnualUsaliTableProps {
   onChange?: (data: AnnualData[]) => void;
   diasModificados?: boolean; // Si true, muestra columna "% Occ si 100%"
   onFieldEdit?: (anio: number, campo: string) => void;
+  // Parámetros para recálculo de fees
+  feeParams?: {
+    operacion_tipo: 'gestion_propia' | 'operador';
+    base_anual: number | null;
+    pct_total_rev: number | null;
+    pct_gop: number | null;
+    incentive_pct: number | null;
+    hurdle_gop_margin: number | null;
+    gop_ajustado: boolean;
+  };
 }
 
-export default function AnnualUsaliTable({ data, editable = false, onChange, diasModificados = false, onFieldEdit }: AnnualUsaliTableProps) {
+export default function AnnualUsaliTable({ data, editable = false, onChange, diasModificados = false, onFieldEdit, feeParams }: AnnualUsaliTableProps) {
   const [editableData, setEditableData] = useState<AnnualData[]>(data);
 
   useEffect(() => {
@@ -99,6 +109,25 @@ export default function AnnualUsaliTable({ data, editable = false, onChange, dia
       // Recalcular campos derivados
       updated.dept_profit = updated.operating_revenue - updated.dept_total;
       updated.gop = updated.dept_profit - updated.und_total;
+
+      // Recalcular FEES si no se está editando directamente y hay parámetros disponibles
+      if (field !== 'fees' && feeParams && feeParams.operacion_tipo === 'operador') {
+        const total_rev = updated.operating_revenue;
+        const gop_for_fees = feeParams.gop_ajustado ? (updated.gop - updated.ffe) : updated.gop;
+
+        const base_fee = feeParams.base_anual || 0;
+        const fee_total_rev = feeParams.pct_total_rev ? (feeParams.pct_total_rev * total_rev) : 0;
+        const fees_base = base_fee + fee_total_rev;
+        const fees_variable = feeParams.pct_gop ? (feeParams.pct_gop * gop_for_fees) : 0;
+        const fees_incentive = (feeParams.incentive_pct && feeParams.hurdle_gop_margin && (gop_for_fees / total_rev >= feeParams.hurdle_gop_margin))
+          ? (feeParams.incentive_pct * gop_for_fees) : 0;
+
+        updated.fees = fees_base + fees_variable + fees_incentive;
+      } else if (field !== 'fees' && feeParams && feeParams.operacion_tipo === 'gestion_propia') {
+        // Si es gestión propia, fees = 0
+        updated.fees = 0;
+      }
+
       updated.ebitda = updated.gop - updated.fees - updated.nonop;
       updated.ebitda_less_ffe = updated.ebitda - updated.ffe;
 
