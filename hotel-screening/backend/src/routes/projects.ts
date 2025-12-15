@@ -16,7 +16,7 @@ const router = Router();
 function transformHtmlForWord(html: string): string {
   console.log('Transformando HTML para compatibilidad con Word (con cheerio)...');
 
-  const $ = cheerio.load(html);
+  const $ = cheerio(html);
 
   // 1. Convertir divs con display:flex/grid a tablas
   $('[style*="display: flex"], [style*="display:flex"], [style*="display: grid"], [style*="display:grid"]').each((i, elem) => {
