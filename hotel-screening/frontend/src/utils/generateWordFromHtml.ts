@@ -14,13 +14,17 @@ export async function generateWordFromHtml(params: GenerateWordFromHtmlParams) {
       throw new Error('El ID del proyecto es requerido');
     }
 
+    // Configurar headers con autenticación
+    const API = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
+    const headers = new Headers();
+    headers.set('x-user-email', (localStorage.getItem('email') || 'demo@user.com'));
+    headers.set('Content-Type', 'application/json');
+
     // Llamar al endpoint del backend que hace la conversión
-    const response = await fetch(`/api/v1/projects/${projectId}/snapshot/word`, {
+    const response = await fetch(`${API}/v1/projects/${projectId}/snapshot/word`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include', // Para incluir cookies de autenticación
+      headers,
+      credentials: 'include',
     });
 
     if (!response.ok) {
