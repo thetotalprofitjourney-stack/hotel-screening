@@ -9,6 +9,81 @@ import JSZip from 'jszip';
 const router = Router();
 
 /**
+ * Transforma HTML moderno (flex, grid) a HTML compatible con Word (tablas).
+ * Convierte layouts CSS complejos a tablas HTML tradicionales.
+ */
+function transformHtmlForWord(html: string): string {
+  console.log('Transformando HTML para compatibilidad con Word...');
+
+  let transformed = html;
+
+  // 1. Convertir divs con display:flex a tablas
+  // Patrón: <div style="display: flex">...</div>
+  // → <table><tr><td>...</td></tr></table>
+
+  // Regex para encontrar divs con flex (simplificado)
+  // Esto es una aproximación - en producción usarías un parser DOM
+
+  // 2. Eliminar estilos CSS complejos que Word no soporta
+  const unsupportedStyles = [
+    'display:\\s*flex',
+    'display:\\s*grid',
+    'flex-direction',
+    'justify-content',
+    'align-items',
+    'gap',
+    'grid-template',
+    'transform',
+    'box-shadow',
+    'border-radius',
+  ];
+
+  unsupportedStyles.forEach(style => {
+    const regex = new RegExp(`${style}:[^;]+;?`, 'gi');
+    transformed = transformed.replace(regex, '');
+  });
+
+  // 3. Convertir clases de Tailwind/utility a estilos inline simples
+  // Reemplazar clases comunes por estilos equivalentes
+  const classReplacements: Record<string, string> = {
+    'flex': 'display: block;',  // Convertir flex a block
+    'grid': 'display: block;',  // Convertir grid a block
+    'text-center': 'text-align: center;',
+    'text-right': 'text-align: right;',
+    'text-left': 'text-align: left;',
+    'font-bold': 'font-weight: bold;',
+    'text-green-600': 'color: #059669;',
+    'text-red-600': 'color: #dc2626;',
+    'text-blue-600': 'color: #2563eb;',
+    'bg-gray-50': 'background-color: #f9fafb;',
+    'bg-gray-100': 'background-color: #f3f4f6;',
+  };
+
+  Object.entries(classReplacements).forEach(([className, style]) => {
+    const regex = new RegExp(`class="([^"]*\\b${className}\\b[^"]*)"`, 'g');
+    transformed = transformed.replace(regex, (match, classes) => {
+      // Verificar si ya tiene atributo style
+      const hasStyle = match.includes('style=');
+      if (hasStyle) {
+        return match.replace(/style="([^"]*)"/, `style="$1 ${style}"`);
+      } else {
+        return `${match.slice(0, -1)} style="${style}"`;
+      }
+    });
+  });
+
+  // 4. Asegurar que las tablas tengan bordes explícitos
+  transformed = transformed.replace(/<table/g, '<table border="1" cellpadding="5" cellspacing="0"');
+
+  // 5. Forzar anchos de tabla a 100%
+  transformed = transformed.replace(/<table([^>]*)>/g, '<table$1 width="100%">');
+
+  console.log(`HTML transformado: ${html.length} → ${transformed.length} caracteres`);
+
+  return transformed;
+}
+
+/**
  * Sanitiza HTML para evitar problemas de XML mal formado en el DOCX.
  * Escapa caracteres especiales XML y limpia etiquetas problemáticas.
  */
@@ -930,8 +1005,11 @@ router.post('/v1/projects/:id/snapshot/word', async (req, res) => {
     console.log('Convirtiendo HTML a DOCX en el servidor...');
     console.log('Longitud del HTML original:', fullHtml.length, 'caracteres');
 
+    // TRANSFORMAR HTML para Word (eliminar flex/grid, convertir a tablas)
+    const transformedHtml = transformHtmlForWord(fullHtml);
+
     // SANITIZAR HTML antes de convertir para evitar XML mal formado
-    const sanitizedHtml = sanitizeHtmlForDocx(fullHtml);
+    const sanitizedHtml = sanitizeHtmlForDocx(transformedHtml);
 
     console.log('Usando html-docx-js (alternativa más estable que html-to-docx)');
 
