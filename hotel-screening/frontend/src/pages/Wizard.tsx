@@ -95,8 +95,13 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     projection: false,
     save_projection: false,
     debt: false,
-    valuation: false
+    valuation: false,
+    finalize: false
   });
+
+  // Estados para snapshot finalizado
+  const [snapshotFinalizado, setSnapshotFinalizado] = useState(false);
+  const [snapshotHtml, setSnapshotHtml] = useState<string | null>(null);
 
   // Registro de campos editados manualmente por el usuario
   type EditedField = { mes?: number; anio?: number; campo: string };
@@ -225,6 +230,15 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       const project = data.find((p: any) => p.project_id === projectId);
       if (project && project.estado) {
         setProjectState(project.estado);
+
+        // Verificar si el proyecto tiene snapshot finalizado
+        if (project.snapshot_finalizado) {
+          setSnapshotFinalizado(true);
+          // Cargar el snapshot HTML
+          await loadSnapshot();
+          return; // No cargar datos normales si hay snapshot
+        }
+
         // Inicializar estados según el estado del proyecto
         if (project.estado === 'y1_commercial' || project.estado === 'y1_usali' || project.estado === 'projection_2n' || project.estado === 'finalized') {
           setAccepted(true);
@@ -250,6 +264,18 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       }
     } catch (error) {
       console.error('Error cargando estado del proyecto:', error);
+    }
+  }
+
+  async function loadSnapshot() {
+    try {
+      const data = await api(`/v1/projects/${projectId}/snapshot`);
+      if (data && data.htmlContent) {
+        setSnapshotHtml(data.htmlContent);
+      }
+    } catch (error) {
+      console.error('Error cargando snapshot:', error);
+      setSnapshotFinalizado(false);
     }
   }
 
@@ -864,12 +890,71 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     }
   }
 
+  async function finalizeProject() {
+    if (loading.finalize) return;
+
+    const confirmed = window.confirm(
+      '¿Estás seguro de finalizar este proyecto?\n\n' +
+      'Al finalizar, se guardará un snapshot (instantánea) de los resultados actuales.\n' +
+      'Cuando abras este proyecto en el futuro, verás exactamente estos mismos datos.\n\n' +
+      'Esta acción no se puede deshacer.'
+    );
+
+    if (!confirmed) return;
+
+    setLoading(prev => ({ ...prev, finalize: true }));
+    try {
+      // Capturar el HTML del reporte completo
+      const reportElement = document.getElementById('project-report');
+      if (!reportElement) {
+        throw new Error('No se pudo encontrar el reporte para guardar');
+      }
+
+      const htmlContent = reportElement.outerHTML;
+
+      // Enviar al backend
+      await api(`/v1/projects/${projectId}/finalize`, {
+        method: 'POST',
+        body: JSON.stringify({ htmlContent })
+      });
+
+      alert('Proyecto finalizado exitosamente. Cuando abras este proyecto, verás exactamente los mismos resultados.');
+      setSnapshotFinalizado(true);
+
+      // Recargar el proyecto para mostrar el snapshot
+      await loadSnapshot();
+    } catch (error) {
+      console.error('Error finalizando proyecto:', error);
+      alert('Error al finalizar proyecto: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+    } finally {
+      setLoading(prev => ({ ...prev, finalize: false }));
+    }
+  }
+
+  // Si hay snapshot, mostrar el HTML guardado
+  if (snapshotFinalizado && snapshotHtml) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <button className="px-2 py-1 border rounded" onClick={onBack}>← Volver</button>
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded">
+            ✓ Proyecto Finalizado - Vista de Solo Lectura
+          </div>
+        </div>
+        <div
+          dangerouslySetInnerHTML={{ __html: snapshotHtml }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center">
         <button className="px-2 py-1 border rounded" onClick={onBack}>← Volver</button>
       </div>
 
+      <div id="project-report">
       {/* INICIO: Datos básicos del proyecto */}
       {!basicInfoSaved ? (
         <section>
@@ -1819,9 +1904,29 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                 </p>
               </div>
             </div>
+          </section>
+        );
+      })()}
+      </div>
 
-            {/* Botón de descarga de Word */}
-            <div className="mt-4">
+      {/* Botones de acción final */}
+      {vr && (
+        <div className="space-y-3 mt-6">
+          {!snapshotFinalizado && (
+            <button
+              onClick={finalizeProject}
+              disabled={loading.finalize}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-200"
+            >
+              {loading.finalize ? 'Finalizando...' : 'FINALIZAR PROYECTO'}
+            </button>
+          )}
+
+          {snapshotFinalizado && (
+            <>
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded text-center">
+                ✓ Proyecto finalizado. Los datos están guardados como instantánea.
+              </div>
               <button
                 onClick={async () => {
                   try {
@@ -1847,10 +1952,10 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               >
                 DESCARGAR PROYECTO EN WORD
               </button>
-            </div>
-          </section>
-        );
-      })()}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
