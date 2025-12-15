@@ -10,6 +10,7 @@ import ProjectionAssumptionsForm, { ProjectionAssumptions } from '../components/
 import FinancingForm, { FinancingConfig } from '../components/FinancingForm';
 import ValuationForm, { ValuationConfig } from '../components/ValuationForm';
 import EditedFieldsNote from '../components/EditedFieldsNote';
+import { generateWordDocument } from '../utils/generateWordDocument';
 
 // Funciones de formateo de números (formato español)
 function fmtDecimal(n: number, decimals: number = 2) {
@@ -1804,6 +1805,35 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                   La deuda pendiente se liquida íntegramente en la salida antes de calcular el equity neto.
                 </p>
               </div>
+            </div>
+
+            {/* Botón de descarga de Word */}
+            <div className="mt-4">
+              <button
+                onClick={async () => {
+                  try {
+                    await generateWordDocument({
+                      basicInfo,
+                      operationConfig,
+                      projectionAssumptions,
+                      financingConfig,
+                      valuationConfig,
+                      meses,
+                      calculatedUsali,
+                      editedUsaliData,
+                      annuals,
+                      debt,
+                      vr
+                    });
+                  } catch (error) {
+                    console.error('Error generando documento Word:', error);
+                    alert('Hubo un error al generar el documento. Por favor, intenta de nuevo.');
+                  }
+                }}
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-200"
+              >
+                DESCARGAR PROYECTO EN WORD
+              </button>
             </div>
           </section>
         );
