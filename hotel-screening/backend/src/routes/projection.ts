@@ -23,8 +23,9 @@ router.get('/v1/projects/:id/projection', async (req, res) => {
     }
 
     // Cargar projection assumptions si existen
+    // NOTA: horizonte y anio_base requieren migración 013 - por ahora solo traer campos existentes
     const [assumptionRows]: any = await pool.query(
-      `SELECT horizonte, anio_base, adr_growth_pct, occ_delta_pp, occ_cap, cost_inflation_pct, undistributed_inflation_pct, nonop_inflation_pct
+      `SELECT adr_growth_pct, occ_delta_pp, occ_cap, cost_inflation_pct, undistributed_inflation_pct, nonop_inflation_pct
        FROM projection_assumptions
        WHERE project_id=?`,
       [req.params.id]
@@ -32,9 +33,30 @@ router.get('/v1/projects/:id/projection', async (req, res) => {
 
     const assumptions = assumptionRows && assumptionRows.length > 0 ? assumptionRows[0] : null;
 
+    // Calcular horizonte desde los datos disponibles (número de años en annuals)
+    // y anio_base desde el primer año
+    const horizonte = annRows.length;
+    const anio_base = annRows.length > 0 ? annRows[0].anio - 1 : new Date().getFullYear();
+
+    // Agregar horizonte y anio_base calculados a assumptions
+    const enrichedAssumptions = assumptions ? {
+      ...assumptions,
+      horizonte,
+      anio_base
+    } : {
+      horizonte,
+      anio_base,
+      adr_growth_pct: 0.03,
+      occ_delta_pp: 0,
+      occ_cap: 0.92,
+      cost_inflation_pct: 0,
+      undistributed_inflation_pct: 0,
+      nonop_inflation_pct: 0
+    };
+
     res.json({
       annuals: annRows,
-      assumptions: assumptions
+      assumptions: enrichedAssumptions
     });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
