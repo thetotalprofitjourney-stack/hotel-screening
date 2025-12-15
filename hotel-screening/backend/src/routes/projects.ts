@@ -767,14 +767,32 @@ router.post('/v1/projects/:id/snapshot/word', async (req, res) => {
 
     console.log(`DOCX generado: ${docxBuffer.length} bytes`);
 
+    // Validar que el buffer no esté vacío
+    if (!docxBuffer || docxBuffer.length === 0) {
+      throw new Error('El buffer generado está vacío');
+    }
+
+    // Validar que sea un archivo ZIP válido (los .docx son archivos ZIP)
+    // Los archivos ZIP comienzan con los bytes PK (0x50 0x4B)
+    if (docxBuffer[0] !== 0x50 || docxBuffer[1] !== 0x4B) {
+      console.error('ERROR: El buffer generado no tiene la firma ZIP válida');
+      console.error('Primeros bytes:', Buffer.from(docxBuffer.slice(0, 10)).toString('hex'));
+      throw new Error('El archivo generado no tiene formato ZIP válido');
+    }
+
     // Generar nombre del archivo
     const fileName = `${project.nombre || 'Proyecto'}_APP_${new Date().toISOString().split('T')[0]}.docx`;
 
-    // Enviar el archivo como descarga
+    console.log('Enviando archivo con encoding binario explícito...');
+
+    // Enviar el archivo como descarga con encoding binario explícito
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
-    res.setHeader('Content-Length', docxBuffer.length);
-    res.send(docxBuffer);
+    res.setHeader('Content-Length', docxBuffer.length.toString());
+
+    // CRÍTICO: Usar res.end() con el buffer en lugar de res.send()
+    // res.send() puede corromper datos binarios, res.end() preserva el buffer tal cual
+    res.end(docxBuffer, 'binary');
   } catch (error: any) {
     console.error('Error generando Word desde HTML:', error);
     res.status(500).json({ error: 'Error al generar documento Word: ' + error.message });
