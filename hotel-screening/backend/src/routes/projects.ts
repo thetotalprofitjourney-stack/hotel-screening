@@ -3,8 +3,95 @@ import { pool } from '../db.js';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import HTMLtoDOCX from 'html-to-docx';
+import JSZip from 'jszip';
 
 const router = Router();
+
+/**
+ * Post-procesa un buffer DOCX para hacerlo compatible con Microsoft Word.
+ * Añade docProps/app.xml y corrige las referencias en _rels/.rels y [Content_Types].xml
+ */
+async function fixDocxStructure(docxBuffer: Buffer): Promise<Buffer> {
+  console.log('Iniciando post-procesamiento del DOCX para compatibilidad con Word...');
+
+  // Cargar el ZIP
+  const zip = await JSZip.loadAsync(docxBuffer);
+
+  // A) Añadir docProps/app.xml
+  const appXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
+  xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+  <Application>html-to-docx</Application>
+  <DocSecurity>0</DocSecurity>
+  <ScaleCrop>false</ScaleCrop>
+  <Company></Company>
+  <LinksUpToDate>false</LinksUpToDate>
+  <SharedDoc>false</SharedDoc>
+  <HyperlinksChanged>false</HyperlinksChanged>
+  <AppVersion>16.0000</AppVersion>
+</Properties>`;
+
+  zip.file('docProps/app.xml', appXml);
+  console.log('✓ Añadido docProps/app.xml');
+
+  // B) Modificar _rels/.rels para añadir referencia a app.xml
+  let relsContent = await zip.file('_rels/.rels')?.async('string');
+  if (relsContent) {
+    // Verificar si ya existe la relación rId3
+    if (!relsContent.includes('extended-properties')) {
+      // Añadir la relación antes del cierre de </Relationships>
+      const appRelationship = `  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>`;
+      relsContent = relsContent.replace('</Relationships>', `${appRelationship}\n</Relationships>`);
+      zip.file('_rels/.rels', relsContent);
+      console.log('✓ Añadida relación a app.xml en _rels/.rels');
+    } else {
+      console.log('⚠ La relación a app.xml ya existe en _rels/.rels');
+    }
+  } else {
+    console.warn('⚠ No se encontró _rels/.rels');
+  }
+
+  // C) Modificar [Content_Types].xml para añadir override de app.xml
+  let contentTypesContent = await zip.file('[Content_Types].xml')?.async('string');
+  if (contentTypesContent) {
+    // Verificar si ya existe el override
+    if (!contentTypesContent.includes('docProps/app.xml')) {
+      // Añadir el override antes del cierre de </Types>
+      const appOverride = `  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>`;
+      contentTypesContent = contentTypesContent.replace('</Types>', `${appOverride}\n</Types>`);
+      zip.file('[Content_Types].xml', contentTypesContent);
+      console.log('✓ Añadido override para app.xml en [Content_Types].xml');
+    } else {
+      console.log('⚠ El override para app.xml ya existe en [Content_Types].xml');
+    }
+  } else {
+    console.warn('⚠ No se encontró [Content_Types].xml');
+  }
+
+  // D) Limpiar word/_rels/document.xml.rels - eliminar TargetMode="Internal" de theme
+  let docRelsContent = await zip.file('word/_rels/document.xml.rels')?.async('string');
+  if (docRelsContent) {
+    // Eliminar TargetMode="Internal" de todas las relaciones
+    const cleanedDocRels = docRelsContent.replace(/\s+TargetMode="Internal"/g, '');
+    if (cleanedDocRels !== docRelsContent) {
+      zip.file('word/_rels/document.xml.rels', cleanedDocRels);
+      console.log('✓ Limpiado TargetMode="Internal" de word/_rels/document.xml.rels');
+    }
+  } else {
+    console.log('⚠ No se encontró word/_rels/document.xml.rels');
+  }
+
+  // Generar el nuevo buffer
+  const fixedBuffer = await zip.generateAsync({
+    type: 'nodebuffer',
+    compression: 'DEFLATE',
+    compressionOptions: { level: 9 }
+  });
+
+  console.log(`✓ DOCX post-procesado: ${docxBuffer.length} bytes → ${fixedBuffer.length} bytes`);
+
+  return fixedBuffer;
+}
 
 const createProjectSchema = z.object({
   rol: z.enum(['inversor','operador','banco']).optional().default('inversor'),
@@ -786,7 +873,7 @@ router.post('/v1/projects/:id/snapshot/word', async (req, res) => {
       throw new Error(`Tipo de buffer inesperado: ${typeof docxBuffer}`);
     }
 
-    console.log(`Buffer final: ${finalBuffer.length} bytes`);
+    console.log(`Buffer inicial: ${finalBuffer.length} bytes`);
 
     // Validar que el buffer no esté vacío
     if (!finalBuffer || finalBuffer.length === 0) {
@@ -802,7 +889,19 @@ router.post('/v1/projects/:id/snapshot/word', async (req, res) => {
       throw new Error('El archivo generado no tiene formato ZIP válido (no empieza con PK)');
     }
 
-    console.log('✓ Validación ZIP exitosa (firma PK encontrada)');
+    console.log('✓ Validación ZIP inicial exitosa (firma PK encontrada)');
+
+    // POST-PROCESAMIENTO: Arreglar la estructura del DOCX para compatibilidad con Word
+    // Añade docProps/app.xml, corrige _rels/.rels, [Content_Types].xml, y limpia document.xml.rels
+    finalBuffer = await fixDocxStructure(finalBuffer);
+
+    // Validar el buffer post-procesado
+    if (finalBuffer[0] !== 0x50 || finalBuffer[1] !== 0x4B) {
+      console.error('ERROR: El buffer post-procesado perdió la firma ZIP');
+      throw new Error('El post-procesamiento corrompió el archivo');
+    }
+
+    console.log('✓ Buffer post-procesado validado correctamente');
 
     // Generar nombre del archivo
     const fileName = `${project.nombre || 'Proyecto'}_APP_${new Date().toISOString().split('T')[0]}.docx`;
