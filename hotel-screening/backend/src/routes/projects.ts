@@ -157,14 +157,34 @@ async function fixDocxStructure(docxBuffer: Buffer): Promise<Buffer> {
     console.warn('⚠ No se encontró word/document.xml');
   }
 
-  // Generar el nuevo buffer
+  // Listar archivos en el ZIP para verificar que no se pierda contenido
+  const filesList: string[] = [];
+  zip.forEach((relativePath, file) => {
+    filesList.push(relativePath);
+  });
+  console.log(`Archivos en el ZIP: ${filesList.length} archivos`);
+  console.log('Archivos:', filesList.join(', '));
+
+  // Generar el nuevo buffer con las MISMAS opciones que el original
+  // NO usar compresión agresiva que puede corromper
   const fixedBuffer = await zip.generateAsync({
     type: 'nodebuffer',
     compression: 'DEFLATE',
-    compressionOptions: { level: 9 }
+    compressionOptions: {
+      level: 6  // Nivel balanceado (default), no 9 que es muy agresivo
+    },
+    // Preservar la estructura original del ZIP
+    streamFiles: false
   });
 
   console.log(`✓ DOCX post-procesado: ${docxBuffer.length} bytes → ${fixedBuffer.length} bytes`);
+
+  // VERIFICACIÓN CRÍTICA: El archivo post-procesado no debería ser mucho más pequeño
+  const sizeRatio = fixedBuffer.length / docxBuffer.length;
+  if (sizeRatio < 0.5) {
+    console.error(`⚠️ ADVERTENCIA: El archivo post-procesado es ${(sizeRatio * 100).toFixed(1)}% del tamaño original`);
+    console.error('Esto puede indicar pérdida de contenido. Ratio esperado: 100-110%');
+  }
 
   return fixedBuffer;
 }
@@ -970,17 +990,35 @@ router.post('/v1/projects/:id/snapshot/word', async (req, res) => {
 
     console.log('✓ Validación ZIP inicial exitosa (firma PK encontrada)');
 
+    // Guardar el buffer original como backup
+    const originalBuffer = Buffer.from(finalBuffer);
+    const originalSize = originalBuffer.length;
+
     // POST-PROCESAMIENTO: Arreglar la estructura del DOCX para compatibilidad con Word
     // Añade docProps/app.xml, corrige _rels/.rels, [Content_Types].xml, y limpia document.xml.rels
-    finalBuffer = await fixDocxStructure(finalBuffer);
+    try {
+      finalBuffer = await fixDocxStructure(finalBuffer);
 
-    // Validar el buffer post-procesado
-    if (finalBuffer[0] !== 0x50 || finalBuffer[1] !== 0x4B) {
-      console.error('ERROR: El buffer post-procesado perdió la firma ZIP');
-      throw new Error('El post-procesamiento corrompió el archivo');
+      // Validar el buffer post-procesado
+      if (finalBuffer[0] !== 0x50 || finalBuffer[1] !== 0x4B) {
+        console.error('ERROR: El buffer post-procesado perdió la firma ZIP');
+        throw new Error('El post-procesamiento corrompió el archivo');
+      }
+
+      // Verificar que el tamaño no se redujo drásticamente (pérdida de contenido)
+      const sizeRatio = finalBuffer.length / originalSize;
+      if (sizeRatio < 0.5) {
+        console.error(`⚠️ ERROR CRÍTICO: El post-procesamiento redujo el archivo al ${(sizeRatio * 100).toFixed(1)}%`);
+        console.error('Usando buffer original sin post-procesamiento como fallback');
+        finalBuffer = originalBuffer;
+      } else {
+        console.log('✓ Buffer post-procesado validado correctamente');
+      }
+    } catch (postProcessError: any) {
+      console.error('Error en post-procesamiento:', postProcessError.message);
+      console.error('Usando buffer original sin post-procesamiento como fallback');
+      finalBuffer = originalBuffer;
     }
-
-    console.log('✓ Buffer post-procesado validado correctamente');
 
     // Generar nombre del archivo
     const fileName = `${project.nombre || 'Proyecto'}_APP_${new Date().toISOString().split('T')[0]}.docx`;
