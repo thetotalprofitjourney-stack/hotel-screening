@@ -1047,6 +1047,15 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                     onChange={setAnnuals}
                     diasModificados={diasModificados}
                     onFieldEdit={registerEditStep3}
+                    feeParams={{
+                      operacion_tipo: operationConfig.operacion_tipo,
+                      base_anual: operationConfig.fee_base_anual,
+                      pct_total_rev: operationConfig.fee_pct_total_rev,
+                      pct_gop: operationConfig.fee_pct_gop,
+                      incentive_pct: operationConfig.fee_incentive_pct,
+                      hurdle_gop_margin: operationConfig.fee_hurdle_gop_margin,
+                      gop_ajustado: operationConfig.gop_ajustado
+                    }}
                   />
                 </div>
 
