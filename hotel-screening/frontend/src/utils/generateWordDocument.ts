@@ -715,7 +715,7 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
   );
 
   // NOI estabilizado
-  if (vr.valuation.noi_details) {
+  if (vr.valuation.noi_details && vr.valuation.noi_details.last_years_noi && Array.isArray(vr.valuation.noi_details.last_years_noi)) {
     sections.push(
       new Paragraph({
         text: 'Cálculo del NOI estabilizado:',
@@ -1024,7 +1024,7 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
       }),
     ];
 
-    if (vr.sensitivity.scenarios) {
+    if (vr.sensitivity.scenarios && Array.isArray(vr.sensitivity.scenarios)) {
       vr.sensitivity.scenarios.forEach((scenario: any) => {
         sensitivityRows.push(
           new TableRow({
