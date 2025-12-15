@@ -285,6 +285,18 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       if (data && data.annuals) {
         setAnnuals(data.annuals);
       }
+      // Cargar assumptions si están disponibles
+      if (data && data.assumptions) {
+        setProjectionAssumptions(prev => ({
+          ...prev,
+          adr_growth_pct: data.assumptions.adr_growth_pct ?? prev.adr_growth_pct,
+          occ_delta_pp: data.assumptions.occ_delta_pp ?? prev.occ_delta_pp,
+          occ_cap: data.assumptions.occ_cap ?? prev.occ_cap,
+          cost_inflation_pct: data.assumptions.cost_inflation_pct ?? prev.cost_inflation_pct,
+          undistributed_inflation_pct: data.assumptions.undistributed_inflation_pct ?? prev.undistributed_inflation_pct,
+          nonop_inflation_pct: data.assumptions.nonop_inflation_pct ?? prev.nonop_inflation_pct
+        }));
+      }
     } catch (error) {
       console.error('Error cargando proyección guardada:', error);
     }
@@ -846,9 +858,19 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
           ffe: a.ffe
         }));
 
+      // Incluir assumptions para persistirlas
+      const assumptions = {
+        adr_growth_pct: projectionAssumptions.adr_growth_pct,
+        occ_delta_pp: projectionAssumptions.occ_delta_pp,
+        occ_cap: projectionAssumptions.occ_cap,
+        cost_inflation_pct: projectionAssumptions.cost_inflation_pct,
+        undistributed_inflation_pct: projectionAssumptions.undistributed_inflation_pct,
+        nonop_inflation_pct: projectionAssumptions.nonop_inflation_pct
+      };
+
       await api(`/v1/projects/${projectId}/projection`, {
         method: 'PUT',
-        body: JSON.stringify({ years })
+        body: JSON.stringify({ years, assumptions })
       });
 
       // Asegurarse de que annuals esté actualizado ANTES de marcar como guardado
