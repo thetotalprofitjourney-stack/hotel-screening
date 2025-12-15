@@ -22,7 +22,20 @@ router.get('/v1/projects/:id/projection', async (req, res) => {
       return res.status(404).json({ error: 'PROJECTION_NOT_FOUND' });
     }
 
-    res.json({ annuals: annRows });
+    // Cargar projection assumptions si existen
+    const [assumptionRows]: any = await pool.query(
+      `SELECT adr_growth_pct, occ_delta_pp, occ_cap, cost_inflation_pct, undistributed_inflation_pct, nonop_inflation_pct
+       FROM projection_assumptions
+       WHERE project_id=?`,
+      [req.params.id]
+    );
+
+    const assumptions = assumptionRows && assumptionRows.length > 0 ? assumptionRows[0] : null;
+
+    res.json({
+      annuals: annRows,
+      assumptions: assumptions
+    });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
   }
@@ -174,7 +187,16 @@ router.put('/v1/projects/:id/projection', async (req, res) => {
   });
 
   const schema = z.object({
-    years: z.array(yearSchema).min(1)
+    years: z.array(yearSchema).min(1),
+    // Incluir assumptions opcionales para persistirlas
+    assumptions: z.object({
+      adr_growth_pct: z.number().optional(),
+      occ_delta_pp: z.number().optional(),
+      occ_cap: z.number().optional(),
+      cost_inflation_pct: z.number().optional(),
+      undistributed_inflation_pct: z.number().optional(),
+      nonop_inflation_pct: z.number().optional()
+    }).optional()
   });
 
   const parsed = schema.safeParse(req.body);
@@ -224,6 +246,32 @@ router.put('/v1/projects/:id/projection', async (req, res) => {
           year.fees, year.nonop, ebitda, year.ffe, ebitda_less_ffe,
           gop_margin, ebitda_margin, ebitda_less_ffe_margin,
           projectId, year.anio
+        ]
+      );
+    }
+
+    // Guardar projection assumptions si se proporcionaron
+    if (parsed.data.assumptions) {
+      const assumptions = parsed.data.assumptions;
+      await pool.query(
+        `INSERT INTO projection_assumptions
+         (project_id, adr_growth_pct, occ_delta_pp, occ_cap, cost_inflation_pct, undistributed_inflation_pct, nonop_inflation_pct)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           adr_growth_pct = VALUES(adr_growth_pct),
+           occ_delta_pp = VALUES(occ_delta_pp),
+           occ_cap = VALUES(occ_cap),
+           cost_inflation_pct = VALUES(cost_inflation_pct),
+           undistributed_inflation_pct = VALUES(undistributed_inflation_pct),
+           nonop_inflation_pct = VALUES(nonop_inflation_pct)`,
+        [
+          projectId,
+          assumptions.adr_growth_pct ?? 0,
+          assumptions.occ_delta_pp ?? 0,
+          assumptions.occ_cap ?? 0.92,
+          assumptions.cost_inflation_pct ?? 0,
+          assumptions.undistributed_inflation_pct ?? 0,
+          assumptions.nonop_inflation_pct ?? 0
         ]
       );
     }

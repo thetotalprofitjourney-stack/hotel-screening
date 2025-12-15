@@ -61,6 +61,14 @@ const updateConfigSchema = z.object({
   nonop_insurance_anual: z.number().optional(),
   nonop_rent_anual: z.number().optional(),
   nonop_other_anual: z.number().optional(),
+
+  // Projection assumptions
+  adr_growth_pct: z.number().optional(),
+  occ_delta_pp: z.number().optional(),
+  occ_cap: z.number().optional(),
+  cost_inflation_pct: z.number().optional(),
+  undistributed_inflation_pct: z.number().optional(),
+  nonop_inflation_pct: z.number().optional(),
 });
 
 router.get('/v1/projects', async (req, res) => {
@@ -331,6 +339,49 @@ router.put('/v1/projects/:id/config', async (req, res) => {
       `UPDATE nonoperating_assumptions SET ${setClauses} WHERE project_id=?`,
       [...values, projectId]
     );
+  }
+
+  // Actualizar projection_assumptions
+  const projectionAssumptionUpdates: any = {};
+  if (data.adr_growth_pct !== undefined) projectionAssumptionUpdates.adr_growth_pct = data.adr_growth_pct;
+  if (data.occ_delta_pp !== undefined) projectionAssumptionUpdates.occ_delta_pp = data.occ_delta_pp;
+  if (data.occ_cap !== undefined) projectionAssumptionUpdates.occ_cap = data.occ_cap;
+  if (data.cost_inflation_pct !== undefined) projectionAssumptionUpdates.cost_inflation_pct = data.cost_inflation_pct;
+  if (data.undistributed_inflation_pct !== undefined) projectionAssumptionUpdates.undistributed_inflation_pct = data.undistributed_inflation_pct;
+  if (data.nonop_inflation_pct !== undefined) projectionAssumptionUpdates.nonop_inflation_pct = data.nonop_inflation_pct;
+
+  if (Object.keys(projectionAssumptionUpdates).length > 0) {
+    // Intentar UPDATE primero, si no existe el registro, hacer INSERT
+    const [existingRows]: any = await pool.query(
+      `SELECT project_id FROM projection_assumptions WHERE project_id=?`,
+      [projectId]
+    );
+
+    if (existingRows && existingRows.length > 0) {
+      // Registro existe, hacer UPDATE
+      const setClauses = Object.keys(projectionAssumptionUpdates).map(k => `${k}=?`).join(', ');
+      const values = Object.values(projectionAssumptionUpdates);
+      await pool.query(
+        `UPDATE projection_assumptions SET ${setClauses} WHERE project_id=?`,
+        [...values, projectId]
+      );
+    } else {
+      // Registro no existe, hacer INSERT con defaults
+      await pool.query(
+        `INSERT INTO projection_assumptions
+         (project_id, adr_growth_pct, occ_delta_pp, occ_cap, cost_inflation_pct, undistributed_inflation_pct, nonop_inflation_pct)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          projectId,
+          projectionAssumptionUpdates.adr_growth_pct ?? 0.05,
+          projectionAssumptionUpdates.occ_delta_pp ?? 1.0,
+          projectionAssumptionUpdates.occ_cap ?? 0.92,
+          projectionAssumptionUpdates.cost_inflation_pct ?? 0.02,
+          projectionAssumptionUpdates.undistributed_inflation_pct ?? 0.02,
+          projectionAssumptionUpdates.nonop_inflation_pct ?? 0.02
+        ]
+      );
+    }
   }
 
   res.json({ success: true, project_id: projectId });
