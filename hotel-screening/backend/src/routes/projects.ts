@@ -3,6 +3,7 @@ import { pool } from '../db.js';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import HTMLtoDOCX from 'html-to-docx';
+import htmlDocx from 'html-docx-js';
 import JSZip from 'jszip';
 
 const router = Router();
@@ -932,47 +933,35 @@ router.post('/v1/projects/:id/snapshot/word', async (req, res) => {
     // SANITIZAR HTML antes de convertir para evitar XML mal formado
     const sanitizedHtml = sanitizeHtmlForDocx(fullHtml);
 
-    // Convertir HTML a DOCX usando opciones más conservadoras
-    const docxBuffer = await HTMLtoDOCX(sanitizedHtml, null, {
-      table: {
-        row: {
-          cantSplit: true
-        }
-      },
-      footer: false, // Deshabilitar footer temporalmente
-      pageNumber: false, // Deshabilitar numeración temporalmente
-      font: 'Calibri',
-      fontSize: 22, // 11pt en half-points
-      orientation: 'portrait',
-      margins: {
-        top: 1440, // 1 inch en twips (1440 twips = 1 inch)
-        bottom: 1440,
-        left: 1440,
-        right: 1440
-      },
-      // Opciones adicionales para mejor compatibilidad
-      decodeUnicode: true
-    });
+    console.log('Usando html-docx-js (alternativa más estable que html-to-docx)');
 
-    console.log(`DOCX buffer recibido: tipo=${typeof docxBuffer}, longitud=${docxBuffer?.length}`);
+    // Convertir HTML a DOCX usando html-docx-js
+    // En Node.js, html-docx-js retorna el contenido directamente
+    const docxContent = htmlDocx.asBlob(sanitizedHtml);
 
-    // Asegurar que tenemos un Buffer real de Node.js
-    let finalBuffer: Buffer;
-    if (Buffer.isBuffer(docxBuffer)) {
-      finalBuffer = docxBuffer;
-      console.log('✓ Es un Buffer de Node.js');
-    } else if (docxBuffer instanceof Uint8Array) {
-      finalBuffer = Buffer.from(docxBuffer);
-      console.log('⚠ Era Uint8Array, convertido a Buffer');
-    } else if (typeof docxBuffer === 'string') {
-      // Si por alguna razón es un string, podría ser base64
-      finalBuffer = Buffer.from(docxBuffer, 'base64');
-      console.log('⚠ Era string, convertido desde base64');
+    console.log(`Contenido generado por html-docx-js: tipo=${typeof docxContent}`);
+
+    // Convertir a Buffer si es necesario
+    let docxBuffer: Buffer;
+    if (Buffer.isBuffer(docxContent)) {
+      docxBuffer = docxContent;
+    } else if (docxContent instanceof Uint8Array) {
+      docxBuffer = Buffer.from(docxContent);
+    } else if (typeof docxContent === 'string') {
+      // Si retorna string, puede ser base64 o el contenido crudo
+      docxBuffer = Buffer.from(docxContent, 'binary');
+    } else if (docxContent && typeof docxContent === 'object' && 'arrayBuffer' in docxContent) {
+      // Es un Blob, convertir a Buffer
+      const arrayBuffer = await (docxContent as any).arrayBuffer();
+      docxBuffer = Buffer.from(arrayBuffer);
     } else {
-      throw new Error(`Tipo de buffer inesperado: ${typeof docxBuffer}`);
+      throw new Error(`Tipo inesperado de html-docx-js: ${typeof docxContent}`);
     }
 
-    console.log(`Buffer inicial: ${finalBuffer.length} bytes`);
+    console.log(`DOCX buffer recibido: ${docxBuffer.length} bytes`);
+
+    // Ya tenemos el Buffer correcto
+    const finalBuffer = docxBuffer;
 
     // Validar que el buffer no esté vacío
     if (!finalBuffer || finalBuffer.length === 0) {
