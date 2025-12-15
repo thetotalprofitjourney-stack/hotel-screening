@@ -8,6 +8,51 @@ import JSZip from 'jszip';
 const router = Router();
 
 /**
+ * Sanitiza HTML para evitar problemas de XML mal formado en el DOCX.
+ * Escapa caracteres especiales XML y limpia etiquetas problemáticas.
+ */
+function sanitizeHtmlForDocx(html: string): string {
+  console.log('Sanitizando HTML para conversión a DOCX...');
+
+  let sanitized = html;
+
+  // 1. Escapar entidades XML problemáticas que no están en etiquetas
+  // Reemplazar & que no son parte de entidades HTML
+  sanitized = sanitized.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
+
+  // 2. Limpiar atributos style problemáticos que pueden romper el XML
+  // Eliminar comillas internas en valores de atributos
+  sanitized = sanitized.replace(/style="([^"]*)"/g, (match, styleContent) => {
+    // Reemplazar comillas internas con entidades
+    const cleanStyle = styleContent.replace(/"/g, '&quot;');
+    return `style="${cleanStyle}"`;
+  });
+
+  // 3. Eliminar comentarios HTML que pueden causar problemas
+  sanitized = sanitized.replace(/<!--[\s\S]*?-->/g, '');
+
+  // 4. Normalizar espacios en blanco excesivos
+  sanitized = sanitized.replace(/\s+/g, ' ');
+
+  // 5. Asegurar que las etiquetas estén bien cerradas
+  // (html-to-docx debería manejar esto, pero añadimos verificación)
+  const selfClosingTags = ['br', 'hr', 'img', 'input', 'meta', 'link'];
+  selfClosingTags.forEach(tag => {
+    // Convertir <tag> a <tag /> si no tiene cierre
+    const regex = new RegExp(`<${tag}([^>]*?)(?<!/)>`, 'gi');
+    sanitized = sanitized.replace(regex, `<${tag}$1 />`);
+  });
+
+  // 6. Eliminar caracteres de control que no son válidos en XML
+  // XML solo permite: tab (0x09), newline (0x0A), carriage return (0x0D), y >= 0x20
+  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+
+  console.log(`HTML sanitizado: ${html.length} → ${sanitized.length} caracteres`);
+
+  return sanitized;
+}
+
+/**
  * Post-procesa un buffer DOCX para hacerlo compatible con Microsoft Word.
  * Añade docProps/app.xml y corrige las referencias en _rels/.rels y [Content_Types].xml
  */
@@ -79,6 +124,37 @@ async function fixDocxStructure(docxBuffer: Buffer): Promise<Buffer> {
     }
   } else {
     console.log('⚠ No se encontró word/_rels/document.xml.rels');
+  }
+
+  // E) Validar y limpiar word/document.xml
+  let documentXmlContent = await zip.file('word/document.xml')?.async('string');
+  if (documentXmlContent) {
+    // Verificar que el XML esté bien formado
+    let cleanedDocXml = documentXmlContent;
+
+    // Eliminar caracteres de control inválidos en XML
+    cleanedDocXml = cleanedDocXml.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+
+    // Asegurar que las entidades estén correctamente escapadas
+    // Esto es especialmente importante para el contenido de texto dentro de <w:t>
+    cleanedDocXml = cleanedDocXml.replace(/<w:t([^>]*)>(.*?)<\/w:t>/g, (match, attrs, textContent) => {
+      // No reemplazar entidades ya escapadas
+      let cleanText = textContent;
+
+      // Solo escapar & que no son parte de entidades
+      cleanText = cleanText.replace(/&(?!(amp|lt|gt|quot|apos);)/g, '&amp;');
+
+      return `<w:t${attrs}>${cleanText}</w:t>`;
+    });
+
+    if (cleanedDocXml !== documentXmlContent) {
+      zip.file('word/document.xml', cleanedDocXml);
+      console.log('✓ Limpiado caracteres inválidos en word/document.xml');
+    } else {
+      console.log('✓ word/document.xml está limpio');
+    }
+  } else {
+    console.warn('⚠ No se encontró word/document.xml');
   }
 
   // Generar el nuevo buffer
@@ -831,10 +907,13 @@ router.post('/v1/projects/:id/snapshot/word', async (req, res) => {
     `;
 
     console.log('Convirtiendo HTML a DOCX en el servidor...');
-    console.log('Longitud del HTML a convertir:', fullHtml.length, 'caracteres');
+    console.log('Longitud del HTML original:', fullHtml.length, 'caracteres');
+
+    // SANITIZAR HTML antes de convertir para evitar XML mal formado
+    const sanitizedHtml = sanitizeHtmlForDocx(fullHtml);
 
     // Convertir HTML a DOCX usando opciones más conservadoras
-    const docxBuffer = await HTMLtoDOCX(fullHtml, null, {
+    const docxBuffer = await HTMLtoDOCX(sanitizedHtml, null, {
       table: {
         row: {
           cantSplit: true
