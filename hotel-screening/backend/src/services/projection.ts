@@ -219,13 +219,33 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
     // ✅ CORRECCIÓN: Usar suma de días de operativa del año 1, no 365 días
     const rn = occ * prj.habitaciones * suma_dias_y1;
 
-    // "inflación" de % de costes (si se define)
+    // ✅ CORRECCIÓN: Aplicar inflación de costes sobre valores absolutos del año anterior
+    // (no sobre porcentajes, para evitar efecto compuesto con crecimiento de ingresos)
     const kDept = (1 + (assumptions.cost_inflation_pct ?? 0));
     const kUnd  = (1 + (assumptions.undistributed_inflation_pct ?? 0));
-    pct.dept_rooms_pct *= kDept;
-    pct.fb_total_pct *= kDept;
-    pct.dept_other_pct  *= kDept;
-    pct.und_ag_pct *= kUnd; pct.und_it_pct *= kUnd; pct.und_sm_pct *= kUnd; pct.und_pom_pct *= kUnd; pct.und_eww_pct *= kUnd;
+
+    // Calcular costes departamentales aplicando inflación sobre año anterior
+    const dept_rooms = prev_year.dept_total * (prev_year.rooms_rev / (prev_year.rooms_rev + prev_year.fb + prev_year.other_operated)) * kDept;
+    const dept_fb = prev_year.dept_total * (prev_year.fb / (prev_year.rooms_rev + prev_year.fb + prev_year.other_operated)) * kDept;
+    const dept_other = prev_year.dept_total * (prev_year.other_operated / (prev_year.rooms_rev + prev_year.fb + prev_year.other_operated)) * kDept;
+
+    // Recalcular porcentajes para referencia (no se usan en cálculos posteriores)
+    pct.dept_rooms_pct = rooms_rev > 0 ? dept_rooms / rooms_rev : pct.dept_rooms_pct;
+    pct.fb_total_pct = fb > 0 ? dept_fb / fb : pct.fb_total_pct;
+    pct.dept_other_pct = other > 0 ? dept_other / other : pct.dept_other_pct;
+
+    // Calcular undistributed aplicando inflación sobre el total del año anterior
+    const und_total_inflado = prev_year.und_total * kUnd;
+
+    // Calcular suma de porcentajes para mantener proporciones
+    const suma_pct_und = pct.und_ag_pct + pct.und_it_pct + pct.und_sm_pct + pct.und_pom_pct + pct.und_eww_pct;
+
+    // Distribuir el total inflado manteniendo las proporciones del Y1
+    const und_ag = suma_pct_und > 0 ? und_total_inflado * (pct.und_ag_pct / suma_pct_und) : und_total_inflado / 5;
+    const und_it = suma_pct_und > 0 ? und_total_inflado * (pct.und_it_pct / suma_pct_und) : und_total_inflado / 5;
+    const und_sm = suma_pct_und > 0 ? und_total_inflado * (pct.und_sm_pct / suma_pct_und) : und_total_inflado / 5;
+    const und_pom = suma_pct_und > 0 ? und_total_inflado * (pct.und_pom_pct / suma_pct_und) : und_total_inflado / 5;
+    const und_eww = suma_pct_und > 0 ? und_total_inflado * (pct.und_eww_pct / suma_pct_und) : und_total_inflado / 5;
 
     // indexación fees base
     const indexPct = (assumptions.fees_indexation_pct ?? prj.fees_indexacion_pct_anual ?? 0);
@@ -239,20 +259,10 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
       rent: nonop.rent * kNonOp,
       other: nonop.other * kNonOp
     };
-
-    // Departamentales (usar porcentajes del Y1 guardado)
-    const dept_rooms = pct.dept_rooms_pct * rooms_rev;
-    const dept_fb = pct.fb_total_pct * fb;  // ✅ Usar fb_total_pct del Y1 guardado
-    const dept_other = pct.dept_other_pct * other;
     const dept_total = dept_rooms + dept_fb + dept_other;
     const dept_profit = total_rev - dept_total;
 
-    // Undistributed
-    const und_ag = pct.und_ag_pct * total_rev;
-    const und_it = pct.und_it_pct * total_rev;
-    const und_sm = pct.und_sm_pct * total_rev;
-    const und_pom = pct.und_pom_pct * total_rev;
-    const und_eww = pct.und_eww_pct * total_rev;
+    // Undistributed (ya calculados arriba con inflación)
     const und_total = und_ag + und_it + und_sm + und_pom + und_eww;
 
     const gop = dept_profit - und_total;
