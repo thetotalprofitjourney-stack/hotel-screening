@@ -39,7 +39,34 @@ export async function generateWordFromHtml(params: GenerateWordFromHtmlParams) {
       throw new Error('El archivo generado está vacío');
     }
 
-    console.log(`Archivo Word recibido del servidor: ${blob.size} bytes`);
+    console.log(`Archivo Word recibido del servidor: ${blob.size} bytes, tipo: ${blob.type}`);
+
+    // Verificar que es un archivo binario y no JSON de error
+    if (blob.type.includes('application/json')) {
+      const errorText = await blob.text();
+      throw new Error(`El servidor retornó un error JSON: ${errorText}`);
+    }
+
+    // Validar que el blob tenga el Content-Type correcto
+    const expectedType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    if (blob.type && !blob.type.includes('application/vnd.openxmlformats') && !blob.type.includes('application/octet-stream')) {
+      console.warn(`⚠ Tipo MIME inesperado: ${blob.type} (esperado: ${expectedType})`);
+    }
+
+    // Verificar que el blob comience con firma ZIP (PK)
+    const firstBytes = new Uint8Array(await blob.slice(0, 2).arrayBuffer());
+    if (firstBytes[0] !== 0x50 || firstBytes[1] !== 0x4B) {
+      console.error('ERROR: El blob recibido NO tiene firma ZIP válida');
+      console.error('Primeros bytes:', Array.from(firstBytes).map(b => b.toString(16).padStart(2, '0')).join(' '));
+
+      // Intentar leer como texto para ver si es un error
+      const textPreview = await blob.slice(0, 200).text();
+      console.error('Primeros 200 caracteres del blob:', textPreview);
+
+      throw new Error('El archivo recibido no es un archivo ZIP válido (debe ser .docx)');
+    }
+
+    console.log('✓ Blob validado: tiene firma ZIP correcta (PK)');
 
     // Extraer el nombre del archivo del header Content-Disposition
     const contentDisposition = response.headers.get('Content-Disposition');

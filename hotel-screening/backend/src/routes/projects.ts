@@ -744,16 +744,17 @@ router.post('/v1/projects/:id/snapshot/word', async (req, res) => {
     `;
 
     console.log('Convirtiendo HTML a DOCX en el servidor...');
+    console.log('Longitud del HTML a convertir:', fullHtml.length, 'caracteres');
 
-    // Convertir HTML a DOCX
+    // Convertir HTML a DOCX usando opciones más conservadoras
     const docxBuffer = await HTMLtoDOCX(fullHtml, null, {
       table: {
         row: {
           cantSplit: true
         }
       },
-      footer: true,
-      pageNumber: true,
+      footer: false, // Deshabilitar footer temporalmente
+      pageNumber: false, // Deshabilitar numeración temporalmente
       font: 'Calibri',
       fontSize: 22, // 11pt en half-points
       orientation: 'portrait',
@@ -762,37 +763,61 @@ router.post('/v1/projects/:id/snapshot/word', async (req, res) => {
         bottom: 1440,
         left: 1440,
         right: 1440
-      }
+      },
+      // Opciones adicionales para mejor compatibilidad
+      decodeUnicode: true
     });
 
-    console.log(`DOCX generado: ${docxBuffer.length} bytes`);
+    console.log(`DOCX buffer recibido: tipo=${typeof docxBuffer}, longitud=${docxBuffer?.length}`);
+
+    // Asegurar que tenemos un Buffer real de Node.js
+    let finalBuffer: Buffer;
+    if (Buffer.isBuffer(docxBuffer)) {
+      finalBuffer = docxBuffer;
+      console.log('✓ Es un Buffer de Node.js');
+    } else if (docxBuffer instanceof Uint8Array) {
+      finalBuffer = Buffer.from(docxBuffer);
+      console.log('⚠ Era Uint8Array, convertido a Buffer');
+    } else if (typeof docxBuffer === 'string') {
+      // Si por alguna razón es un string, podría ser base64
+      finalBuffer = Buffer.from(docxBuffer, 'base64');
+      console.log('⚠ Era string, convertido desde base64');
+    } else {
+      throw new Error(`Tipo de buffer inesperado: ${typeof docxBuffer}`);
+    }
+
+    console.log(`Buffer final: ${finalBuffer.length} bytes`);
 
     // Validar que el buffer no esté vacío
-    if (!docxBuffer || docxBuffer.length === 0) {
+    if (!finalBuffer || finalBuffer.length === 0) {
       throw new Error('El buffer generado está vacío');
     }
 
     // Validar que sea un archivo ZIP válido (los .docx son archivos ZIP)
     // Los archivos ZIP comienzan con los bytes PK (0x50 0x4B)
-    if (docxBuffer[0] !== 0x50 || docxBuffer[1] !== 0x4B) {
+    if (finalBuffer[0] !== 0x50 || finalBuffer[1] !== 0x4B) {
       console.error('ERROR: El buffer generado no tiene la firma ZIP válida');
-      console.error('Primeros bytes:', Buffer.from(docxBuffer.slice(0, 10)).toString('hex'));
-      throw new Error('El archivo generado no tiene formato ZIP válido');
+      console.error('Primeros 20 bytes (hex):', finalBuffer.slice(0, 20).toString('hex'));
+      console.error('Primeros 20 bytes (ascii):', finalBuffer.slice(0, 20).toString('ascii'));
+      throw new Error('El archivo generado no tiene formato ZIP válido (no empieza con PK)');
     }
+
+    console.log('✓ Validación ZIP exitosa (firma PK encontrada)');
 
     // Generar nombre del archivo
     const fileName = `${project.nombre || 'Proyecto'}_APP_${new Date().toISOString().split('T')[0]}.docx`;
 
-    console.log('Enviando archivo con encoding binario explícito...');
+    console.log(`Enviando archivo: ${fileName} (${finalBuffer.length} bytes)`);
 
-    // Enviar el archivo como descarga con encoding binario explícito
+    // SOLUCIÓN ROBUSTA: Enviar como Buffer sin conversiones intermedias
+    // Establecer headers antes de enviar
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
-    res.setHeader('Content-Length', docxBuffer.length.toString());
+    res.setHeader('Content-Length', finalBuffer.length.toString());
 
-    // CRÍTICO: Usar res.end() con el buffer en lugar de res.send()
-    // res.send() puede corromper datos binarios, res.end() preserva el buffer tal cual
-    res.end(docxBuffer, 'binary');
+    // Importante: No usar res.send() ya que puede intentar interpretar el contenido
+    // res.end() envía el buffer raw sin procesamiento adicional
+    res.end(finalBuffer);
   } catch (error: any) {
     console.error('Error generando Word desde HTML:', error);
     res.status(500).json({ error: 'Error al generar documento Word: ' + error.message });
