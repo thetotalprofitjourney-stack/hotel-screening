@@ -990,35 +990,40 @@ router.post('/v1/projects/:id/snapshot/word', async (req, res) => {
 
     console.log('✓ Validación ZIP inicial exitosa (firma PK encontrada)');
 
+    // TEMPORALMENTE DESHABILITADO: El post-procesamiento con JSZip corrompe el archivo
+    // TODO: Investigar por qué JSZip reduce el archivo de 290KB a 16KB
+    console.log('⚠️ Post-procesamiento DESHABILITADO temporalmente');
+    console.log('Enviando archivo original de html-to-docx sin modificaciones');
+
     // Guardar el buffer original como backup
-    const originalBuffer = Buffer.from(finalBuffer);
-    const originalSize = originalBuffer.length;
+    // const originalBuffer = Buffer.from(finalBuffer);
+    // const originalSize = originalBuffer.length;
 
     // POST-PROCESAMIENTO: Arreglar la estructura del DOCX para compatibilidad con Word
     // Añade docProps/app.xml, corrige _rels/.rels, [Content_Types].xml, y limpia document.xml.rels
-    try {
-      finalBuffer = await fixDocxStructure(finalBuffer);
+    // try {
+    //   finalBuffer = await fixDocxStructure(finalBuffer);
 
-      // Validar el buffer post-procesado
-      if (finalBuffer[0] !== 0x50 || finalBuffer[1] !== 0x4B) {
-        console.error('ERROR: El buffer post-procesado perdió la firma ZIP');
-        throw new Error('El post-procesamiento corrompió el archivo');
-      }
+    //   // Validar el buffer post-procesado
+    //   if (finalBuffer[0] !== 0x50 || finalBuffer[1] !== 0x4B) {
+    //     console.error('ERROR: El buffer post-procesado perdió la firma ZIP');
+    //     throw new Error('El post-procesamiento corrompió el archivo');
+    //   }
 
-      // Verificar que el tamaño no se redujo drásticamente (pérdida de contenido)
-      const sizeRatio = finalBuffer.length / originalSize;
-      if (sizeRatio < 0.5) {
-        console.error(`⚠️ ERROR CRÍTICO: El post-procesamiento redujo el archivo al ${(sizeRatio * 100).toFixed(1)}%`);
-        console.error('Usando buffer original sin post-procesamiento como fallback');
-        finalBuffer = originalBuffer;
-      } else {
-        console.log('✓ Buffer post-procesado validado correctamente');
-      }
-    } catch (postProcessError: any) {
-      console.error('Error en post-procesamiento:', postProcessError.message);
-      console.error('Usando buffer original sin post-procesamiento como fallback');
-      finalBuffer = originalBuffer;
-    }
+    //   // Verificar que el tamaño no se redujo drásticamente (pérdida de contenido)
+    //   const sizeRatio = finalBuffer.length / originalSize;
+    //   if (sizeRatio < 0.5) {
+    //     console.error(`⚠️ ERROR CRÍTICO: El post-procesamiento redujo el archivo al ${(sizeRatio * 100).toFixed(1)}%`);
+    //     console.error('Usando buffer original sin post-procesamiento como fallback');
+    //     finalBuffer = originalBuffer;
+    //   } else {
+    //     console.log('✓ Buffer post-procesado validado correctamente');
+    //   }
+    // } catch (postProcessError: any) {
+    //   console.error('Error en post-procesamiento:', postProcessError.message);
+    //   console.error('Usando buffer original sin post-procesamiento como fallback');
+    //   finalBuffer = originalBuffer;
+    // }
 
     // Generar nombre del archivo
     const fileName = `${project.nombre || 'Proyecto'}_APP_${new Date().toISOString().split('T')[0]}.docx`;
