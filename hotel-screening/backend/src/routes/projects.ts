@@ -6,6 +6,7 @@ import HTMLtoDOCX from 'html-to-docx';
 import htmlDocx from 'html-docx-js';
 import JSZip from 'jszip';
 import * as cheerio from 'cheerio';
+import { CheerioElement } from 'cheerio';
 
 const router = Router();
 
@@ -16,10 +17,10 @@ const router = Router();
 function transformHtmlForWord(html: string): string {
   console.log('Transformando HTML para compatibilidad con Word (con cheerio)...');
 
-  const $ = cheerio(html);
+  const $ = cheerio.load(html);
 
   // 1. Convertir divs con display:flex/grid a tablas
-  $('[style*="display: flex"], [style*="display:flex"], [style*="display: grid"], [style*="display:grid"]').each((i, elem) => {
+  $('[style*="display: flex"], [style*="display:flex"], [style*="display: grid"], [style*="display:grid"]').each((i: number, elem: CheerioElement) => {
     const $elem = $(elem);
     const children = $elem.children();
 
@@ -29,7 +30,7 @@ function transformHtmlForWord(html: string): string {
       const $tr = $('<tr></tr>');
 
       // Cada hijo se convierte en una celda
-      children.each((j, child) => {
+      children.each((j: number, child: CheerioElement) => {
         const $child = $(child);
         const $td = $('<td></td>');
 
@@ -58,7 +59,7 @@ function transformHtmlForWord(html: string): string {
   });
 
   // 2. Eliminar estilos CSS no soportados por Word
-  $('[style]').each((i, elem) => {
+  $('[style]').each((i: number, elem: CheerioElement) => {
     const $elem = $(elem);
     let style = $elem.attr('style') || '';
 
@@ -102,7 +103,7 @@ function transformHtmlForWord(html: string): string {
   });
 
   // 3. Asegurar que las tablas tengan atributos correctos
-  $('table').each((i, elem) => {
+  $('table').each((i: number, elem: CheerioElement) => {
     const $table = $(elem);
     if (!$table.attr('border')) $table.attr('border', '1');
     if (!$table.attr('cellpadding')) $table.attr('cellpadding', '5');
@@ -111,7 +112,7 @@ function transformHtmlForWord(html: string): string {
   });
 
   // 4. Convertir inputs a texto visible (los valores)
-  $('input').each((i, elem) => {
+  $('input').each((i: number, elem: CheerioElement) => {
     const $input = $(elem);
     const value = $input.attr('value') || $input.val() || '';
     const type = $input.attr('type') || 'text';
@@ -125,14 +126,14 @@ function transformHtmlForWord(html: string): string {
   });
 
   // 5. Convertir textareas a texto visible
-  $('textarea').each((i, elem) => {
+  $('textarea').each((i: number, elem: CheerioElement) => {
     const $textarea = $(elem);
     const value = $textarea.val() || $textarea.text() || '';
     $textarea.replaceWith(`<span style="white-space: pre-wrap;">${value}</span>`);
   });
 
   // 6. Convertir select a texto visible (opción seleccionada)
-  $('select').each((i, elem) => {
+  $('select').each((i: number, elem: CheerioElement) => {
     const $select = $(elem);
     const $selected = $select.find('option[selected]');
     const value = $selected.text() || $select.find('option').first().text() || '';
