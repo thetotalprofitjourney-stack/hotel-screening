@@ -149,12 +149,26 @@ export async function valuationAndReturns(project_id:string) {
     ? Number(debtAtExit.saldo_final ?? 0) / valor_salida_bruto
     : null;
 
-  // Persist
-  await pool.query(
-    `REPLACE INTO valuations (project_id, valor_salida_bruto, valor_salida_neto, ltv_salida, noi_estabilizado, precio_compra_implicito, discount_rate)
-     VALUES (?,?,?,?,?,?,?)`,
-    [project_id, valor_salida_bruto, valor_salida_neto, ltv_salida, noi, precio_compra_implicito, discount_rate]
-  );
+  // Persist (intentar con campos nuevos, si falla usar campos antiguos)
+  try {
+    await pool.query(
+      `REPLACE INTO valuations (project_id, valor_salida_bruto, valor_salida_neto, ltv_salida, noi_estabilizado, precio_compra_implicito, discount_rate)
+       VALUES (?,?,?,?,?,?,?)`,
+      [project_id, valor_salida_bruto, valor_salida_neto, ltv_salida, noi, precio_compra_implicito, discount_rate]
+    );
+  } catch (err: any) {
+    // Si las columnas no existen, guardar solo los campos antiguos
+    if (err.code === 'ER_BAD_FIELD_ERROR') {
+      await pool.query(
+        `REPLACE INTO valuations (project_id, valor_salida_bruto, valor_salida_neto, ltv_salida)
+         VALUES (?,?,?,?)`,
+        [project_id, valor_salida_bruto, valor_salida_neto, ltv_salida]
+      );
+      console.warn('⚠️ valuations table missing new columns. Run migration 012.');
+    } else {
+      throw err;
+    }
+  }
   // Calcular yield on cost del año 1 (buscando explícitamente anio=1)
   const y1 = annRows.find((r:any) => r.anio === 1);
   const yield_on_cost_y1 = y1 && (base + costs_buy) > 0

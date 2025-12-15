@@ -341,21 +341,29 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
     );
   }
 
-  // Guardar los supuestos de proyección usados
-  await pool.query(
-    `REPLACE INTO projection_assumptions
-     (project_id, adr_growth_pct, occ_delta_pp, occ_cap, cost_inflation_pct, undistributed_inflation_pct, nonop_inflation_pct)
-     VALUES (?,?,?,?,?,?,?)`,
-    [
-      project_id,
-      assumptions.adr_growth_pct,
-      assumptions.occ_delta_pp,
-      assumptions.occ_cap,
-      assumptions.cost_inflation_pct ?? 0,
-      assumptions.undistributed_inflation_pct ?? 0,
-      assumptions.nonop_inflation_pct ?? 0
-    ]
-  );
+  // Guardar los supuestos de proyección usados (si la tabla existe)
+  try {
+    await pool.query(
+      `REPLACE INTO projection_assumptions
+       (project_id, adr_growth_pct, occ_delta_pp, occ_cap, cost_inflation_pct, undistributed_inflation_pct, nonop_inflation_pct)
+       VALUES (?,?,?,?,?,?,?)`,
+      [
+        project_id,
+        assumptions.adr_growth_pct,
+        assumptions.occ_delta_pp,
+        assumptions.occ_cap,
+        assumptions.cost_inflation_pct ?? 0,
+        assumptions.undistributed_inflation_pct ?? 0,
+        assumptions.nonop_inflation_pct ?? 0
+      ]
+    );
+  } catch (err: any) {
+    // Si la tabla no existe, continuar sin error (se guardará después de ejecutar migraciones)
+    if (err.code !== 'ER_NO_SUCH_TABLE') {
+      throw err;
+    }
+    console.warn('⚠️ projection_assumptions table does not exist yet. Run migration 011.');
+  }
 
   // Actualizar estado del proyecto a projection_2n
   await pool.query(`UPDATE projects SET estado='projection_2n', updated_at=NOW(3) WHERE project_id=?`, [project_id]);

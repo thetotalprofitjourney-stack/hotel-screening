@@ -60,10 +60,24 @@ router.get('/v1/projects/:id/debt', async (req, res) => {
 // GET /v1/projects/:id/valuation-and-returns - Cargar valoración guardada
 router.get('/v1/projects/:id/valuation-and-returns', async (req, res) => {
   try {
-    const [[valuation]]: any = await pool.query(
-      `SELECT valor_salida_bruto, valor_salida_neto, noi_estabilizado, precio_compra_implicito, discount_rate FROM valuations WHERE project_id=?`,
-      [req.params.id]
-    );
+    // Intentar cargar con campos nuevos, si falla cargar solo los campos antiguos
+    let valuation: any;
+    try {
+      [[valuation]] = await pool.query(
+        `SELECT valor_salida_bruto, valor_salida_neto, noi_estabilizado, precio_compra_implicito, discount_rate FROM valuations WHERE project_id=?`,
+        [req.params.id]
+      ) as any;
+    } catch (err: any) {
+      // Si falla (columnas no existen), intentar con campos antiguos
+      if (err.code === 'ER_BAD_FIELD_ERROR') {
+        [[valuation]] = await pool.query(
+          `SELECT valor_salida_bruto, valor_salida_neto FROM valuations WHERE project_id=?`,
+          [req.params.id]
+        ) as any;
+      } else {
+        throw err;
+      }
+    }
 
     const [[returns]]: any = await pool.query(
       `SELECT irr_unlevered, moic_unlevered, irr_levered, moic_levered FROM returns WHERE project_id=?`,

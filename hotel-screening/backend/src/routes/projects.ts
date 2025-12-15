@@ -140,12 +140,20 @@ router.get('/v1/projects/:id/config', async (req, res) => {
   );
   const nonop = nonopRows?.[0] || {};
 
-  // Obtener projection assumptions
-  const [projectionRows] = await pool.query<any[]>(
-    `SELECT * FROM projection_assumptions WHERE project_id=?`,
-    [projectId]
-  );
-  const projectionAssumptions = projectionRows?.[0] || {};
+  // Obtener projection assumptions (con manejo de error si la tabla no existe)
+  let projectionAssumptions: any = {};
+  try {
+    const [projectionRows] = await pool.query<any[]>(
+      `SELECT * FROM projection_assumptions WHERE project_id=?`,
+      [projectId]
+    );
+    projectionAssumptions = projectionRows?.[0] || {};
+  } catch (err: any) {
+    // Si la tabla no existe, usar valores por defecto
+    if (err.code !== 'ER_NO_SUCH_TABLE') {
+      throw err; // Re-lanzar si es otro error
+    }
+  }
 
   // Combinar todo
   const config = {
