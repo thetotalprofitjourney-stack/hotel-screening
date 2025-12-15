@@ -157,7 +157,7 @@ export default function OperationConfigForm({ data, onChange, onSubmit, showSubm
         <h3 className="text-base font-semibold mb-2">Gastos Non-Operating (anual)</h3>
         <div className="grid grid-cols-4 gap-3">
           <label className="flex flex-col">
-            <span className="text-sm font-medium mb-1">Tributos (€) *</span>
+            <span className="text-sm font-medium mb-1">Extraordinarios (€) *</span>
             <input
               required
               className="border px-3 py-2 rounded"

@@ -9,7 +9,6 @@ export interface ProjectionAssumptions {
   cost_inflation_pct: number;
   undistributed_inflation_pct: number;
   nonop_inflation_pct: number;
-  fees_indexation_pct: number | null;
 }
 
 interface ProjectionAssumptionsFormProps {
@@ -109,20 +108,6 @@ export default function ProjectionAssumptionsForm({ data, onChange, onSubmit, sh
               className="border px-3 py-2 rounded"
               value={data.nonop_inflation_pct * 100}
               onChange={val => updateField('nonop_inflation_pct', val / 100)}
-              decimals={2}
-            />
-          </label>
-
-          <label className="flex flex-col">
-            <span className="text-sm font-medium mb-1">Indexación fee base (% opcional)</span>
-            <NumericInput
-              className="border px-3 py-2 rounded"
-              placeholder="usa contrato si vacío"
-              value={data.fees_indexation_pct !== null ? data.fees_indexation_pct * 100 : ''}
-              onChange={val => {
-                const v = val === 0 && !data.fees_indexation_pct ? null : val / 100;
-                updateField('fees_indexation_pct', v);
-              }}
               decimals={2}
             />
           </label>
