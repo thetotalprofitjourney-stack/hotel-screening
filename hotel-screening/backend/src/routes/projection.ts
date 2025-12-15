@@ -24,7 +24,7 @@ router.get('/v1/projects/:id/projection', async (req, res) => {
 
     // Cargar projection assumptions si existen
     const [assumptionRows]: any = await pool.query(
-      `SELECT adr_growth_pct, occ_delta_pp, occ_cap, cost_inflation_pct, undistributed_inflation_pct, nonop_inflation_pct
+      `SELECT horizonte, anio_base, adr_growth_pct, occ_delta_pp, occ_cap, cost_inflation_pct, undistributed_inflation_pct, nonop_inflation_pct
        FROM projection_assumptions
        WHERE project_id=?`,
       [req.params.id]

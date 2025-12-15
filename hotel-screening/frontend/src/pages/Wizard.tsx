@@ -1016,11 +1016,13 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               setLoading(prev => ({ ...prev, word: true }));
 
               // Load data from backend
-              const [configData, projectionData, debtData, valuationData] = await Promise.all([
+              const [configData, projectionData, debtData, valuationData, commercialY1Data, usaliY1Data] = await Promise.all([
                 api(`/v1/projects/${projectId}/config`),
                 api(`/v1/projects/${projectId}/projection`),
                 api(`/v1/projects/${projectId}/debt`),
-                api(`/v1/projects/${projectId}/valuation-and-returns`)
+                api(`/v1/projects/${projectId}/valuation-and-returns`),
+                api(`/v1/projects/${projectId}/y1/commercial`).catch(() => ({ meses: [] })),
+                api(`/v1/projects/${projectId}/y1/usali`).catch(() => ({ usali: [] }))
               ]);
 
               await generateWordDocument({
@@ -1047,7 +1049,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                   nonop_other_anual: configData.nonop_other_anual
                 },
                 projectionAssumptions: {
-                  horizonte: projectionData.assumptions?.years ?? 10,
+                  horizonte: projectionData.assumptions?.horizonte ?? 10,
                   anio_base: projectionData.assumptions?.anio_base ?? new Date().getFullYear(),
                   adr_growth_pct: projectionData.assumptions?.adr_growth_pct ?? 0.03,
                   occ_delta_pp: projectionData.assumptions?.occ_delta_pp ?? 0,
@@ -1071,9 +1073,9 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                   multiplo_salida: configData.multiplo_salida,
                   coste_tx_venta_pct: configData.coste_tx_venta_pct
                 },
-                meses: [], // Y0 months not needed for finalized projects
-                calculatedUsali: null,
-                editedUsaliData: null,
+                meses: commercialY1Data?.meses || [],
+                calculatedUsali: usaliY1Data?.usali || null,
+                editedUsaliData: usaliY1Data?.usali || null,
                 annuals: projectionData.annuals,
                 debt: debtData,
                 vr: valuationData
