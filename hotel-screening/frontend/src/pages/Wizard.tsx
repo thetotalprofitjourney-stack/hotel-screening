@@ -96,7 +96,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     save_projection: false,
     debt: false,
     valuation: false,
-    finalize: false
+    finalize: false,
+    word: false
   });
 
   // Estados para snapshot finalizado
@@ -932,7 +933,48 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         throw new Error('No se pudo encontrar el reporte para guardar');
       }
 
-      const htmlContent = reportElement.outerHTML;
+      // Clonar el elemento para modificarlo sin afectar el DOM
+      const clonedReport = reportElement.cloneNode(true) as HTMLElement;
+
+      // Fijar los valores de todos los SELECT elements en el HTML
+      const originalSelects = reportElement.querySelectorAll('select');
+      const clonedSelects = clonedReport.querySelectorAll('select');
+
+      originalSelects.forEach((originalSelect, index) => {
+        const clonedSelect = clonedSelects[index];
+        const selectedValue = originalSelect.value;
+
+        // Remover selected de todas las opciones y establecerlo en la correcta
+        Array.from(clonedSelect.options).forEach(option => {
+          option.removeAttribute('selected');
+          if (option.value === selectedValue) {
+            option.setAttribute('selected', 'selected');
+          }
+        });
+      });
+
+      // También fijar los valores de INPUT y TEXTAREA
+      const originalInputs = reportElement.querySelectorAll('input, textarea');
+      const clonedInputs = clonedReport.querySelectorAll('input, textarea');
+
+      originalInputs.forEach((originalInput, index) => {
+        const clonedInput = clonedInputs[index] as HTMLInputElement | HTMLTextAreaElement;
+        if (originalInput instanceof HTMLInputElement) {
+          if (originalInput.type === 'checkbox' || originalInput.type === 'radio') {
+            if (originalInput.checked) {
+              clonedInput.setAttribute('checked', 'checked');
+            } else {
+              clonedInput.removeAttribute('checked');
+            }
+          } else {
+            clonedInput.setAttribute('value', originalInput.value);
+          }
+        } else if (originalInput instanceof HTMLTextAreaElement) {
+          clonedInput.textContent = originalInput.value;
+        }
+      });
+
+      const htmlContent = clonedReport.outerHTML;
 
       // Enviar al backend
       await api(`/v1/projects/${projectId}/finalize`, {
@@ -966,6 +1008,89 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         <div
           dangerouslySetInnerHTML={{ __html: snapshotHtml }}
         />
+        {/* Word Download Button for finalized projects */}
+        <button
+          onClick={async () => {
+            try {
+              // Load all necessary data for Word generation
+              setLoading(prev => ({ ...prev, word: true }));
+
+              // Load data from backend
+              const [configData, projectionData, debtData, valuationData] = await Promise.all([
+                api(`/v1/projects/${projectId}/config`),
+                api(`/v1/projects/${projectId}/projection`),
+                api(`/v1/projects/${projectId}/debt`),
+                api(`/v1/projects/${projectId}/valuation-and-returns`)
+              ]);
+
+              await generateWordDocument({
+                basicInfo: {
+                  nombre: configData.nombre,
+                  segmento: configData.segmento,
+                  categoria: configData.categoria,
+                  provincia: configData.provincia,
+                  comunidad_autonoma: configData.comunidad_autonoma,
+                  habitaciones: configData.habitaciones
+                },
+                operationConfig: {
+                  operacion_tipo: configData.operacion_tipo,
+                  fee_base_anual: configData.fee_base_anual,
+                  fee_pct_total_rev: configData.fee_pct_total_rev,
+                  fee_pct_gop: configData.fee_pct_gop,
+                  fee_incentive_pct: configData.fee_incentive_pct,
+                  fee_hurdle_gop_margin: configData.fee_hurdle_gop_margin,
+                  gop_ajustado: configData.gop_ajustado,
+                  ffe: configData.ffe,
+                  nonop_taxes_anual: configData.nonop_taxes_anual,
+                  nonop_insurance_anual: configData.nonop_insurance_anual,
+                  nonop_rent_anual: configData.nonop_rent_anual,
+                  nonop_other_anual: configData.nonop_other_anual
+                },
+                projectionAssumptions: {
+                  horizonte: projectionData.assumptions?.years ?? 10,
+                  anio_base: projectionData.assumptions?.anio_base ?? new Date().getFullYear(),
+                  adr_growth_pct: projectionData.assumptions?.adr_growth_pct ?? 0.03,
+                  occ_delta_pp: projectionData.assumptions?.occ_delta_pp ?? 0,
+                  occ_cap: projectionData.assumptions?.occ_cap ?? 0.92,
+                  cost_inflation_pct: projectionData.assumptions?.cost_inflation_pct ?? 0,
+                  undistributed_inflation_pct: projectionData.assumptions?.undistributed_inflation_pct ?? 0,
+                  nonop_inflation_pct: projectionData.assumptions?.nonop_inflation_pct ?? 0
+                },
+                financingConfig: {
+                  precio_compra: configData.precio_compra,
+                  capex_inicial: configData.capex_inicial,
+                  coste_tx_compra_pct: configData.coste_tx_compra_pct,
+                  ltv: configData.ltv,
+                  interes: configData.interes,
+                  plazo_anios: configData.plazo_anios,
+                  tipo_amortizacion: configData.tipo_amortizacion
+                },
+                valuationConfig: {
+                  metodo_valoracion: configData.metodo_valoracion,
+                  cap_rate_salida: configData.cap_rate_salida,
+                  multiplo_salida: configData.multiplo_salida,
+                  coste_tx_venta_pct: configData.coste_tx_venta_pct
+                },
+                meses: [], // Y0 months not needed for finalized projects
+                calculatedUsali: null,
+                editedUsaliData: null,
+                annuals: projectionData.annuals,
+                debt: debtData,
+                vr: valuationData
+              });
+
+              setLoading(prev => ({ ...prev, word: false }));
+            } catch (error) {
+              console.error('Error generando documento Word:', error);
+              alert('Hubo un error al generar el documento. Por favor, intenta de nuevo.');
+              setLoading(prev => ({ ...prev, word: false }));
+            }
+          }}
+          disabled={loading.word}
+          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-200"
+        >
+          {loading.word ? 'Generando...' : 'DESCARGAR PROYECTO EN WORD'}
+        </button>
       </div>
     );
   }
@@ -1856,7 +1981,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                 undistributed_inflation_pct: projectionAssumptions.undistributed_inflation_pct,
                 nonop_inflation_pct: projectionAssumptions.nonop_inflation_pct
               }}
-              baseIRR={vr.returns.levered.irr}
+              baseIRR={vr.returns?.levered?.irr ?? null}
               isFinalized={projectState === 'finalized'}
             />
 
