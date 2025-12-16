@@ -84,6 +84,10 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     const loan0 = (base + capex) * (financingConfig.ltv ?? 0);
     const equity0 = (base + capex) * (1 - (financingConfig.ltv ?? 0)) + costs_buy;
 
+    // 1) HORIZONTE DE INVERSIÓN: variable única para todo el documento
+    const holdingYears = Number(projectionAssumptions?.horizonte ?? annuals.length ?? 0);
+    console.log('[WORD] Horizonte de inversión:', holdingYears, 'años');
+
     // Calcular totales acumulados
     const totals = annuals.reduce((acc: any, year: any) => ({
       operating_revenue: acc.operating_revenue + (year.operating_revenue || 0),
@@ -108,12 +112,29 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     const lastYear = annuals[annuals.length - 1]?.anio;
     const lastAnnual = annuals[annuals.length - 1];
     const noiLastYear = lastAnnual?.ebitda_less_ffe ?? 0;
-    const saldoDeudaFinal = debt?.schedule?.find((d: any) => d.anio === lastYear)?.saldo ?? 0;
-    const equityAtExit = vr.valuation.valor_salida_neto - saldoDeudaFinal;
 
-    // CORRECCIÓN: NOI estabilizado puede ser 0, necesitamos distinguir entre 0 y no disponible
+    // 2) DEUDA PENDIENTE AL EXIT: extracción robusta con fallback
+    const lastDebtRow = debt?.schedule?.find((d: any) => d.anio === lastYear);
+    const saldoDeudaFinal = lastDebtRow
+      ? (lastDebtRow.saldo_final ?? lastDebtRow.saldo ?? lastDebtRow.saldoFinal ?? lastDebtRow.balance_end ?? 0)
+      : 0;
+
+    // Guardrail: detectar mapping roto
+    if (debt?.schedule && debt.schedule.length > 0 && (financingConfig.ltv ?? 0) > 0 && saldoDeudaFinal === 0) {
+      console.warn('[WORD] ⚠️  Deuda pendiente al exit = 0 pese a LTV > 0. Verificar campos:', lastDebtRow);
+    }
+
+    // 5) EQUITY NETO AL EXIT: coherencia asegurada
+    const equityAtExit = vr.valuation.valor_salida_neto - saldoDeudaFinal;
+    console.log('[WORD] Exit:', {
+      valorSalidaNeto: vr.valuation.valor_salida_neto,
+      saldoDeudaFinal,
+      equityAtExit
+    });
+
+    // 4) NOI ESTABILIZADO: NOI=0 es válido, no excluirlo
     const noiEstabilizado = vr.valuation?.noi_estabilizado;
-    const hasNoiEstabilizado = noiEstabilizado !== undefined && noiEstabilizado !== null && noiEstabilizado !== 0;
+    const hasNoiEstabilizado = noiEstabilizado !== undefined && noiEstabilizado !== null;
 
     // Usar editedUsaliData si existe, sino usar calculatedUsali
     const usaliData = editedUsaliData && editedUsaliData.length > 0 ? editedUsaliData : calculatedUsali;
@@ -207,7 +228,7 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
         spacing: { after: 200 },
       }),
       new Paragraph({
-        text: `El horizonte de inversión se establece en ${projectionAssumptions.horizonte + 1} años, con estrategia de operación y posterior desinversión. La salida está prevista con un valor estimado de ${fmt(vr.valuation.valor_salida_neto)} (${fmt(vr.valuation.valor_salida_neto / keys)} por habitación), calculado mediante ${valuationConfig.metodo_valoracion === 'cap_rate' ? `cap rate de ${fmtPct(valuationConfig.cap_rate_salida ?? 0)}` : `múltiplo de ${fmtDecimal(valuationConfig.multiplo_salida ?? 0, 2)}x`} sobre un NOI estabilizado.`,
+        text: `El horizonte de inversión se establece en ${holdingYears} años, con estrategia de operación y posterior desinversión. La salida está prevista con un valor estimado de ${fmt(vr.valuation.valor_salida_neto)} (${fmt(vr.valuation.valor_salida_neto / keys)} por habitación), calculado mediante ${valuationConfig.metodo_valoracion === 'cap_rate' ? `cap rate de ${fmtPct(valuationConfig.cap_rate_salida ?? 0)}` : `múltiplo de ${fmtDecimal(valuationConfig.multiplo_salida ?? 0, 2)}x`} sobre un NOI estabilizado.`,
         spacing: { after: 200 },
       }),
       new Paragraph({
@@ -422,7 +443,7 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
         width: { size: 100, type: WidthType.PERCENTAGE },
       }),
       new Paragraph({
-        text: `Durante el horizonte completo de ${projectionAssumptions.horizonte + 1} años, el activo genera un EBITDA acumulado de ${fmt(totals.ebitda)} y un EBITDA-FF&E de ${fmt(totals.ebitda_less_ffe)} (${fmt(totals.ebitda_less_ffe / keys)} por habitación). La evolución de los flujos refleja la maduración operativa del activo y la estabilización de márgenes conforme se consolida el posicionamiento de mercado. La capacidad de generación de caja del proyecto constituye la base para el servicio de deuda y la rentabilidad del equity.`,
+        text: `Durante el horizonte completo de ${holdingYears} años, el activo genera un EBITDA acumulado de ${fmt(totals.ebitda)} y un EBITDA-FF&E de ${fmt(totals.ebitda_less_ffe)} (${fmt(totals.ebitda_less_ffe / keys)} por habitación). La evolución de los flujos refleja la maduración operativa del activo y la estabilización de márgenes conforme se consolida el posicionamiento de mercado. La capacidad de generación de caja del proyecto constituye la base para el servicio de deuda y la rentabilidad del equity.`,
         spacing: { before: 200, after: 400 },
       }),
 
@@ -690,34 +711,72 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     // Análisis de precio de compra - siempre mostrar valores
     let ppa = vr.purchase_price_analysis;
 
-    // Si no existe purchase_price_analysis, intentar calcularlo o usar valores por defecto
+    // 3) PRECIO IMPLÍCITO FALLBACK: calcular correctamente con PV de flujos + PV de exit
     if (!ppa) {
-      // Calcular precio implícito manualmente si no está disponible
       const precioIntroducido = base; // precio_compra
       let precioImplicito = 0;
+      let interpretacion = 'No disponible: no se pudo calcular el precio implícito con los datos disponibles.';
 
-      // Intentar calcular precio implícito basándose en los flujos
+      // Calcular precio implícito usando cap rate de salida como tasa de descuento
       if (valuationConfig.metodo_valoracion === 'cap_rate' && valuationConfig.cap_rate_salida) {
-        // Descontar el valor de salida y los flujos
-        const capRate = valuationConfig.cap_rate_salida;
-        const flujosCajaDuranteHolding = totals.ebitda_less_ffe - totalCuota;
-        const valorSalidaBruto = vr.valuation.valor_salida_neto;
+        const r = valuationConfig.cap_rate_salida;
 
-        // Calcular precio implícito descontando a cap rate
-        precioImplicito = valorSalidaBruto / Math.pow(1 + capRate, projectionAssumptions.horizonte + 1);
+        if (r > 0) {
+          // PV de flujos operativos anuales
+          let pvCashflows = 0;
+          for (let t = 1; t <= holdingYears; t++) {
+            const yearData = annuals[t - 1];
+            if (yearData && yearData.ebitda_less_ffe !== undefined) {
+              const cf = yearData.ebitda_less_ffe;
+              pvCashflows += cf / Math.pow(1 + r, t);
+            }
+          }
+
+          // PV del exit
+          const pvExit = vr.valuation.valor_salida_neto / Math.pow(1 + r, holdingYears);
+
+          // Precio implícito = suma de PVs
+          precioImplicito = pvCashflows + pvExit;
+
+          console.log('[WORD] Precio implícito (fallback):', {
+            r,
+            holdingYears,
+            pvCashflows,
+            pvExit,
+            precioImplicito,
+            precioIntroducido
+          });
+        } else {
+          console.warn('[WORD] Cap rate de salida <= 0, no se puede calcular precio implícito');
+          interpretacion = 'No disponible: el cap rate de salida no es válido para el cálculo.';
+        }
+      } else {
+        console.warn('[WORD] Método de valoración no es cap_rate o no hay cap_rate_salida');
+        interpretacion = 'No disponible: el método de valoración no permite calcular precio implícito con los datos actuales.';
       }
 
-      const diferenciaAbsoluta = precioIntroducido - precioImplicito;
-      const diferenciaPorcentual = precioImplicito > 0 ? diferenciaAbsoluta / precioImplicito : 0;
+      // Calcular diferencias solo si precioImplicito > 0
+      let diferenciaAbsoluta = 0;
+      let diferenciaPorcentual = 0;
+
+      if (precioImplicito > 0) {
+        diferenciaAbsoluta = precioIntroducido - precioImplicito;
+        diferenciaPorcentual = diferenciaAbsoluta / precioImplicito;
+
+        interpretacion = diferenciaAbsoluta < 0
+          ? `El precio introducido se sitúa ${fmt(Math.abs(diferenciaAbsoluta))} (${fmtPct(Math.abs(diferenciaPorcentual))}) por debajo del precio implícito según los flujos proyectados, sugiriendo un margen de seguridad en la adquisición según los supuestos utilizados.`
+          : `El precio introducido se sitúa ${fmt(diferenciaAbsoluta)} (${fmtPct(diferenciaPorcentual)}) por encima del precio implícito según los flujos proyectados, indicando una prima respecto al valor que justifican los flujos según los supuestos utilizados.`;
+      } else {
+        // Si precioImplicito = 0, mostrar N/D en lugar de afirmar prima/descuento sin base
+        interpretacion = 'No disponible: no se pudo calcular el precio implícito con los parámetros actuales. Revise el cap rate de salida y los flujos proyectados.';
+      }
 
       ppa = {
         precio_introducido: precioIntroducido,
         precio_implicito: precioImplicito,
         diferencia_absoluta: diferenciaAbsoluta,
         diferencia_porcentual: diferenciaPorcentual,
-        interpretacion: diferenciaAbsoluta < 0
-          ? 'El precio introducido se sitúa por debajo del precio implícito según los flujos proyectados, sugiriendo un margen de seguridad en la adquisición.'
-          : 'El precio introducido se sitúa por encima del precio implícito según los flujos proyectados, indicando una prima respecto al valor que justifican los flujos.'
+        interpretacion
       };
     }
 
@@ -931,7 +990,7 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
         spacing: { after: 200 },
       }),
       new Paragraph({
-        text: `La proyección operativa estima generar ${fmt(totals.ebitda_less_ffe)} de EBITDA-FF&E acumulado durante ${projectionAssumptions.horizonte + 1} años de holding. Tras atender el servicio de deuda (${fmt(totalCuota)}), la caja neta disponible para el equity durante el período asciende a ${fmt(totals.ebitda_less_ffe - totalCuota)}.`,
+        text: `La proyección operativa estima generar ${fmt(totals.ebitda_less_ffe)} de EBITDA-FF&E acumulado durante ${holdingYears} años de holding. Tras atender el servicio de deuda (${fmt(totalCuota)}), la caja neta disponible para el equity durante el período asciende a ${fmt(totals.ebitda_less_ffe - totalCuota)}.`,
         spacing: { after: 200 },
       }),
       new Paragraph({
