@@ -239,12 +239,26 @@ router.post('/v1/projects/:id/y1/calc', async (req, res) => {
   const y1_dept_profit_total = monthly.reduce((sum, m) => sum + (m.dept_profit || 0), 0);
   const y1_und_total = monthly.reduce((sum, m) => sum + (m.und_total || 0), 0);
 
+  // Calcular nuevos campos para usali_annual
+  const y1_rooms_rev = monthly.reduce((sum, m) => sum + (m.rooms || 0), 0);
+  const y1_fb = monthly.reduce((sum, m) => sum + (m.fb || 0), 0);
+  const y1_other_operated = monthly.reduce((sum, m) => sum + (m.other_operated || 0), 0);
+  const y1_misc_income = monthly.reduce((sum, m) => sum + (m.misc_income || 0), 0);
+
+  // Calcular suma de días de y1_commercial
+  const suma_dias = comm.reduce((sum: number, m: any) => sum + Number(m.dias || 0), 0);
+
+  // Calcular occupancy y adr
+  const habitaciones_disponibles = prj.habitaciones * suma_dias;
+  const y1_occupancy = habitaciones_disponibles > 0 ? y1_rn_total / habitaciones_disponibles : 0;
+  const y1_adr = y1_rn_total > 0 ? y1_rooms_rev / y1_rn_total : 0;
+
   await pool.query(
     `REPLACE INTO usali_annual
-     (project_id, anio, rn, operating_revenue, dept_total, dept_profit, und_total, gop, fees, nonop, ebitda, ffe, ebitda_less_ffe, gop_margin, ebitda_margin, ebitda_less_ffe_margin)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+     (project_id, anio, rn, rooms_rev, fb, other_operated, misc_income, occupancy, adr, operating_revenue, dept_total, dept_profit, und_total, gop, fees, nonop, ebitda, ffe, ebitda_less_ffe, gop_margin, ebitda_margin, ebitda_less_ffe_margin)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
-      projectId, 1, y1_rn_total,
+      projectId, 1, y1_rn_total, y1_rooms_rev, y1_fb, y1_other_operated, y1_misc_income, y1_occupancy, y1_adr,
       y1_anual.operating_revenue, y1_dept_total, y1_dept_profit_total, y1_und_total, y1_anual.gop, y1_anual.fees, y1_anual.nonop, y1_anual.ebitda,
       y1_anual.ffe, y1_anual.ebitda_less_ffe, y1_anual.gop_margin, y1_anual.ebitda_margin, y1_anual.ebitda_less_ffe_margin
     ]
@@ -356,12 +370,20 @@ router.put('/v1/projects/:id/y1/usali', async (req, res) => {
   // Calcular y guardar totales anuales
   const sum = (field: string) => monthly.reduce((acc: number, m: any) => acc + Number(m[field] || 0), 0);
 
-  // Obtener RN total desde y1_commercial
+  // Obtener RN total y suma de días desde y1_commercial
   const [rnRows] = await pool.query(
-    `SELECT SUM(y1_mes_rn) as total_rn FROM y1_commercial WHERE project_id=?`,
+    `SELECT SUM(y1_mes_rn) as total_rn, SUM(y1_mes_dias) as suma_dias FROM y1_commercial WHERE project_id=?`,
     [projectId]
   );
   const y1_rn_total = Number((rnRows as any[])[0]?.total_rn || 0);
+  const suma_dias = Number((rnRows as any[])[0]?.suma_dias || 0);
+
+  // Obtener habitaciones del proyecto
+  const [[prjInfo]]: any = await pool.query(
+    `SELECT habitaciones FROM projects WHERE project_id=?`,
+    [projectId]
+  );
+  const habitaciones = Number(prjInfo?.habitaciones || 0);
 
   const y1_anual = {
     operating_revenue: sum('total_rev'),
@@ -379,12 +401,23 @@ router.put('/v1/projects/:id/y1/usali', async (req, res) => {
     ebitda_less_ffe_margin: sum('ebitda_less_ffe') / Math.max(1, sum('total_rev'))
   };
 
+  // Calcular nuevos campos para usali_annual
+  const y1_rooms_rev = sum('rooms');
+  const y1_fb = sum('fb');
+  const y1_other_operated = sum('other_operated');
+  const y1_misc_income = sum('misc_income');
+
+  // Calcular occupancy y adr
+  const habitaciones_disponibles = habitaciones * suma_dias;
+  const y1_occupancy = habitaciones_disponibles > 0 ? y1_rn_total / habitaciones_disponibles : 0;
+  const y1_adr = y1_rn_total > 0 ? y1_rooms_rev / y1_rn_total : 0;
+
   await pool.query(
     `REPLACE INTO usali_annual
-     (project_id, anio, rn, operating_revenue, dept_total, dept_profit, und_total, gop, fees, nonop, ebitda, ffe, ebitda_less_ffe, gop_margin, ebitda_margin, ebitda_less_ffe_margin)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+     (project_id, anio, rn, rooms_rev, fb, other_operated, misc_income, occupancy, adr, operating_revenue, dept_total, dept_profit, und_total, gop, fees, nonop, ebitda, ffe, ebitda_less_ffe, gop_margin, ebitda_margin, ebitda_less_ffe_margin)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
-      projectId, 1, y1_rn_total,
+      projectId, 1, y1_rn_total, y1_rooms_rev, y1_fb, y1_other_operated, y1_misc_income, y1_occupancy, y1_adr,
       y1_anual.operating_revenue, y1_anual.dept_total, y1_anual.dept_profit, y1_anual.und_total, y1_anual.gop, y1_anual.fees, y1_anual.nonop, y1_anual.ebitda,
       y1_anual.ffe, y1_anual.ebitda_less_ffe, y1_anual.gop_margin, y1_anual.ebitda_margin, y1_anual.ebitda_less_ffe_margin
     ]
