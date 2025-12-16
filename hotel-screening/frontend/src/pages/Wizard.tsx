@@ -1029,7 +1029,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
               // Preparar vr con datos de sensibilidad si existen
               const vrWithSensitivity = {
-                ...finalVR,
+                ...valuationData,
                 sensitivity: sensitivityResults.length > 0 ? {
                   scenarios: sensitivityResults.map(r => ({
                     label: r.scenario.name,
