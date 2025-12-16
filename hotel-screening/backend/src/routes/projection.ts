@@ -24,13 +24,21 @@ router.get('/v1/projects/:id/projection', async (req, res) => {
 
     // Cargar projection assumptions si existen
     const [assumptionRows]: any = await pool.query(
-      `SELECT horizonte, anio_base, adr_growth_pct, occ_delta_pp, occ_cap, cost_inflation_pct, undistributed_inflation_pct, nonop_inflation_pct
+      `SELECT adr_growth_pct, occ_delta_pp, occ_cap, cost_inflation_pct, undistributed_inflation_pct, nonop_inflation_pct
        FROM projection_assumptions
        WHERE project_id=?`,
       [req.params.id]
     );
 
-    const assumptions = assumptionRows && assumptionRows.length > 0 ? assumptionRows[0] : null;
+    // Cargar horizonte de la tabla projects (fuente única de verdad)
+    const [[projectRow]]: any = await pool.query(
+      `SELECT horizonte FROM projects WHERE project_id=?`,
+      [req.params.id]
+    );
+
+    const assumptions = assumptionRows && assumptionRows.length > 0
+      ? { ...assumptionRows[0], horizonte: projectRow?.horizonte ?? 7 }
+      : (projectRow ? { horizonte: projectRow.horizonte } : null);
 
     res.json({
       annuals: annRows,
