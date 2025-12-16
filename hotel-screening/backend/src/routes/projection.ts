@@ -10,7 +10,7 @@ const router = Router();
 router.get('/v1/projects/:id/projection', async (req, res) => {
   try {
     const [annRows]: any = await pool.query(
-      `SELECT anio, rn, operating_revenue, dept_total, dept_profit, und_total, gop, fees, nonop, ebitda, ffe, ebitda_less_ffe,
+      `SELECT anio, rn, rooms_rev, fb, other_operated, misc_income, occupancy, adr, operating_revenue, dept_total, dept_profit, und_total, gop, fees, nonop, ebitda, ffe, ebitda_less_ffe,
               gop_margin, ebitda_margin, ebitda_less_ffe_margin
        FROM usali_annual
        WHERE project_id=?
