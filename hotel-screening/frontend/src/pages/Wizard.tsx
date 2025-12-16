@@ -91,6 +91,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   const [projectionSaved, setProjectionSaved] = useState(false);
   const [debt, setDebt] = useState<any|null>(null);
   const [vr, setVR] = useState<any|null>(null);
+  const [sensitivityResults, setSensitivityResults] = useState<any[]>([]);
   const [loading, setLoading] = useState({
     projection: false,
     save_projection: false,
@@ -1026,6 +1027,21 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                 api(`/v1/projects/${projectId}/y1/usali`).catch(() => ({ usali: [] }))
               ]);
 
+              // Preparar vr con datos de sensibilidad si existen
+              const vrWithSensitivity = {
+                ...finalVR,
+                sensitivity: sensitivityResults.length > 0 ? {
+                  scenarios: sensitivityResults.map(r => ({
+                    label: r.scenario.name,
+                    name: r.scenario.name,
+                    adr_delta_pct: r.scenario.adr_delta_pct,
+                    occ_delta_pp: r.scenario.occ_delta_pp,
+                    irr_levered: r.irr_levered,
+                    irr_unlevered: r.irr_unlevered
+                  }))
+                } : undefined
+              };
+
               await generateWordDocument({
                 basicInfo: {
                   nombre: configData.nombre,
@@ -1079,7 +1095,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                 editedUsaliData: usaliY1Data?.usali || null,
                 annuals: projectionData.annuals,
                 debt: debtData,
-                vr: valuationData
+                vr: vrWithSensitivity
               });
 
               setLoading(prev => ({ ...prev, word: false }));
@@ -1986,6 +2002,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               }}
               baseIRR={vr.returns?.levered?.irr ?? null}
               isFinalized={projectState === 'finalized'}
+              onResultsChange={(results) => setSensitivityResults(results)}
             />
 
             {/* 7) INSIGHTS DEL PROYECTO */}
@@ -2080,6 +2097,21 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               <button
                 onClick={async () => {
                   try {
+                    // Preparar vr con datos de sensibilidad si existen
+                    const vrWithSensitivity = {
+                      ...vr,
+                      sensitivity: sensitivityResults.length > 0 ? {
+                        scenarios: sensitivityResults.map((r: any) => ({
+                          label: r.scenario.name,
+                          name: r.scenario.name,
+                          adr_delta_pct: r.scenario.adr_delta_pct,
+                          occ_delta_pp: r.scenario.occ_delta_pp,
+                          irr_levered: r.irr_levered,
+                          irr_unlevered: r.irr_unlevered
+                        }))
+                      } : undefined
+                    };
+
                     await generateWordDocument({
                       basicInfo,
                       operationConfig,
@@ -2091,7 +2123,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                       editedUsaliData,
                       annuals,
                       debt,
-                      vr
+                      vr: vrWithSensitivity
                     });
                   } catch (error) {
                     console.error('Error generando documento Word:', error);

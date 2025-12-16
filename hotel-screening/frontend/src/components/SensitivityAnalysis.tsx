@@ -22,6 +22,7 @@ interface SensitivityAnalysisProps {
   };
   baseIRR: number | null;
   isFinalized?: boolean;
+  onResultsChange?: (results: SensitivityResult[]) => void;
 }
 
 interface Scenario {
@@ -52,7 +53,7 @@ const DEFAULT_SCENARIOS: Scenario[] = [
   { id: '5', name: 'Agresivo', adr_delta_pct: 0.04, occ_delta_pp: 2.0 },
 ];
 
-export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIRR, isFinalized = false }: SensitivityAnalysisProps) {
+export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIRR, isFinalized = false, onResultsChange }: SensitivityAnalysisProps) {
   const [results, setResults] = useState<SensitivityResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
@@ -212,6 +213,11 @@ export default function SensitivityAnalysis({ projectId, baseAssumptions, baseIR
 
       setResults(sensitivityResults);
       setShowAnalysis(true);
+
+      // Notificar al padre sobre los resultados
+      if (onResultsChange) {
+        onResultsChange(sensitivityResults);
+      }
 
       // Restaurar escenario base
       await api(`/v1/projects/${projectId}/projection`, {
