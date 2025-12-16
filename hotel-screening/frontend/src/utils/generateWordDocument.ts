@@ -212,7 +212,7 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
         spacing: { after: 200 },
       }),
       new Paragraph({
-        text: `El horizonte de inversión se establece en ${projectionAssumptions.horizonte} años, con estrategia de operación y posterior desinversión. La salida está prevista en el año ${lastYear} con un valor estimado de ${fmt(vr.valuation.valor_salida_neto)} (${fmt(vr.valuation.valor_salida_neto / keys)} por habitación), calculado mediante ${valuationConfig.metodo_valoracion === 'cap_rate' ? `cap rate de ${fmtPct(valuationConfig.cap_rate_salida ?? 0)}` : `múltiplo de ${fmtDecimal(valuationConfig.multiplo_salida ?? 0, 2)}x`} sobre un NOI estabilizado.`,
+        text: `El horizonte de inversión se establece en ${projectionAssumptions.horizonte + 1} años, con estrategia de operación y posterior desinversión. La salida está prevista con un valor estimado de ${fmt(vr.valuation.valor_salida_neto)} (${fmt(vr.valuation.valor_salida_neto / keys)} por habitación), calculado mediante ${valuationConfig.metodo_valoracion === 'cap_rate' ? `cap rate de ${fmtPct(valuationConfig.cap_rate_salida ?? 0)}` : `múltiplo de ${fmtDecimal(valuationConfig.multiplo_salida ?? 0, 2)}x`} sobre un NOI estabilizado.`,
         spacing: { after: 200 },
       }),
       new Paragraph({
@@ -240,160 +240,80 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
       }),
 
       // ========================================
-      // 3. DESCRIPCIÓN DEL ACTIVO Y SUPUESTOS DEL MODELO
+      // 3. CUENTA DE RESULTADOS OPERATIVA (USALI)
       // ========================================
       new Paragraph({
-        text: '2. Descripción del Activo y Supuestos del Modelo',
+        text: '3. Cuenta de Resultados Operativa (USALI)',
         heading: HeadingLevel.HEADING_1,
         spacing: { after: 300 },
-      }),
-      new Paragraph({
-        text: `El proyecto analizado corresponde a un establecimiento ${basicInfo.segmento.toLowerCase()} de ${keys} habitaciones, categorizado como ${basicInfo.categoria}, localizado en ${basicInfo.provincia}, dentro de la comunidad autónoma de ${basicInfo.comunidad_autonoma}. El análisis contempla un horizonte temporal de ${projectionAssumptions.horizonte} años desde la adquisición hasta la salida.`,
-        spacing: { after: 200 },
-      }),
-      new Paragraph({
-        text: 'El modelo de proyección se sustenta en los siguientes supuestos operativos y de crecimiento:',
-        spacing: { after: 200 },
-        bold: true,
       })
     );
 
-    // Tabla de supuestos
-    const assumptionsRows = [
+    // Nueva tabla: Resumen anual de métricas operativas
+    const annualMetricsRows = [
       new TableRow({
         children: [
-          new TableCell({ children: [new Paragraph({ text: 'Supuesto', bold: true })], shading: { fill: 'E7E6E6' } }),
-          new TableCell({ children: [new Paragraph({ text: 'Valor', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Crecimiento anual ADR' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmtPct(projectionAssumptions.adr_growth_pct), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Incremento ocupación anual' })] }),
-          new TableCell({ children: [new Paragraph({ text: `${fmtDecimal(projectionAssumptions.occ_delta_pp, 1)} pp`, alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Cap de ocupación' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmtPct(projectionAssumptions.occ_cap), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Inflación costes directos' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmtPct(projectionAssumptions.cost_inflation_pct), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Inflación costes undistributed' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmtPct(projectionAssumptions.undistributed_inflation_pct), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Horizonte de análisis' })] }),
-          new TableCell({ children: [new Paragraph({ text: `${projectionAssumptions.horizonte} años`, alignment: AlignmentType.RIGHT })] }),
+          new TableCell({ children: [new Paragraph({ text: 'Año', bold: true })], shading: { fill: 'E7E6E6' } }),
+          new TableCell({ children: [new Paragraph({ text: '% Ocupación', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          new TableCell({ children: [new Paragraph({ text: 'ADR', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          new TableCell({ children: [new Paragraph({ text: 'RevPAR', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          new TableCell({ children: [new Paragraph({ text: 'Revenue €/RN', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          new TableCell({ children: [new Paragraph({ text: 'GOP €/RN', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          new TableCell({ children: [new Paragraph({ text: 'EBITDA-FF&E €/RN', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
         ],
       }),
     ];
 
+    annuals.forEach((year, index) => {
+      // Para el primer año, usar datos de meses si están disponibles
+      let avgOccYear = 0;
+      let avgAdrYear = 0;
+      let avgRevPARYear = 0;
+
+      if (index === 0 && hasMesesData) {
+        avgOccYear = avgOcc;
+        avgAdrYear = avgAdr;
+        avgRevPARYear = avgRevPAR;
+      } else {
+        // Para años posteriores, calcular basándose en el crecimiento
+        const baseOcc = hasMesesData ? avgOcc : 0;
+        const baseAdr = hasMesesData ? avgAdr : 0;
+
+        if (baseOcc > 0 && baseAdr > 0) {
+          // Aplicar crecimiento de ocupación y ADR
+          avgOccYear = Math.min(baseOcc + (projectionAssumptions.occ_delta_pp ?? 0) * index, projectionAssumptions.occ_cap ?? 1);
+          avgAdrYear = baseAdr * Math.pow(1 + (projectionAssumptions.adr_growth_pct ?? 0), index);
+          avgRevPARYear = avgOccYear * avgAdrYear;
+        }
+      }
+
+      const revenuePerKey = keys > 0 ? (year.operating_revenue ?? 0) / keys : 0;
+      const gopPerKey = keys > 0 ? (year.gop ?? 0) / keys : 0;
+      const ebitdaFFEPerKey = keys > 0 ? (year.ebitda_less_ffe ?? 0) / keys : 0;
+
+      annualMetricsRows.push(
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: year.anio.toString() })] }),
+            new TableCell({ children: [new Paragraph({ text: avgOccYear > 0 ? fmtPct(avgOccYear) : 'N/A', alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: avgAdrYear > 0 ? fmt(avgAdrYear) : 'N/A', alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: avgRevPARYear > 0 ? fmt(avgRevPARYear) : 'N/A', alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(revenuePerKey), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(gopPerKey), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(ebitdaFFEPerKey), alignment: AlignmentType.RIGHT })] }),
+          ],
+        })
+      );
+    });
+
     sections.push(
       new Table({
-        rows: assumptionsRows,
-        width: { size: 70, type: WidthType.PERCENTAGE },
+        rows: annualMetricsRows,
+        width: { size: 100, type: WidthType.PERCENTAGE },
       }),
       new Paragraph({
-        text: 'Estos parámetros configuran la base del modelo de proyección operativa y permiten evaluar la evolución del activo bajo distintas condiciones de mercado durante el período de holding.',
+        text: 'La tabla muestra la evolución anual de las principales métricas operativas por habitación, reflejando la maduración del activo durante el período de holding.',
         spacing: { before: 200, after: 400 },
-      }),
-
-      // ========================================
-      // 4. ANÁLISIS COMERCIAL - AÑO 1
-      // ========================================
-      new Paragraph({
-        text: '3. Análisis Comercial – Año 1',
-        heading: HeadingLevel.HEADING_1,
-        spacing: { after: 300 },
-      })
-    );
-
-    if (hasMesesData && (totalRoomsRevenue > 0 || avgAdr > 0)) {
-      sections.push(
-        new Paragraph({
-          text: `El primer año de operación proyecta una ocupación media anual del ${fmtPct(avgOcc)} con un ADR promedio de ${fmt(avgAdr)}, resultando en un RevPAR de ${fmt(avgRevPAR)}. Sobre una capacidad de ${totalRoomnights.toFixed(0)} roomnights vendidas, se estima generar ${fmt(totalRoomsRevenue)} en ingresos por habitaciones.`,
-          spacing: { after: 200 },
-        })
-      );
-
-      // Tabla resumida año 1 - solo totales
-      const year1CommercialRows = [
-        new TableRow({
-          children: [
-            new TableCell({ children: [new Paragraph({ text: 'Métrica', bold: true })], shading: { fill: 'E7E6E6' } }),
-            new TableCell({ children: [new Paragraph({ text: 'Valor', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-          ],
-        }),
-        new TableRow({
-          children: [
-            new TableCell({ children: [new Paragraph({ text: 'Ocupación promedio' })] }),
-            new TableCell({ children: [new Paragraph({ text: fmtPct(avgOcc), alignment: AlignmentType.RIGHT })] }),
-          ],
-        }),
-        new TableRow({
-          children: [
-            new TableCell({ children: [new Paragraph({ text: 'ADR promedio' })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(avgAdr), alignment: AlignmentType.RIGHT })] }),
-          ],
-        }),
-        new TableRow({
-          children: [
-            new TableCell({ children: [new Paragraph({ text: 'RevPAR' })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(avgRevPAR), alignment: AlignmentType.RIGHT })] }),
-          ],
-        }),
-        new TableRow({
-          children: [
-            new TableCell({ children: [new Paragraph({ text: 'Rooms Revenue total' })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(totalRoomsRevenue), alignment: AlignmentType.RIGHT })] }),
-          ],
-        }),
-      ];
-
-      sections.push(
-        new Table({
-          rows: year1CommercialRows,
-          width: { size: 60, type: WidthType.PERCENTAGE },
-        }),
-        new Paragraph({
-          text: 'Estos indicadores comerciales del primer año reflejan el posicionamiento de mercado proyectado y constituyen la base sobre la cual se construye la rampa de crecimiento hacia la estabilización operativa.',
-          spacing: { before: 200, after: 400 },
-        })
-      );
-    } else {
-      sections.push(
-        new Paragraph({
-          text: 'Los datos comerciales mensuales del año 1 no están disponibles en este proyecto. Consulte la proyección operativa anual para revisar los ingresos consolidados.',
-          spacing: { after: 400 },
-        })
-      );
-    }
-
-    sections.push(
-
-      // ========================================
-      // 5. CUENTA DE RESULTADOS OPERATIVA (USALI) - AÑO 1
-      // ========================================
-      new Paragraph({
-        text: '4. Cuenta de Resultados Operativa (USALI)',
-        heading: HeadingLevel.HEADING_1,
-        spacing: { after: 300 },
       })
     );
 
@@ -463,10 +383,10 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
 
     sections.push(
       // ========================================
-      // 6. PROYECCIÓN OPERATIVA Y GENERACIÓN DE CAJA
+      // 4. PROYECCIÓN OPERATIVA Y GENERACIÓN DE CAJA
       // ========================================
       new Paragraph({
-        text: '5. Proyección Operativa y Generación de Caja',
+        text: '4. Proyección Operativa y Generación de Caja',
         heading: HeadingLevel.HEADING_1,
         spacing: { after: 300 },
       })
@@ -518,15 +438,15 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
         width: { size: 100, type: WidthType.PERCENTAGE },
       }),
       new Paragraph({
-        text: `Durante el horizonte completo de ${projectionAssumptions.horizonte} años, el activo genera un EBITDA acumulado de ${fmt(totals.ebitda)} y un EBITDA-FF&E de ${fmt(totals.ebitda_less_ffe)} (${fmt(totals.ebitda_less_ffe / keys)} por habitación). La evolución de los flujos refleja la maduración operativa del activo y la estabilización de márgenes conforme se consolida el posicionamiento de mercado. La capacidad de generación de caja del proyecto constituye la base para el servicio de deuda y la rentabilidad del equity.`,
+        text: `Durante el horizonte completo de ${projectionAssumptions.horizonte + 1} años, el activo genera un EBITDA acumulado de ${fmt(totals.ebitda)} y un EBITDA-FF&E de ${fmt(totals.ebitda_less_ffe)} (${fmt(totals.ebitda_less_ffe / keys)} por habitación). La evolución de los flujos refleja la maduración operativa del activo y la estabilización de márgenes conforme se consolida el posicionamiento de mercado. La capacidad de generación de caja del proyecto constituye la base para el servicio de deuda y la rentabilidad del equity.`,
         spacing: { before: 200, after: 400 },
       }),
 
       // ========================================
-      // 7. ESTRUCTURA DE LA INVERSIÓN (FUENTES & USOS)
+      // 5. ESTRUCTURA DE LA INVERSIÓN (FUENTES & USOS)
       // ========================================
       new Paragraph({
-        text: '6. Estructura de la Inversión',
+        text: '5. Estructura de la Inversión',
         heading: HeadingLevel.HEADING_1,
         spacing: { after: 300 },
       })
@@ -604,10 +524,10 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
       }),
 
       // ========================================
-      // 8. FINANCIACIÓN Y PERFIL DE DEUDA
+      // 6. FINANCIACIÓN Y PERFIL DE DEUDA
       // ========================================
       new Paragraph({
-        text: '7. Financiación y Perfil de Deuda',
+        text: '6. Financiación y Perfil de Deuda',
         heading: HeadingLevel.HEADING_1,
         spacing: { after: 300 },
       }),
@@ -671,10 +591,10 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
       }),
 
       // ========================================
-      // 9. VALORACIÓN DEL ACTIVO Y EXIT
+      // 7. VALORACIÓN DEL ACTIVO Y EXIT
       // ========================================
       new Paragraph({
-        text: '8. Valoración del Activo y Exit',
+        text: '7. Valoración del Activo y Exit',
         heading: HeadingLevel.HEADING_1,
         spacing: { after: 300 },
       }),
@@ -769,91 +689,115 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
         spacing: { after: 200 },
       }),
       new Paragraph({
-        text: `El valor de salida neto asciende a ${fmt(vr.valuation.valor_salida_neto)}, lo que representa ${fmt(vr.valuation.valor_salida_neto / keys)} por habitación. Esta valoración refleja la capacidad del activo de generar un NOI ${hasNoiEstabilizado ? 'estabilizado' : 'del último año'} de ${fmt(hasNoiEstabilizado ? noiEstabilizado : noiLastYear)} (${fmt((hasNoiEstabilizado ? noiEstabilizado : noiLastYear) / keys)} por key), valorado al ${valuationConfig.metodo_valoracion === 'cap_rate' ? `cap rate del ${fmtPct(valuationConfig.cap_rate_salida ?? 0)}` : `múltiplo de ${fmtDecimal(valuationConfig.multiplo_salida ?? 0, 2)}x`}.`,
+        text: `El valor de salida neto asciende a ${fmt(vr.valuation.valor_salida_neto)}, lo que representa ${fmt(vr.valuation.valor_salida_neto / keys)} por habitación. Esta valoración refleja la capacidad del activo de generar un NOI ${hasNoiEstabilizado ? 'estabilizado' : 'del último año'} de ${fmt(hasNoiEstabilizado ? noiEstabilizado : noiLastYear)}${hasNoiEstabilizado && vr.valuation.noi_details?.last_years_noi ? ` (media de los últimos años: ${fmt(vr.valuation.noi_details.last_years_noi.reduce((sum: number, noi: number) => sum + noi, 0) / vr.valuation.noi_details.last_years_noi.length)})` : ''} (${fmt((hasNoiEstabilizado ? noiEstabilizado : noiLastYear) / keys)} por key), valorado al ${valuationConfig.metodo_valoracion === 'cap_rate' ? `cap rate del ${fmtPct(valuationConfig.cap_rate_salida ?? 0)}` : `múltiplo de ${fmtDecimal(valuationConfig.multiplo_salida ?? 0, 2)}x`}.`,
         spacing: { after: 400 },
       }),
 
       // ========================================
-      // 10. ANÁLISIS DE PRECIO DE COMPRA
+      // 8. ANÁLISIS DE PRECIO DE COMPRA
       // ========================================
       new Paragraph({
-        text: '9. Análisis de Precio de Compra',
+        text: '8. Análisis de Precio de Compra',
         heading: HeadingLevel.HEADING_1,
         spacing: { after: 300 },
       })
     );
 
-    if (vr.purchase_price_analysis) {
-      const ppa = vr.purchase_price_analysis;
-      sections.push(
-        new Paragraph({
-          text: 'El análisis de coherencia económica compara el precio de compra introducido con el precio implícito que justificarían los flujos proyectados y el valor de salida, utilizando el cap rate de exit como tasa de descuento implícita.',
-          spacing: { after: 200 },
-        })
-      );
+    // Análisis de precio de compra - siempre mostrar valores
+    let ppa = vr.purchase_price_analysis;
 
-      const ppaRows = [
-        new TableRow({
-          children: [
-            new TableCell({ children: [new Paragraph({ text: 'Concepto', bold: true })], shading: { fill: 'E7E6E6' } }),
-            new TableCell({ children: [new Paragraph({ text: 'Importe (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-          ],
-        }),
-        new TableRow({
-          children: [
-            new TableCell({ children: [new Paragraph({ text: 'Precio de compra introducido' })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(ppa.precio_introducido), alignment: AlignmentType.RIGHT })] }),
-          ],
-        }),
-        new TableRow({
-          children: [
-            new TableCell({ children: [new Paragraph({ text: 'Precio implícito según flujos y exit' })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(ppa.precio_implicito), alignment: AlignmentType.RIGHT })] }),
-          ],
-        }),
-        new TableRow({
-          children: [
-            new TableCell({ children: [new Paragraph({ text: 'Diferencia (€)', bold: true })], shading: { fill: 'F2F2F2' } }),
-            new TableCell({ children: [new Paragraph({ text: fmt(ppa.diferencia_absoluta), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-          ],
-        }),
-        new TableRow({
-          children: [
-            new TableCell({ children: [new Paragraph({ text: 'Diferencia (%)', bold: true })], shading: { fill: 'F2F2F2' } }),
-            new TableCell({ children: [new Paragraph({ text: fmtPct(ppa.diferencia_porcentual), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-          ],
-        }),
-      ];
+    // Si no existe purchase_price_analysis, intentar calcularlo o usar valores por defecto
+    if (!ppa) {
+      // Calcular precio implícito manualmente si no está disponible
+      const precioIntroducido = base; // precio_compra
+      let precioImplicito = 0;
 
-      sections.push(
-        new Table({
-          rows: ppaRows,
-          width: { size: 70, type: WidthType.PERCENTAGE },
-        }),
-        new Paragraph({
-          text: ppa.interpretacion,
-          spacing: { before: 200, after: 200 },
-        }),
-        new Paragraph({
-          text: 'Este análisis no constituye una recomendación de inversión, sino una evaluación de la coherencia económica del precio respecto a los supuestos operativos y de salida configurados. La diferencia entre ambos precios indica el margen de seguridad (si es negativa) o la prima pagada (si es positiva) según el modelo.',
-          spacing: { after: 400 },
-        })
-      );
-    } else {
-      sections.push(
-        new Paragraph({
-          text: 'El análisis de precio de compra implícito no está disponible para este proyecto.',
-          spacing: { after: 400 },
-        })
-      );
+      // Intentar calcular precio implícito basándose en los flujos
+      if (valuationConfig.metodo_valoracion === 'cap_rate' && valuationConfig.cap_rate_salida) {
+        // Descontar el valor de salida y los flujos
+        const capRate = valuationConfig.cap_rate_salida;
+        const flujosCajaDuranteHolding = totals.ebitda_less_ffe - totalCuota;
+        const valorSalidaBruto = vr.valuation.valor_salida_neto;
+
+        // Calcular precio implícito descontando a cap rate
+        precioImplicito = valorSalidaBruto / Math.pow(1 + capRate, projectionAssumptions.horizonte + 1);
+      }
+
+      const diferenciaAbsoluta = precioIntroducido - precioImplicito;
+      const diferenciaPorcentual = precioImplicito > 0 ? diferenciaAbsoluta / precioImplicito : 0;
+
+      ppa = {
+        precio_introducido: precioIntroducido,
+        precio_implicito: precioImplicito,
+        diferencia_absoluta: diferenciaAbsoluta,
+        diferencia_porcentual: diferenciaPorcentual,
+        interpretacion: diferenciaAbsoluta < 0
+          ? 'El precio introducido se sitúa por debajo del precio implícito según los flujos proyectados, sugiriendo un margen de seguridad en la adquisición.'
+          : 'El precio introducido se sitúa por encima del precio implícito según los flujos proyectados, indicando una prima respecto al valor que justifican los flujos.'
+      };
     }
 
+    sections.push(
+      new Paragraph({
+        text: 'El análisis de coherencia económica compara el precio de compra introducido con el precio implícito que justificarían los flujos proyectados y el valor de salida, utilizando el cap rate de exit como tasa de descuento implícita.',
+        spacing: { after: 200 },
+      })
+    );
+
+    const ppaRows = [
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Concepto', bold: true })], shading: { fill: 'E7E6E6' } }),
+          new TableCell({ children: [new Paragraph({ text: 'Importe (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Precio de compra introducido' })] }),
+          new TableCell({ children: [new Paragraph({ text: fmt(ppa.precio_introducido), alignment: AlignmentType.RIGHT })] }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Precio implícito según flujos y exit' })] }),
+          new TableCell({ children: [new Paragraph({ text: fmt(ppa.precio_implicito), alignment: AlignmentType.RIGHT })] }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Diferencia (€)', bold: true })], shading: { fill: 'F2F2F2' } }),
+          new TableCell({ children: [new Paragraph({ text: fmt(ppa.diferencia_absoluta), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph({ text: 'Diferencia (%)', bold: true })], shading: { fill: 'F2F2F2' } }),
+          new TableCell({ children: [new Paragraph({ text: fmtPct(ppa.diferencia_porcentual), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+        ],
+      }),
+    ];
+
+    sections.push(
+      new Table({
+        rows: ppaRows,
+        width: { size: 70, type: WidthType.PERCENTAGE },
+      }),
+      new Paragraph({
+        text: ppa.interpretacion || 'Análisis basado en los supuestos operativos y de salida configurados.',
+        spacing: { before: 200, after: 200 },
+      }),
+      new Paragraph({
+        text: 'Este análisis no constituye una recomendación de inversión, sino una evaluación de la coherencia económica del precio respecto a los supuestos operativos y de salida configurados. La diferencia entre ambos precios indica el margen de seguridad (si es negativa) o la prima pagada (si es positiva) según el modelo.',
+        spacing: { after: 400 },
+      })
+    );
+
     // ========================================
-    // 11. FLUJOS AL EQUITY Y RETORNOS
+    // 9. FLUJOS AL EQUITY Y RETORNOS
     // ========================================
     sections.push(
       new Paragraph({
-        text: '10. Flujos al Equity y Retornos',
+        text: '9. Flujos al Equity y Retornos',
         heading: HeadingLevel.HEADING_1,
         spacing: { after: 300 },
       }),
@@ -937,12 +881,12 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     );
 
     // ========================================
-    // 12. STRESS TEST Y ROBUSTEZ
+    // 10. STRESS TEST Y ROBUSTEZ
     // ========================================
     if (vr.sensitivity && vr.sensitivity.scenarios && Array.isArray(vr.sensitivity.scenarios) && vr.sensitivity.scenarios.length > 0) {
       sections.push(
         new Paragraph({
-          text: '11. Stress Test y Robustez',
+          text: '10. Stress Test y Robustez',
           heading: HeadingLevel.HEADING_1,
           spacing: { after: 300 },
         }),
@@ -990,11 +934,11 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     }
 
     // ========================================
-    // 13. CONCLUSIONES E INSIGHTS FINALES
+    // 11. CONCLUSIONES E INSIGHTS FINALES
     // ========================================
     sections.push(
       new Paragraph({
-        text: vr.sensitivity ? '12. Conclusiones e Insights Finales' : '11. Conclusiones e Insights Finales',
+        text: vr.sensitivity && vr.sensitivity.scenarios && Array.isArray(vr.sensitivity.scenarios) && vr.sensitivity.scenarios.length > 0 ? '11. Conclusiones e Insights Finales' : '10. Conclusiones e Insights Finales',
         heading: HeadingLevel.HEADING_1,
         spacing: { after: 300 },
       }),
@@ -1003,7 +947,7 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
         spacing: { after: 200 },
       }),
       new Paragraph({
-        text: `La proyección operativa estima generar ${fmt(totals.ebitda_less_ffe)} de EBITDA-FF&E acumulado durante ${projectionAssumptions.horizonte} años de holding. Tras atender el servicio de deuda (${fmt(totalCuota)}), la caja neta disponible para el equity durante el período asciende a ${fmt(totals.ebitda_less_ffe - totalCuota)}.`,
+        text: `La proyección operativa estima generar ${fmt(totals.ebitda_less_ffe)} de EBITDA-FF&E acumulado durante ${projectionAssumptions.horizonte + 1} años de holding. Tras atender el servicio de deuda (${fmt(totalCuota)}), la caja neta disponible para el equity durante el período asciende a ${fmt(totals.ebitda_less_ffe - totalCuota)}.`,
         spacing: { after: 200 },
       }),
       new Paragraph({
