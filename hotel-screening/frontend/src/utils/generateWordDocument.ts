@@ -119,21 +119,16 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     const usaliData = editedUsaliData && editedUsaliData.length > 0 ? editedUsaliData : calculatedUsali;
     const firstYearUsali = usaliData && usaliData.length > 0 ? usaliData.find((u: any) => u.anio === annuals[0]?.anio) : null;
 
-    // Calcular promedios del primer año desde meses
+    // Calcular habitaciones disponibles totales del año 1 (suma de días * habitaciones)
     const hasMesesData = meses && meses.length > 0;
-    let avgOcc = 0;
-    let avgAdr = 0;
-    let totalRoomnights = 0;
-    let totalRoomsRevenue = 0;
-    let avgRevPAR = 0;
+    let totalDiasY1 = 0;
 
     if (hasMesesData) {
-      avgOcc = meses.reduce((sum, m) => sum + (m.ocupacion ?? 0), 0) / 12;
-      avgAdr = meses.reduce((sum, m) => sum + (m.adr ?? 0), 0) / 12;
-      totalRoomnights = meses.reduce((sum, m) => sum + (m.roomnights ?? 0), 0);
-      totalRoomsRevenue = meses.reduce((sum, m) => sum + (m.rooms_revenue ?? 0), 0);
-      avgRevPAR = keys > 0 ? totalRoomsRevenue / (keys * 12 * 30.42) : 0;
+      totalDiasY1 = meses.reduce((sum, m) => sum + (m.dias ?? 0), 0);
     }
+
+    // Habitaciones disponibles por año (mismo para todos los años basado en Y1)
+    const habitacionesDisponiblesPorAnio = keys * totalDiasY1;
 
     console.log('Datos calculados:', { keys, totalInvestment, equity0, totals, lastYear });
 
@@ -257,6 +252,7 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
           new TableCell({ children: [new Paragraph({ text: '% Ocupación', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
           new TableCell({ children: [new Paragraph({ text: 'ADR', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
           new TableCell({ children: [new Paragraph({ text: 'RevPAR', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          new TableCell({ children: [new Paragraph({ text: 'TRevPAR', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
           new TableCell({ children: [new Paragraph({ text: 'Revenue €/RN', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
           new TableCell({ children: [new Paragraph({ text: 'GOP €/RN', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
           new TableCell({ children: [new Paragraph({ text: 'EBITDA-FF&E €/RN', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
@@ -264,43 +260,38 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
       }),
     ];
 
-    annuals.forEach((year, index) => {
-      // Para el primer año, usar datos de meses si están disponibles
-      let avgOccYear = 0;
-      let avgAdrYear = 0;
-      let avgRevPARYear = 0;
+    annuals.forEach((year) => {
+      // Usar datos reales del backend
+      const occupancy = year.occupancy ?? 0;
+      const adr = year.adr ?? 0;
+      const rn = year.rn ?? 0;
 
-      if (index === 0 && hasMesesData) {
-        avgOccYear = avgOcc;
-        avgAdrYear = avgAdr;
-        avgRevPARYear = avgRevPAR;
-      } else {
-        // Para años posteriores, calcular basándose en el crecimiento
-        const baseOcc = hasMesesData ? avgOcc : 0;
-        const baseAdr = hasMesesData ? avgAdr : 0;
+      // RevPAR = Ocupación * ADR
+      const revPAR = occupancy * adr;
 
-        if (baseOcc > 0 && baseAdr > 0) {
-          // Aplicar crecimiento de ocupación y ADR
-          avgOccYear = Math.min(baseOcc + (projectionAssumptions.occ_delta_pp ?? 0) * index, projectionAssumptions.occ_cap ?? 1);
-          avgAdrYear = baseAdr * Math.pow(1 + (projectionAssumptions.adr_growth_pct ?? 0), index);
-          avgRevPARYear = avgOccYear * avgAdrYear;
-        }
-      }
+      // TRevPAR = Total Revenue / Habitaciones disponibles por año
+      const tRevPAR = habitacionesDisponiblesPorAnio > 0 ? (year.operating_revenue ?? 0) / habitacionesDisponiblesPorAnio : 0;
 
-      const revenuePerKey = keys > 0 ? (year.operating_revenue ?? 0) / keys : 0;
-      const gopPerKey = keys > 0 ? (year.gop ?? 0) / keys : 0;
-      const ebitdaFFEPerKey = keys > 0 ? (year.ebitda_less_ffe ?? 0) / keys : 0;
+      // Revenue por RN = Total Revenue / RN
+      const revenuePerRN = rn > 0 ? (year.operating_revenue ?? 0) / rn : 0;
+
+      // GOP por RN = GOP / RN
+      const gopPerRN = rn > 0 ? (year.gop ?? 0) / rn : 0;
+
+      // EBITDA-FF&E por RN = EBITDA-FF&E / RN
+      const ebitdaFFEPerRN = rn > 0 ? (year.ebitda_less_ffe ?? 0) / rn : 0;
 
       annualMetricsRows.push(
         new TableRow({
           children: [
             new TableCell({ children: [new Paragraph({ text: year.anio.toString() })] }),
-            new TableCell({ children: [new Paragraph({ text: avgOccYear > 0 ? fmtPct(avgOccYear) : 'N/A', alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: avgAdrYear > 0 ? fmt(avgAdrYear) : 'N/A', alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: avgRevPARYear > 0 ? fmt(avgRevPARYear) : 'N/A', alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(revenuePerKey), alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(gopPerKey), alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(ebitdaFFEPerKey), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: occupancy > 0 ? fmtPct(occupancy) : 'N/A', alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: adr > 0 ? fmt(adr) : 'N/A', alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: revPAR > 0 ? fmt(revPAR) : 'N/A', alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: tRevPAR > 0 ? fmt(tRevPAR) : 'N/A', alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(revenuePerRN), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(gopPerRN), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(ebitdaFFEPerRN), alignment: AlignmentType.RIGHT })] }),
           ],
         })
       );
@@ -370,13 +361,6 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
         new Paragraph({
           text: `La estructura operativa del año 1 muestra un margen GOP del ${fmtPct((firstYearUsali.gop ?? 0) / totalRev)} y un EBITDA del ${fmtPct((firstYearUsali.ebitda ?? 0) / totalRev)}. Tras deducir los fees de operador (${fmt(firstYearUsali.fees ?? 0)}) y la reserva FF&E del ${fmtPct(operationConfig.ffe ?? 0)}, el EBITDA-FF&E alcanza ${fmt(firstYearUsali.ebitda_less_ffe ?? 0)}, equivalente a ${fmt((firstYearUsali.ebitda_less_ffe ?? 0) / keys)} por habitación.`,
           spacing: { before: 200, after: 400 },
-        })
-      );
-    } else {
-      sections.push(
-        new Paragraph({
-          text: 'Los datos USALI detallados del año 1 no están disponibles en este proyecto. Consulte la proyección operativa anual para revisar los márgenes consolidados.',
-          spacing: { after: 400 },
         })
       );
     }
