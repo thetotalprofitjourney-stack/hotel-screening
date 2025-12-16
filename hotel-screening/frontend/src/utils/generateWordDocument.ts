@@ -84,9 +84,10 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     const loan0 = (base + capex) * (financingConfig.ltv ?? 0);
     const equity0 = (base + capex) * (1 - (financingConfig.ltv ?? 0)) + costs_buy;
 
-    // 1) HORIZONTE DE INVERSIÓN: variable única para todo el documento
-    const holdingYears = Number(projectionAssumptions?.horizonte ?? annuals.length ?? 0);
-    console.log('[WORD] Horizonte de inversión:', holdingYears, 'años');
+    // 1) HORIZONTE DE INVERSIÓN: usar annuals.length como fuente de verdad
+    // Esto asegura 100% coherencia entre proyección y documento
+    const holdingYears = annuals.length;
+    console.log('[WORD] Horizonte de inversión:', holdingYears, 'años (fuente: annuals.length)');
 
     // Calcular totales acumulados
     const totals = annuals.reduce((acc: any, year: any) => ({
@@ -135,6 +136,38 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     // 4) NOI ESTABILIZADO: NOI=0 es válido, no excluirlo
     const noiEstabilizado = vr.valuation?.noi_estabilizado;
     const hasNoiEstabilizado = noiEstabilizado !== undefined && noiEstabilizado !== null;
+
+    // 3) ANÁLISIS DE PRECIO DE COMPRA: usar datos calculados por el backend
+    // ELIMINAR duplicidad de cálculo - el backend ya calcula precio implícito correctamente
+    const precioIntroducido = vr.valuation.precio_compra_real ?? base;
+    const precioImplicito = vr.valuation.precio_compra_implicito ?? 0;
+
+    console.log('[WORD] Precio implícito (backend):', {
+      precioIntroducido,
+      precioImplicito,
+      discount_rate: vr.valuation.discount_rate
+    });
+
+    let interpretacion = 'No disponible: no se pudo calcular el precio implícito con los parámetros actuales.';
+    let diferenciaAbsoluta = 0;
+    let diferenciaPorcentual = 0;
+
+    if (precioImplicito > 0) {
+      diferenciaAbsoluta = precioIntroducido - precioImplicito;
+      diferenciaPorcentual = diferenciaAbsoluta / precioImplicito;
+
+      interpretacion = diferenciaAbsoluta < 0
+        ? `El precio introducido se sitúa ${fmt(Math.abs(diferenciaAbsoluta))} (${fmtPct(Math.abs(diferenciaPorcentual))}) por debajo del precio implícito según los flujos proyectados, sugiriendo un margen de seguridad en la adquisición según los supuestos utilizados.`
+        : `El precio introducido se sitúa ${fmt(diferenciaAbsoluta)} (${fmtPct(diferenciaPorcentual)}) por encima del precio implícito según los flujos proyectados, indicando una prima respecto al valor que justifican los flujos según los supuestos utilizados.`;
+    }
+
+    const ppa = {
+      precio_introducido: precioIntroducido,
+      precio_implicito: precioImplicito,
+      diferencia_absoluta: diferenciaAbsoluta,
+      diferencia_porcentual: diferenciaPorcentual,
+      interpretacion
+    };
 
     // Usar editedUsaliData si existe, sino usar calculatedUsali
     const usaliData = editedUsaliData && editedUsaliData.length > 0 ? editedUsaliData : calculatedUsali;
@@ -238,8 +271,7 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     );
 
     // Agregar análisis de precio implícito en resumen ejecutivo si existe
-    if (vr.purchase_price_analysis) {
-      const ppa = vr.purchase_price_analysis;
+    if (precioImplicito > 0) {
       const precioStatus = ppa.diferencia_absoluta < 0 ? 'por debajo' : 'por encima';
       sections.push(
         new Paragraph({
@@ -708,78 +740,7 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
       })
     );
 
-    // Análisis de precio de compra - siempre mostrar valores
-    let ppa = vr.purchase_price_analysis;
-
-    // 3) PRECIO IMPLÍCITO FALLBACK: calcular correctamente con PV de flujos + PV de exit
-    if (!ppa) {
-      const precioIntroducido = base; // precio_compra
-      let precioImplicito = 0;
-      let interpretacion = 'No disponible: no se pudo calcular el precio implícito con los datos disponibles.';
-
-      // Calcular precio implícito usando cap rate de salida como tasa de descuento
-      if (valuationConfig.metodo_valoracion === 'cap_rate' && valuationConfig.cap_rate_salida) {
-        const r = valuationConfig.cap_rate_salida;
-
-        if (r > 0) {
-          // PV de flujos operativos anuales
-          let pvCashflows = 0;
-          for (let t = 1; t <= holdingYears; t++) {
-            const yearData = annuals[t - 1];
-            if (yearData && yearData.ebitda_less_ffe !== undefined) {
-              const cf = yearData.ebitda_less_ffe;
-              pvCashflows += cf / Math.pow(1 + r, t);
-            }
-          }
-
-          // PV del exit
-          const pvExit = vr.valuation.valor_salida_neto / Math.pow(1 + r, holdingYears);
-
-          // Precio implícito = suma de PVs
-          precioImplicito = pvCashflows + pvExit;
-
-          console.log('[WORD] Precio implícito (fallback):', {
-            r,
-            holdingYears,
-            pvCashflows,
-            pvExit,
-            precioImplicito,
-            precioIntroducido
-          });
-        } else {
-          console.warn('[WORD] Cap rate de salida <= 0, no se puede calcular precio implícito');
-          interpretacion = 'No disponible: el cap rate de salida no es válido para el cálculo.';
-        }
-      } else {
-        console.warn('[WORD] Método de valoración no es cap_rate o no hay cap_rate_salida');
-        interpretacion = 'No disponible: el método de valoración no permite calcular precio implícito con los datos actuales.';
-      }
-
-      // Calcular diferencias solo si precioImplicito > 0
-      let diferenciaAbsoluta = 0;
-      let diferenciaPorcentual = 0;
-
-      if (precioImplicito > 0) {
-        diferenciaAbsoluta = precioIntroducido - precioImplicito;
-        diferenciaPorcentual = diferenciaAbsoluta / precioImplicito;
-
-        interpretacion = diferenciaAbsoluta < 0
-          ? `El precio introducido se sitúa ${fmt(Math.abs(diferenciaAbsoluta))} (${fmtPct(Math.abs(diferenciaPorcentual))}) por debajo del precio implícito según los flujos proyectados, sugiriendo un margen de seguridad en la adquisición según los supuestos utilizados.`
-          : `El precio introducido se sitúa ${fmt(diferenciaAbsoluta)} (${fmtPct(diferenciaPorcentual)}) por encima del precio implícito según los flujos proyectados, indicando una prima respecto al valor que justifican los flujos según los supuestos utilizados.`;
-      } else {
-        // Si precioImplicito = 0, mostrar N/D en lugar de afirmar prima/descuento sin base
-        interpretacion = 'No disponible: no se pudo calcular el precio implícito con los parámetros actuales. Revise el cap rate de salida y los flujos proyectados.';
-      }
-
-      ppa = {
-        precio_introducido: precioIntroducido,
-        precio_implicito: precioImplicito,
-        diferencia_absoluta: diferenciaAbsoluta,
-        diferencia_porcentual: diferenciaPorcentual,
-        interpretacion
-      };
-    }
-
+    // Análisis de Precio de Compra (usar el objeto ppa ya calculado al inicio)
     sections.push(
       new Paragraph({
         text: 'El análisis de coherencia económica compara el precio de compra introducido con el precio implícito que justificarían los flujos proyectados y el valor de salida, utilizando el cap rate de exit como tasa de descuento implícita.',
@@ -1003,8 +964,7 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
       })
     );
 
-    if (vr.purchase_price_analysis) {
-      const ppa = vr.purchase_price_analysis;
+    if (precioImplicito > 0) {
       sections.push(
         new Paragraph({
           text: `El análisis de precio de compra revela que el precio introducido (${fmt(ppa.precio_introducido)}) se sitúa ${ppa.diferencia_absoluta < 0 ? `${fmt(Math.abs(ppa.diferencia_absoluta))} por debajo` : `${fmt(ppa.diferencia_absoluta)} por encima`} del precio implícito según flujos proyectados (${fmt(ppa.precio_implicito)}), representando ${ppa.diferencia_absoluta < 0 ? 'un margen de seguridad' : 'una prima'} del ${fmtPct(Math.abs(ppa.diferencia_porcentual))} sobre el valor que justifican los supuestos utilizados.`,
