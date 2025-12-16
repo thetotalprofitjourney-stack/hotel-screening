@@ -290,6 +290,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       if (data && data.assumptions) {
         setProjectionAssumptions(prev => ({
           ...prev,
+          horizonte: data.assumptions.horizonte ?? prev.horizonte,
           adr_growth_pct: data.assumptions.adr_growth_pct ?? prev.adr_growth_pct,
           occ_delta_pp: data.assumptions.occ_delta_pp ?? prev.occ_delta_pp,
           occ_cap: data.assumptions.occ_cap ?? prev.occ_cap,
