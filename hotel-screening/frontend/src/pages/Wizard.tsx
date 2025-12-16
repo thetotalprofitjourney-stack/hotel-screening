@@ -1989,21 +1989,36 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
             </div>
 
             {/* 6) ANÁLISIS DE SENSIBILIDAD - STRESS TEST */}
-            <SensitivityAnalysis
-              projectId={projectId}
-              baseAssumptions={{
-                years: projectionAssumptions.horizonte,
-                adr_growth_pct: projectionAssumptions.adr_growth_pct,
-                occ_delta_pp: projectionAssumptions.occ_delta_pp,
-                occ_cap: projectionAssumptions.occ_cap,
-                cost_inflation_pct: projectionAssumptions.cost_inflation_pct,
-                undistributed_inflation_pct: projectionAssumptions.undistributed_inflation_pct,
-                nonop_inflation_pct: projectionAssumptions.nonop_inflation_pct
-              }}
-              baseIRR={vr.returns?.levered?.irr ?? null}
-              isFinalized={projectState === 'finalized'}
-              onResultsChange={(results) => setSensitivityResults(results)}
-            />
+            {vr.returns?.levered?.irr !== null && vr.returns?.levered?.irr !== undefined && !isNaN(vr.returns.levered.irr) ? (
+              <SensitivityAnalysis
+                projectId={projectId}
+                baseAssumptions={{
+                  years: projectionAssumptions.horizonte,
+                  adr_growth_pct: projectionAssumptions.adr_growth_pct,
+                  occ_delta_pp: projectionAssumptions.occ_delta_pp,
+                  occ_cap: projectionAssumptions.occ_cap,
+                  cost_inflation_pct: projectionAssumptions.cost_inflation_pct,
+                  undistributed_inflation_pct: projectionAssumptions.undistributed_inflation_pct,
+                  nonop_inflation_pct: projectionAssumptions.nonop_inflation_pct
+                }}
+                baseIRR={vr.returns.levered.irr}
+                isFinalized={projectState === 'finalized'}
+                onResultsChange={(results) => setSensitivityResults(results)}
+              />
+            ) : (
+              <div className="mt-6 p-4 border-2 border-yellow-300 rounded-lg bg-yellow-50">
+                <h4 className="font-semibold text-lg mb-2">⚠️ Análisis de Sensibilidad No Disponible</h4>
+                <p className="text-sm text-gray-700">
+                  El análisis de sensibilidad requiere que el cálculo de IRR levered sea válido.
+                  Esto puede ocurrir si los flujos del proyecto no permiten calcular una tasa interna de retorno
+                  (por ejemplo, si todos los flujos son negativos o no hay cambio de signo).
+                </p>
+                <p className="text-sm text-gray-700 mt-2">
+                  <strong>Sugerencia:</strong> Revisa los parámetros de financiación, valoración y proyección
+                  para asegurar que el proyecto genere flujos de caja positivos.
+                </p>
+              </div>
+            )}
 
             {/* 7) INSIGHTS DEL PROYECTO */}
             <div className="mt-6 p-6 border-2 border-gray-800 rounded-lg bg-gray-100">
