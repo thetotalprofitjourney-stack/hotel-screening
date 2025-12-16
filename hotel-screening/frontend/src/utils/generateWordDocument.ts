@@ -727,6 +727,26 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
       }),
       new Paragraph({
         text: `El valor de salida neto asciende a ${fmt(vr.valuation.valor_salida_neto)}, lo que representa ${fmt(vr.valuation.valor_salida_neto / keys)} por habitación. Esta valoración refleja la capacidad del activo de generar un NOI ${hasNoiEstabilizado ? 'estabilizado' : 'del último año'} de ${fmt(hasNoiEstabilizado ? noiEstabilizado : noiLastYear)}${hasNoiEstabilizado && vr.valuation.noi_details?.last_years_noi ? ` (media de los últimos años: ${fmt(vr.valuation.noi_details.last_years_noi.reduce((sum: number, noi: number) => sum + noi, 0) / vr.valuation.noi_details.last_years_noi.length)})` : ''} (${fmt((hasNoiEstabilizado ? noiEstabilizado : noiLastYear) / keys)} por key), valorado al ${valuationConfig.metodo_valoracion === 'cap_rate' ? `cap rate del ${fmtPct(valuationConfig.cap_rate_salida ?? 0)}` : `múltiplo de ${fmtDecimal(valuationConfig.multiplo_salida ?? 0, 2)}x`}.`,
+        spacing: { after: 200 },
+      }),
+      new Paragraph({
+        text: 'Plausibilidad del Valor de Salida',
+        bold: true,
+        spacing: { after: 150 },
+      }),
+      new Paragraph({
+        text: (() => {
+          // Calcular múltiplo implícito y cap rate implícito para análisis de plausibilidad
+          const noiBase = hasNoiEstabilizado ? noiEstabilizado : noiLastYear;
+          const multiploImplicito = noiBase > 0 ? vr.valuation.valor_salida_neto / noiBase : 0;
+          const capRateImplicito = vr.valuation.valor_salida_neto > 0 ? noiBase / vr.valuation.valor_salida_neto : 0;
+
+          if (valuationConfig.metodo_valoracion === 'cap_rate') {
+            return `El valor de salida implica un múltiplo de ${fmtDecimal(multiploImplicito, 2)}x sobre el NOI estabilizado (equivalente al cap rate del ${fmtPct(valuationConfig.cap_rate_salida ?? 0)} utilizado). Con un valor por habitación de ${fmt(vr.valuation.valor_salida_neto / keys)}, este parámetro resulta coherente con activos comparables del segmento ${basicInfo.segmento.toLowerCase()} y categoría ${basicInfo.categoria} en la ubicación analizada, reforzando la plausibilidad del escenario de desinversión bajo los supuestos utilizados.`;
+          } else {
+            return `El valor de salida implica un cap rate implícito del ${fmtPct(capRateImplicito)} sobre el NOI estabilizado (equivalente al múltiplo de ${fmtDecimal(valuationConfig.multiplo_salida ?? 0, 2)}x utilizado). Con un valor por habitación de ${fmt(vr.valuation.valor_salida_neto / keys)}, este parámetro resulta coherente con activos comparables del segmento ${basicInfo.segmento.toLowerCase()} y categoría ${basicInfo.categoria} en la ubicación analizada, reforzando la plausibilidad del escenario de desinversión bajo los supuestos utilizados.`;
+          }
+        })(),
         spacing: { after: 400 },
       }),
 
@@ -885,54 +905,124 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     );
 
     // ========================================
-    // 10. STRESS TEST Y ROBUSTEZ
+    // 10. ANÁLISIS DE SENSIBILIDAD Y ROBUSTEZ DEL PROYECTO
     // ========================================
     if (vr.sensitivity && vr.sensitivity.scenarios && Array.isArray(vr.sensitivity.scenarios) && vr.sensitivity.scenarios.length > 0) {
       sections.push(
         new Paragraph({
-          text: '10. Stress Test y Robustez',
+          text: '10. Análisis de Sensibilidad y Robustez del Proyecto',
           heading: HeadingLevel.HEADING_1,
           spacing: { after: 300 },
         }),
         new Paragraph({
-          text: 'El análisis de sensibilidad evalúa la variabilidad del IRR levered bajo diferentes escenarios de mercado, permitiendo valorar la robustez del proyecto ante desviaciones respecto al caso base.',
-          spacing: { after: 200 },
+          text: 'El análisis de sensibilidad evalúa la robustez del proyecto ante variaciones en los supuestos operativos. El foco está en el impacto sobre el IRR levered, que es la métrica clave para el equity inversionist. Este análisis permite identificar el rango de rentabilidades esperadas bajo distintos escenarios de mercado y validar la viabilidad del proyecto frente a desviaciones respecto al caso base.',
+          spacing: { after: 300 },
         })
       );
 
+      // Tabla ampliada de escenarios con supuestos operativos
       const sensitivityRows = [
         new TableRow({
           children: [
             new TableCell({ children: [new Paragraph({ text: 'Escenario', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Variación ADR', bold: true, alignment: AlignmentType.CENTER })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Variación Ocupación', bold: true, alignment: AlignmentType.CENTER })], shading: { fill: 'E7E6E6' } }),
             new TableCell({ children: [new Paragraph({ text: 'IRR Levered', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
           ],
         }),
       ];
 
       vr.sensitivity.scenarios.forEach((scenario: any) => {
+        // Determinar si es el escenario base
+        const isBase = scenario.label && scenario.label.toLowerCase().includes('base');
+        const rowShading = isBase ? { fill: 'D6EAF8' } : {};
+
         sensitivityRows.push(
           new TableRow({
             children: [
-              new TableCell({ children: [new Paragraph({ text: scenario.label })] }),
-              new TableCell({ children: [new Paragraph({ text: fmtPct(scenario.irr_levered), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: scenario.label || scenario.name || 'Sin nombre', bold: isBase })], shading: rowShading }),
+              new TableCell({ children: [new Paragraph({
+                text: scenario.adr_variation ? fmtPct(scenario.adr_variation) : (scenario.adr_delta_pct !== undefined ? (scenario.adr_delta_pct >= 0 ? '+' : '') + fmtPct(scenario.adr_delta_pct) : 'N/A'),
+                alignment: AlignmentType.CENTER,
+                bold: isBase
+              })], shading: rowShading }),
+              new TableCell({ children: [new Paragraph({
+                text: scenario.occ_variation ? `${scenario.occ_variation >= 0 ? '+' : ''}${fmtDecimal(scenario.occ_variation, 1)}pp` : (scenario.occ_delta_pp !== undefined ? (scenario.occ_delta_pp >= 0 ? '+' : '') + fmtDecimal(scenario.occ_delta_pp, 1) + 'pp' : 'N/A'),
+                alignment: AlignmentType.CENTER,
+                bold: isBase
+              })], shading: rowShading }),
+              new TableCell({ children: [new Paragraph({ text: fmtPct(scenario.irr_levered), alignment: AlignmentType.RIGHT, bold: isBase })], shading: rowShading }),
             ],
           })
         );
       });
 
-      // Calcular rango de variabilidad
-      const irrs = vr.sensitivity.scenarios.map((s: any) => s.irr_levered);
-      const minIRR = Math.min(...irrs);
-      const maxIRR = Math.max(...irrs);
-
       sections.push(
         new Table({
           rows: sensitivityRows,
-          width: { size: 70, type: WidthType.PERCENTAGE },
+          width: { size: 90, type: WidthType.PERCENTAGE },
         }),
         new Paragraph({
-          text: `El rango de variabilidad del IRR levered se sitúa entre ${fmtPct(minIRR)} y ${fmtPct(maxIRR)}, reflejando ${maxIRR - minIRR < 0.05 ? 'una alta robustez del proyecto ante variaciones de mercado' : maxIRR - minIRR < 0.10 ? 'una robustez moderada del proyecto ante variaciones de mercado' : 'una sensibilidad significativa del proyecto ante variaciones de mercado'}. La evaluación de riesgo debe considerar la probabilidad de materialización de cada escenario y su impacto sobre la viabilidad del proyecto.`,
-          spacing: { before: 200, after: 400 },
+          text: 'Nota: El escenario Base refleja los supuestos del análisis principal. Las variaciones muestran desviaciones porcentuales (ADR) y en puntos porcentuales (Ocupación) respecto al caso base.',
+          spacing: { before: 200, after: 300 },
+          italics: true,
+        })
+      );
+
+      // Calcular rango de variabilidad y análisis ejecutivo
+      const irrs = vr.sensitivity.scenarios.map((s: any) => s.irr_levered);
+      const minIRR = Math.min(...irrs);
+      const maxIRR = Math.max(...irrs);
+      const rangeIRR = maxIRR - minIRR;
+
+      // Identificar si todos los escenarios son rentables
+      const allPositive = irrs.every((irr: number) => irr > 0);
+
+      // Encontrar el escenario base para comparación
+      const baseScenario = vr.sensitivity.scenarios.find((s: any) =>
+        s.label && s.label.toLowerCase().includes('base')
+      );
+      const baseIRR = baseScenario ? baseScenario.irr_levered : vr.returns.levered.irr;
+
+      // Determinar posición del caso base en el rango
+      const basePosition = baseIRR > (minIRR + rangeIRR * 0.6) ? 'agresivo' :
+                          baseIRR < (minIRR + rangeIRR * 0.4) ? 'conservador' : 'centrado';
+
+      sections.push(
+        new Paragraph({
+          text: 'Lectura Ejecutiva del Stress Test',
+          bold: true,
+          spacing: { after: 200 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: '• Rango de variabilidad: ', bold: true }),
+            new TextRun({ text: `El IRR levered oscila entre ${fmtPct(minIRR)} (escenario más adverso) y ${fmtPct(maxIRR)} (escenario más favorable), representando un rango de ${fmtPct(rangeIRR)} puntos porcentuales.` }),
+          ],
+          spacing: { after: 150 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: '• Robustez del proyecto: ', bold: true }),
+            new TextRun({ text: allPositive
+              ? `El proyecto mantiene rentabilidad positiva en todos los escenarios analizados, confirmando viabilidad estructural incluso bajo condiciones adversas.`
+              : `Atención: Algunos escenarios generan IRR negativo. Se recomienda revisar la plausibilidad de los supuestos operativos y evaluar mecanismos de mitigación de riesgo.` }),
+          ],
+          spacing: { after: 150 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: '• Posicionamiento del caso base: ', bold: true }),
+            new TextRun({ text: `El escenario base (${fmtPct(baseIRR)}) se sitúa en una posición ${basePosition} dentro del rango de sensibilidad analizado, ${basePosition === 'conservador' ? 'sugiriendo supuestos prudentes' : basePosition === 'agresivo' ? 'reflejando supuestos optimistas que requieren validación' : 'reflejando un balance razonable entre optimismo y prudencia'}.` }),
+          ],
+          spacing: { after: 150 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: '• Principales palancas de riesgo: ', bold: true }),
+            new TextRun({ text: `El análisis combina variaciones simultáneas de ADR y ocupación, que constituyen los principales drivers de riesgo comercial en activos hoteleros. La sensibilidad observada ${rangeIRR < 0.05 ? 'es moderada, indicando resistencia estructural del proyecto' : rangeIRR < 0.10 ? 'es significativa, requiriendo monitorización activa de KPIs operativos' : 'es elevada, sugiriendo alta exposición a condiciones de mercado'}.` }),
+          ],
+          spacing: { after: 400 },
         })
       );
     }
@@ -987,7 +1077,88 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
 
     sections.push(
       new Paragraph({
-        text: 'Nota metodológica',
+        text: '',
+        spacing: { after: 200 },
+      }),
+      new Paragraph({
+        text: 'Key Takeaways para el Inversor',
+        bold: true,
+        spacing: { after: 200 },
+      })
+    );
+
+    // Generar Key Takeaways dinámicos
+    const keyTakeaways = [];
+
+    // 1. Tamaño de la inversión
+    keyTakeaways.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: '• Tamaño de inversión: ', bold: true }),
+          new TextRun({ text: `Equity requerido de ${fmt(equity0)} sobre una inversión total de ${fmt(totalInvestment)} en un activo de ${keys} habitaciones, equivalente a ${fmt(equity0 / keys)} de equity por llave.` }),
+        ],
+        spacing: { after: 150 },
+      })
+    );
+
+    // 2. Capacidad de generación de caja
+    keyTakeaways.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: '• Capacidad de generación de caja: ', bold: true }),
+          new TextRun({ text: `El proyecto genera ${fmt(totals.ebitda_less_ffe)} de EBITDA-FF&E acumulado durante ${holdingYears} años. Tras servicio de deuda, la caja neta operativa alcanza ${fmt(totals.ebitda_less_ffe - totalCuota)}, representando un ${fmtPct((totals.ebitda_less_ffe - totalCuota) / totals.ebitda_less_ffe)} de conversión cash tras financiación.` }),
+        ],
+        spacing: { after: 150 },
+      })
+    );
+
+    // 3. Perfil de riesgo/retorno
+    const irrDescription = vr.returns.levered.irr > 0.15 ? 'robusto' : vr.returns.levered.irr > 0.10 ? 'moderado' : 'contenido';
+    keyTakeaways.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: '• Perfil de riesgo/retorno: ', bold: true }),
+          new TextRun({ text: `IRR levered del ${fmtPct(vr.returns.levered.irr)} con un MOIC de ${fmtDecimal(vr.returns.levered.moic, 2)}x, reflejando un perfil de retorno ${irrDescription} para el segmento ${basicInfo.segmento.toLowerCase()}. ${vr.returns.levered.irr > vr.returns.unlevered.irr ? `El apalancamiento (LTV ${fmtPct(financingConfig.ltv ?? 0)}) genera valor positivo al equity.` : `El coste de deuda limita el apalancamiento de retornos.`}` }),
+        ],
+        spacing: { after: 150 },
+      })
+    );
+
+    // 4. Robustez ante escenarios adversos (si hay análisis de sensibilidad)
+    if (vr.sensitivity && vr.sensitivity.scenarios && Array.isArray(vr.sensitivity.scenarios) && vr.sensitivity.scenarios.length > 0) {
+      const irrs = vr.sensitivity.scenarios.map((s: any) => s.irr_levered);
+      const minIRR = Math.min(...irrs);
+      const allPositive = irrs.every((irr: number) => irr > 0);
+
+      keyTakeaways.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: '• Robustez ante escenarios adversos: ', bold: true }),
+            new TextRun({ text: allPositive
+              ? `El proyecto mantiene rentabilidad positiva en todos los escenarios analizados (IRR mínimo: ${fmtPct(minIRR)}), validando su viabilidad estructural frente a variaciones operativas.`
+              : `El análisis de sensibilidad muestra vulnerabilidad en escenarios adversos (IRR mínimo: ${fmtPct(minIRR)}), sugiriendo necesidad de validación exhaustiva de supuestos operativos y estrategias de mitigación de riesgo.` }),
+          ],
+          spacing: { after: 150 },
+        })
+      );
+    }
+
+    // 5. Naturaleza de screening preliminar
+    keyTakeaways.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: '• Naturaleza del análisis: ', bold: true }),
+          new TextRun({ text: `Este documento constituye un screening preliminar orientado a la toma de decisiones sobre continuar o descartar la oportunidad. No sustituye un proceso completo de due diligence operativa, legal, fiscal, técnica y de mercado. Todos los retornos son pre-impuestos sobre sociedades.` }),
+        ],
+        spacing: { after: 300 },
+      })
+    );
+
+    sections.push(...keyTakeaways);
+
+    sections.push(
+      new Paragraph({
+        text: 'Nota Metodológica',
         bold: true,
         spacing: { after: 150 },
       }),
