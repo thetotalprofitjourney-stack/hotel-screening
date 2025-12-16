@@ -11,7 +11,6 @@ import FinancingForm, { FinancingConfig } from '../components/FinancingForm';
 import ValuationForm, { ValuationConfig } from '../components/ValuationForm';
 import EditedFieldsNote from '../components/EditedFieldsNote';
 import { generateWordDocument } from '../utils/generateWordDocument';
-import { generateWordFromHtml } from '../utils/generateWordFromHtml';
 
 // Funciones de formateo de números (formato español)
 function fmtDecimal(n: number, decimals: number = 2) {
@@ -1094,28 +1093,6 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         >
           {loading.word ? 'Generando...' : 'DESCARGAR PROYECTO EN WORD'}
         </button>
-
-        {/* New button: Download HTML-based Word */}
-        <button
-          onClick={async () => {
-            try {
-              setLoading(prev => ({ ...prev, word: true }));
-
-
-              await generateWordFromHtml({ projectId });
-
-              setLoading(prev => ({ ...prev, word: false }));
-            } catch (error) {
-              console.error('Error generando documento Word desde HTML:', error);
-              alert('Hubo un error al generar el documento desde HTML. Por favor, intenta de nuevo.');
-              setLoading(prev => ({ ...prev, word: false }));
-            }
-          }}
-          disabled={loading.word}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-200"
-        >
-          {loading.word ? 'Generando...' : 'DESCARGAR PROYECTO APP EN WORD'}
-        </button>
       </div>
     );
   }
@@ -2125,20 +2102,6 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                 DESCARGAR PROYECTO EN WORD
               </button>
 
-              {/* New button: Download HTML-based Word */}
-              <button
-                onClick={async () => {
-                  try {
-                    await generateWordFromHtml({ projectId });
-                  } catch (error) {
-                    console.error('Error generando documento Word desde HTML:', error);
-                    alert('Hubo un error al generar el documento desde HTML. Por favor, intenta de nuevo.');
-                  }
-                }}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-200"
-              >
-                DESCARGAR PROYECTO APP EN WORD
-              </button>
             </>
           )}
         </div>
