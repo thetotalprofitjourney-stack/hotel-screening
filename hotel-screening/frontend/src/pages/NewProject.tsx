@@ -6,7 +6,7 @@ interface Categoria {
   display_label: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
 export default function NewProject({ onCancel, onCreated }:{ onCancel:()=>void; onCreated:(id:string)=>void }) {
   const [form, setForm] = useState({
@@ -28,8 +28,8 @@ export default function NewProject({ onCancel, onCreated }:{ onCancel:()=>void; 
 
   // Cargar comunidades autónomas al montar el componente
   useEffect(() => {
-    fetch(`${API_BASE}/v1/hierarchy/comunidades-autonomas`, {
-      headers: { 'x-user-email': localStorage.getItem('userEmail') || 'demo@example.com' }
+    fetch(`${API_URL}/v1/hierarchy/comunidades-autonomas`, {
+      headers: { 'x-user-email': localStorage.getItem('email') || 'demo@user.com' }
     })
       .then(res => res.json())
       .then(data => setComunidades(data))
@@ -39,8 +39,8 @@ export default function NewProject({ onCancel, onCreated }:{ onCancel:()=>void; 
   // Cargar provincias cuando se selecciona comunidad autónoma
   useEffect(() => {
     if (form.comunidad_autonoma) {
-      fetch(`${API_BASE}/v1/hierarchy/provincias?ca=${encodeURIComponent(form.comunidad_autonoma)}`, {
-        headers: { 'x-user-email': localStorage.getItem('userEmail') || 'demo@example.com' }
+      fetch(`${API_URL}/v1/hierarchy/provincias?ca=${encodeURIComponent(form.comunidad_autonoma)}`, {
+        headers: { 'x-user-email': localStorage.getItem('email') || 'demo@user.com' }
       })
         .then(res => res.json())
         .then(data => setProvincias(data))
@@ -53,8 +53,8 @@ export default function NewProject({ onCancel, onCreated }:{ onCancel:()=>void; 
   // Cargar zonas cuando se seleccionan comunidad autónoma y provincia
   useEffect(() => {
     if (form.comunidad_autonoma && form.provincia) {
-      fetch(`${API_BASE}/v1/hierarchy/zonas?ca=${encodeURIComponent(form.comunidad_autonoma)}&prov=${encodeURIComponent(form.provincia)}`, {
-        headers: { 'x-user-email': localStorage.getItem('userEmail') || 'demo@example.com' }
+      fetch(`${API_URL}/v1/hierarchy/zonas?ca=${encodeURIComponent(form.comunidad_autonoma)}&prov=${encodeURIComponent(form.provincia)}`, {
+        headers: { 'x-user-email': localStorage.getItem('email') || 'demo@user.com' }
       })
         .then(res => res.json())
         .then(data => setZonas(data))
@@ -66,8 +66,8 @@ export default function NewProject({ onCancel, onCreated }:{ onCancel:()=>void; 
 
   // Cargar categorías al montar el componente
   useEffect(() => {
-    fetch(`${API_BASE}/v1/hierarchy/categorias`, {
-      headers: { 'x-user-email': localStorage.getItem('userEmail') || 'demo@example.com' }
+    fetch(`${API_URL}/v1/hierarchy/categorias`, {
+      headers: { 'x-user-email': localStorage.getItem('email') || 'demo@user.com' }
     })
       .then(res => res.json())
       .then(data => setCategorias(data))
