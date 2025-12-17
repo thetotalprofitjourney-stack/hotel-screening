@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 export interface ProjectBasicInfo {
   nombre: string;
@@ -17,14 +17,93 @@ interface ProjectBasicInfoFormProps {
   readOnly?: boolean;
 }
 
+interface Categoria {
+  category_code: string;
+  display_label: string;
+}
+
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
+
 export default function ProjectBasicInfoForm({ data, onChange, onSubmit, readOnly = false }: ProjectBasicInfoFormProps) {
+  const [comunidades, setComunidades] = useState<string[]>([]);
+  const [provincias, setProvincias] = useState<string[]>([]);
+  const [zonas, setZonas] = useState<string[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+
+  // Cargar comunidades autónomas al montar el componente
+  useEffect(() => {
+    fetch(`${API_BASE}/v1/hierarchy/comunidades-autonomas`, {
+      headers: { 'x-user-email': localStorage.getItem('userEmail') || 'demo@example.com' }
+    })
+      .then(res => res.json())
+      .then(data => setComunidades(data))
+      .catch(err => console.error('Error loading comunidades:', err));
+  }, []);
+
+  // Cargar provincias cuando se selecciona comunidad autónoma
+  useEffect(() => {
+    if (data.comunidad_autonoma) {
+      fetch(`${API_BASE}/v1/hierarchy/provincias?ca=${encodeURIComponent(data.comunidad_autonoma)}`, {
+        headers: { 'x-user-email': localStorage.getItem('userEmail') || 'demo@example.com' }
+      })
+        .then(res => res.json())
+        .then(data => setProvincias(data))
+        .catch(err => console.error('Error loading provincias:', err));
+    } else {
+      setProvincias([]);
+    }
+  }, [data.comunidad_autonoma]);
+
+  // Cargar zonas cuando se seleccionan comunidad autónoma y provincia
+  useEffect(() => {
+    if (data.comunidad_autonoma && data.provincia) {
+      fetch(`${API_BASE}/v1/hierarchy/zonas?ca=${encodeURIComponent(data.comunidad_autonoma)}&prov=${encodeURIComponent(data.provincia)}`, {
+        headers: { 'x-user-email': localStorage.getItem('userEmail') || 'demo@example.com' }
+      })
+        .then(res => res.json())
+        .then(data => setZonas(data))
+        .catch(err => console.error('Error loading zonas:', err));
+    } else {
+      setZonas([]);
+    }
+  }, [data.comunidad_autonoma, data.provincia]);
+
+  // Cargar categorías al montar el componente
+  useEffect(() => {
+    fetch(`${API_BASE}/v1/hierarchy/categorias`, {
+      headers: { 'x-user-email': localStorage.getItem('userEmail') || 'demo@example.com' }
+    })
+      .then(res => res.json())
+      .then(data => setCategorias(data))
+      .catch(err => console.error('Error loading categorías:', err));
+  }, []);
+
   function updateField<K extends keyof ProjectBasicInfo>(field: K, value: ProjectBasicInfo[K]) {
-    onChange({ ...data, [field]: value });
+    // Si se cambia la comunidad autónoma, limpiar provincia y zona
+    if (field === 'comunidad_autonoma') {
+      onChange({ ...data, [field]: value, provincia: '', zona: '' });
+    }
+    // Si se cambia la provincia, limpiar zona
+    else if (field === 'provincia') {
+      onChange({ ...data, [field]: value, zona: '' });
+    }
+    else {
+      onChange({ ...data, [field]: value });
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     onSubmit();
+  }
+
+  function getCategoriaDisplayLabel(): string {
+    const categoria = categorias.find(cat => cat.category_code === data.categoria);
+    if (categoria) {
+      return categoria.display_label;
+    }
+    // Fallback a labels hardcodeados
+    return getCategoriaLabel(data.categoria);
   }
 
   if (readOnly) {
@@ -41,7 +120,7 @@ export default function ProjectBasicInfoForm({ data, onChange, onSubmit, readOnl
             <span className="font-medium">Segmento:</span> {data.segmento === 'urbano' ? 'Urbano' : 'Vacacional'}
           </div>
           <div>
-            <span className="font-medium">Categoría:</span> {getCategoriaLabel(data.categoria)}
+            <span className="font-medium">Categoría:</span> {getCategoriaDisplayLabel()}
           </div>
           <div>
             <span className="font-medium">Habitaciones:</span> {data.habitaciones}
@@ -69,14 +148,17 @@ export default function ProjectBasicInfoForm({ data, onChange, onSubmit, readOnl
 
           <label className="flex flex-col">
             <span className="text-sm font-medium mb-1">Comunidad Autónoma *</span>
-            <input
+            <select
               required
               className="border px-3 py-2 rounded"
-              type="text"
-              placeholder="ej: Andalucía"
               value={data.comunidad_autonoma}
               onChange={e => updateField('comunidad_autonoma', e.target.value)}
-            />
+            >
+              <option value="">Seleccione una comunidad autónoma</option>
+              {comunidades.map(ca => (
+                <option key={ca} value={ca}>{ca}</option>
+              ))}
+            </select>
             <span className="text-xs text-gray-500 mt-1">
               Nivel 1: Filtra las opciones de Provincia
             </span>
@@ -84,14 +166,24 @@ export default function ProjectBasicInfoForm({ data, onChange, onSubmit, readOnl
 
           <label className="flex flex-col">
             <span className="text-sm font-medium mb-1">Provincia *</span>
-            <input
+            <select
               required
               className="border px-3 py-2 rounded"
-              type="text"
-              placeholder="ej: Málaga"
               value={data.provincia}
               onChange={e => updateField('provincia', e.target.value)}
-            />
+              disabled={!data.comunidad_autonoma || provincias.length === 0}
+            >
+              <option value="">
+                {!data.comunidad_autonoma
+                  ? 'Primero seleccione una comunidad autónoma'
+                  : provincias.length === 0
+                  ? 'No hay provincias disponibles'
+                  : 'Seleccione una provincia'}
+              </option>
+              {provincias.map(prov => (
+                <option key={prov} value={prov}>{prov}</option>
+              ))}
+            </select>
             <span className="text-xs text-gray-500 mt-1">
               Nivel 2: Filtra las opciones de Zona
             </span>
@@ -99,14 +191,24 @@ export default function ProjectBasicInfoForm({ data, onChange, onSubmit, readOnl
 
           <label className="flex flex-col">
             <span className="text-sm font-medium mb-1">Zona *</span>
-            <input
+            <select
               required
               className="border px-3 py-2 rounded"
-              type="text"
-              placeholder="ej: Costa del Sol"
               value={data.zona}
               onChange={e => updateField('zona', e.target.value)}
-            />
+              disabled={!data.provincia || zonas.length === 0}
+            >
+              <option value="">
+                {!data.provincia
+                  ? 'Primero seleccione una provincia'
+                  : zonas.length === 0
+                  ? 'No hay zonas disponibles'
+                  : 'Seleccione una zona'}
+              </option>
+              {zonas.map(zona => (
+                <option key={zona} value={zona}>{zona}</option>
+              ))}
+            </select>
             <span className="text-xs text-gray-500 mt-1">
               Nivel 3: Define la ubicación geográfica para el benchmark
             </span>
@@ -133,12 +235,12 @@ export default function ProjectBasicInfoForm({ data, onChange, onSubmit, readOnl
               value={data.categoria}
               onChange={e => updateField('categoria', e.target.value as ProjectBasicInfo['categoria'])}
             >
-              <option value="economy">Economy (2*)</option>
-              <option value="midscale">Midscale (3*)</option>
-              <option value="upper_midscale">Upper Midscale (3* sup)</option>
-              <option value="upscale">Upscale (4*)</option>
-              <option value="upper_upscale">Upper Upscale (4* sup)</option>
-              <option value="luxury">Luxury (5*)</option>
+              <option value="">Seleccione una categoría</option>
+              {categorias.map(cat => (
+                <option key={cat.category_code} value={cat.category_code}>
+                  {cat.display_label}
+                </option>
+              ))}
             </select>
           </label>
 

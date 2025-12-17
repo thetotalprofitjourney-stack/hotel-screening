@@ -7,6 +7,7 @@ import { requireEmail } from './middleware/authEmail.js';
 import projection from './routes/projection.js';
 import benchmarkImport from './routes/benchmark_import.js';
 import selector from './routes/selector.js';
+import hierarchy from './routes/hierarchy.js';
 
 const app = express();
 app.use(express.json());
@@ -21,6 +22,7 @@ app.use(y1);
 app.use(projection);
 app.use(benchmarkImport);
 app.use(selector);
+app.use(hierarchy);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
