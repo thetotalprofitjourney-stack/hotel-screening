@@ -22,14 +22,22 @@ export async function getBenchmarkRows(
     [categoria, comunidad_autonoma, provincia, zona]
   );
   const r = rows as Array<{ mes:number; occ:number; adr:number }>;
-  if (r.length !== 12) throw new Error('BENCHMARK_NOT_FOUND_OR_INCOMPLETE');
 
-  // Añadir días por defecto basados en el año actual
+  // Generar siempre 12 meses (1-12), rellenando con 0 si no hay datos
   const currentYear = new Date().getFullYear();
-  const mesesConDias = r.map(m => ({
-    ...m,
-    dias: new Date(currentYear, m.mes, 0).getDate() // Días del mes
-  }));
+  const mesesConDias = [];
+
+  for (let mes = 1; mes <= 12; mes++) {
+    // Buscar si existe data para este mes
+    const data = r.find(row => row.mes === mes);
+
+    mesesConDias.push({
+      mes,
+      occ: data ? data.occ : 0,
+      adr: data ? data.adr : 0,
+      dias: new Date(currentYear, mes, 0).getDate() // Días del mes
+    });
+  }
 
   return mesesConDias;
 }
