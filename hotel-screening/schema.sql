@@ -48,6 +48,7 @@ CREATE TABLE projects (
   habitaciones       INT NOT NULL,
   horizonte          INT NOT NULL DEFAULT 7,          -- 5/7/10
   moneda             CHAR(3) NOT NULL DEFAULT 'EUR',
+  tiene_oferta_fb    BOOLEAN NOT NULL DEFAULT TRUE,   -- Indica si el hotel tiene oferta de F&B
   estado             ENUM('draft','y1_validated','projected','exported') NOT NULL DEFAULT 'draft',
   created_at         DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at         DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),

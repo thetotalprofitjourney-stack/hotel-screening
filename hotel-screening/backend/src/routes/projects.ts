@@ -15,7 +15,8 @@ const createProjectSchema = z.object({
   categoria: z.enum(['economy','midscale','upper_midscale','upscale','upper_upscale','luxury']),
   habitaciones: z.number().int().positive(),
   horizonte: z.number().int().min(1).max(40).default(7),
-  moneda: z.string().length(3).default('EUR')
+  moneda: z.string().length(3).default('EUR'),
+  tiene_oferta_fb: z.boolean().optional().default(true)
 });
 
 const updateConfigSchema = z.object({
@@ -91,9 +92,9 @@ router.post('/v1/projects', async (req,res)=>{
   const id = uuidv4();
   const p = parsed.data;
   await pool.query(
-    `INSERT INTO projects (project_id, owner_email, rol, nombre, comunidad_autonoma, provincia, zona, segmento, categoria, habitaciones, horizonte, moneda)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, email, p.rol, p.nombre, p.comunidad_autonoma, p.provincia, p.zona, p.segmento, p.categoria, p.habitaciones, p.horizonte, p.moneda]
+    `INSERT INTO projects (project_id, owner_email, rol, nombre, comunidad_autonoma, provincia, zona, segmento, categoria, habitaciones, horizonte, moneda, tiene_oferta_fb)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, email, p.rol, p.nombre, p.comunidad_autonoma, p.provincia, p.zona, p.segmento, p.categoria, p.habitaciones, p.horizonte, p.moneda, p.tiene_oferta_fb]
   );
 
   // defaults mínimos

@@ -18,7 +18,8 @@ export default function NewProject({ onCancel, onCreated }:{ onCancel:()=>void; 
     categoria:'upscale',
     habitaciones:120,
     horizonte:7,
-    moneda:'EUR'
+    moneda:'EUR',
+    tiene_oferta_fb:true
   });
 
   const [comunidades, setComunidades] = useState<string[]>([]);
@@ -170,6 +171,32 @@ export default function NewProject({ onCancel, onCreated }:{ onCancel:()=>void; 
         </label>
 
         <label>Habitaciones <input className="input" type="number" min={1} value={form.habitaciones} onChange={e=>updateField('habitaciones', Number(e.target.value))} /></label>
+
+        <div>
+          <label className="block mb-1">Oferta de F&B</label>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="tiene_oferta_fb"
+                value="true"
+                checked={form.tiene_oferta_fb === true}
+                onChange={() => updateField('tiene_oferta_fb', true)}
+              />
+              <span>Sí</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="tiene_oferta_fb"
+                value="false"
+                checked={form.tiene_oferta_fb === false}
+                onChange={() => updateField('tiene_oferta_fb', false)}
+              />
+              <span>No</span>
+            </label>
+          </div>
+        </div>
       </div>
       <div className="flex gap-2">
         <button className="px-3 py-2 bg-black text-white rounded" type="submit">Crear</button>
