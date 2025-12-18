@@ -570,9 +570,9 @@ router.post('/v1/projects/:id/finalize-operador', async (req, res) => {
   }
 
   try {
-    // Marcar el proyecto como finalizado tipo operador
+    // Marcar el proyecto como finalizado tipo operador (sin snapshot HTML, solo datos)
     await pool.query(
-      `UPDATE projects SET estado='finalized', project_type='operador', snapshot_finalizado=TRUE, updated_at=NOW(3) WHERE project_id=?`,
+      `UPDATE projects SET estado='finalized', project_type='operador', updated_at=NOW(3) WHERE project_id=?`,
       [projectId]
     );
 
