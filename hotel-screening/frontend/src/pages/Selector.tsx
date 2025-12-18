@@ -11,9 +11,7 @@ function fmtDecimal(n: number, decimals: number = 2) {
 
 const OPTS = [
   { key:'irr_levered', label:'IRR levered' },
-  { key:'y1_yield_on_cost', label:'Yield on Cost Y1' },
-  { key:'y1_dscr', label:'DSCR Y1' },
-  { key:'y1_noi_cap_rate', label:'Cap Rate Y1' },
+  { key:'moic_levered', label:'MOIC levered' },
   { key:'price_per_key', label:'Price/Key' },
   { key:'y1_ebitda_margin', label:'EBITDA% Y1' },
   { key:'y1_operating_revenue', label:'Ingresos Y1' },
@@ -309,10 +307,8 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
               <th className="p-2">Tipo</th>
               <th className="p-2">Keys</th>
               <th className="p-2">Price/Key</th>
-              <th className="p-2">Cap Rate Y1</th>
-              <th className="p-2">Yield on Cost Y1</th>
-              <th className="p-2">DSCR Y1</th>
               <th className="p-2">IRR lev.</th>
+              <th className="p-2">MOIC lev.</th>
               <th className="p-2">FEES (€)</th>
               <th className="p-2">FEES (€/rn)</th>
               <th className="p-2"></th>
@@ -339,10 +335,8 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
                 </td>
                 <td className="p-2 text-right">{r.habitaciones}</td>
                 <td className="p-2 text-right">{isOperador ? '—' : fmt(r.price_per_key)}</td>
-                <td className="p-2 text-right">{isOperador ? '—' : pct(r.y1_noi_cap_rate)}</td>
-                <td className="p-2 text-right">{isOperador ? '—' : pct(r.y1_yield_on_cost)}</td>
-                <td className="p-2 text-right">{isOperador ? '—' : (r.y1_dscr ? fmtDecimal(r.y1_dscr, 2) : '—')}</td>
                 <td className="p-2 text-right">{isOperador ? '—' : (r.irr_levered!=null ? pct(r.irr_levered) : '—')}</td>
+                <td className="p-2 text-right">{isOperador ? '—' : (r.moic_levered!=null ? fmtDecimal(r.moic_levered, 2) + 'x' : '—')}</td>
                 <td className="p-2 text-right">{r.total_fees != null ? fmt(r.total_fees) : '—'}</td>
                 <td className="p-2 text-right">{r.fees_per_rn != null ? fmt(r.fees_per_rn) : '—'}</td>
                 <td className="p-2 text-center">
@@ -351,7 +345,7 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
               </tr>
             );
             })}
-            {!rows.length && <tr><td className="p-4 text-center text-gray-500" colSpan={14}>{allRows.length > 0 ? 'Ningún proyecto coincide con los filtros seleccionados' : 'Solo se muestran proyectos finalizados'}</td></tr>}
+            {!rows.length && <tr><td className="p-4 text-center text-gray-500" colSpan={12}>{allRows.length > 0 ? 'Ningún proyecto coincide con los filtros seleccionados' : 'Solo se muestran proyectos finalizados'}</td></tr>}
           </tbody>
         </table>
       </div>

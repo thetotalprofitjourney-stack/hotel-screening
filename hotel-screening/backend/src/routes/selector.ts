@@ -4,7 +4,7 @@ import { pool } from '../db.js';
 const router = Router();
 
 /**
- * GET /v1/selector?sort=irr_levered|y1_yield_on_cost|y1_dscr|y1_noi_cap_rate|price_per_key&order=desc|asc&project_type=operador|inversión
+ * GET /v1/selector?sort=irr_levered|moic_levered|price_per_key&order=desc|asc&project_type=operador|inversión
  * Devuelve los KPIs del dashboard para los proyectos del usuario (x-user-email).
  * Solo devuelve proyectos finalizados (estado='finalized').
  */
@@ -15,7 +15,7 @@ router.get('/v1/selector', async (req, res) => {
   const projectTypeFilter = req.query.project_type ? String(req.query.project_type) : null;
 
   const allowed = new Set([
-    'irr_levered','y1_yield_on_cost','y1_dscr','y1_noi_cap_rate','price_per_key',
+    'irr_levered','moic_levered','price_per_key',
     'y1_ebitda_margin','y1_operating_revenue','total_fees','fees_per_rn','created_at'
   ]);
   const sortCol = allowed.has(sort) ? sort : 'irr_levered';
