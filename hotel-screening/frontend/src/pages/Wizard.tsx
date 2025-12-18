@@ -940,6 +940,9 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         body: JSON.stringify({ htmlContent })
       });
 
+      // Marcar el proyecto como finalizado con snapshot
+      setSnapshotFinalizado(true);
+
       // Cargar el snapshot para mostrarlo
       await loadSnapshot();
 
