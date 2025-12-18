@@ -1437,6 +1437,27 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               />
             </div>
 
+            {/* Tabla de Proyección (read-only) */}
+            {annuals && (
+              <div className="mt-3 mb-6 opacity-75 pointer-events-none">
+                <AnnualUsaliTable
+                  data={annuals}
+                  editable={false}
+                  onChange={() => {}}
+                  diasModificados={diasModificados}
+                  feeParams={{
+                    operacion_tipo: operationConfig.operacion_tipo,
+                    base_anual: operationConfig.fee_base_anual,
+                    pct_total_rev: operationConfig.fee_pct_total_rev,
+                    pct_gop: operationConfig.fee_pct_gop,
+                    incentive_pct: operationConfig.fee_incentive_pct,
+                    hurdle_gop_margin: operationConfig.fee_hurdle_gop_margin,
+                    gop_ajustado: operationConfig.gop_ajustado
+                  }}
+                />
+              </div>
+            )}
+
             {/* Banner de Totales Acumulados por Key */}
             {annuals && (() => {
                 // Calcular totales acumulados
