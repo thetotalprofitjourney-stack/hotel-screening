@@ -238,8 +238,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         setProjectState(project.estado);
         setProjectType(project.project_type || null);
 
-        // Para proyectos de inversión/banco finalizados: verificar snapshot
-        if (project.snapshot_finalizado && project.project_type !== 'operador') {
+        // Para proyectos finalizados con snapshot: cargar el snapshot HTML
+        if (project.snapshot_finalizado) {
           setSnapshotFinalizado(true);
           // Cargar el snapshot HTML
           await loadSnapshot();
