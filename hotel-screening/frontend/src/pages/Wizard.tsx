@@ -1165,6 +1165,25 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
 
   // Si es proyecto operador finalizado, mostrar solo pasos 1-3 en modo lectura
   if (projectState === 'finalized' && projectType === 'operador') {
+    // Verificar que los datos se hayan cargado
+    const dataLoaded = basicInfo.nombre && annuals && annuals.length > 0;
+
+    if (!dataLoaded) {
+      return (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <button className="px-2 py-1 border rounded" onClick={onBack}>← Volver</button>
+            <div className="bg-purple-100 border border-purple-400 text-purple-700 px-4 py-2 rounded">
+              ✓ Proyecto Operador Finalizado
+            </div>
+          </div>
+          <div className="text-center py-8">
+            <p className="text-gray-600">Cargando datos del proyecto...</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -1224,15 +1243,18 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
           )}
 
           {/* Paso 3: Proyección 2-n años (solo lectura) */}
-          {annuals && annuals.length > 0 && (
+          {annuals && Array.isArray(annuals) && annuals.length > 0 && (
             <section>
               <h3 className="text-lg font-semibold mb-2 mt-6">Paso 3 — Proyección 2-n años</h3>
-              <ProjectionAssumptionsForm
-                data={projectionAssumptions}
-                onChange={() => {}}
-                onSubmit={() => {}}
-                readOnly
-              />
+              <div className="bg-gray-50 p-4 rounded border">
+                <h4 className="font-semibold mb-2">Supuestos de Proyección</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div><strong>Horizonte:</strong> {projectionAssumptions.horizonte} años</div>
+                  <div><strong>Crecimiento ADR:</strong> {(projectionAssumptions.adr_growth_pct * 100).toFixed(1)}%</div>
+                  <div><strong>Delta Ocupación:</strong> {projectionAssumptions.occ_delta_pp.toFixed(1)} pp</div>
+                  <div><strong>Cap Ocupación:</strong> {(projectionAssumptions.occ_cap * 100).toFixed(0)}%</div>
+                </div>
+              </div>
               <div className="mt-6">
                 <h4 className="font-semibold mb-3">Resultados Anuales (USALI)</h4>
                 <AnnualUsaliTable rows={annuals} />
