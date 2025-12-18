@@ -885,11 +885,12 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       // Asegurarse de que annuals esté actualizado ANTES de mostrar el modal
       setAnnuals(editedAnnuals);
 
+      // Marcar proyección como guardada ANTES del modal para que el snapshot incluya el resumen
+      setProjectionSaved(true);
+
       // Mostrar modal de finalización solo si el proyecto NO está ya finalizado
       if (projectState !== 'finalized') {
         setShowFinalizationModal(true);
-      } else {
-        setProjectionSaved(true);
       }
     } catch (error) {
       console.error('Error guardando proyección:', error);
@@ -902,7 +903,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   // Continuar con datos de inversión (flujo normal)
   function continueWithInvestment() {
     setShowFinalizationModal(false);
-    setProjectionSaved(true);
+    // projectionSaved ya está en true, no hace falta setearlo de nuevo
   }
 
   // Finalizar proyecto como operador
@@ -940,8 +941,9 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         body: JSON.stringify({ htmlContent })
       });
 
-      // Marcar el proyecto como finalizado con snapshot
+      // Marcar el proyecto como finalizado con snapshot y actualizar tipo
       setSnapshotFinalizado(true);
+      setProjectType('operador');
 
       // Cargar el snapshot para mostrarlo
       await loadSnapshot();
