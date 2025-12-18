@@ -911,10 +911,24 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     setLoading(prev => ({ ...prev, finalize: true }));
 
     try {
+      // Capturar el HTML del contenido del proyecto (pasos 1-3)
+      const reportElement = document.getElementById('project-report');
+      if (!reportElement) {
+        throw new Error('No se pudo capturar el contenido del proyecto');
+      }
+      const htmlContent = reportElement.innerHTML;
+
+      // Guardar campos editados antes de finalizar
+      await saveEditedFields();
+
+      // Enviar el snapshot HTML al backend
       await api(`/v1/projects/${projectId}/finalize-operador`, {
         method: 'POST',
-        body: JSON.stringify({})
+        body: JSON.stringify({ htmlContent })
       });
+
+      // Cargar el snapshot para mostrarlo
+      await loadSnapshot();
 
       // Mostrar mensaje de éxito
       alert('¡Proyecto finalizado como operador exitosamente!');
@@ -1158,94 +1172,6 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         >
           {loading.word ? 'Generando...' : 'DESCARGAR PROYECTO EN WORD'}
         </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Si es proyecto operador finalizado, mostrar resumen simplificado
-  if (projectState === 'finalized' && projectType === 'operador') {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <button className="px-2 py-1 border rounded" onClick={onBack}>← Volver</button>
-          <div className="bg-purple-100 border border-purple-400 text-purple-700 px-4 py-2 rounded">
-            ✓ Proyecto Operador Finalizado - Vista de Solo Lectura
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg border shadow-sm space-y-6">
-          {/* Resumen del Proyecto */}
-          <div>
-            <h3 className="text-xl font-bold mb-4">{basicInfo.nombre || 'Proyecto Operador'}</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-semibold">Ubicación:</span>{' '}
-                {basicInfo.provincia && basicInfo.comunidad_autonoma
-                  ? `${basicInfo.provincia}, ${basicInfo.comunidad_autonoma}`
-                  : 'No especificada'}
-              </div>
-              <div>
-                <span className="font-semibold">Segmento:</span>{' '}
-                <span className="capitalize">{basicInfo.segmento}</span>
-              </div>
-              <div>
-                <span className="font-semibold">Categoría:</span>{' '}
-                <span className="capitalize">{basicInfo.categoria?.replace('_', ' ')}</span>
-              </div>
-              <div>
-                <span className="font-semibold">Habitaciones:</span> {basicInfo.habitaciones}
-              </div>
-            </div>
-          </div>
-
-          {/* Información del análisis */}
-          <div className="border-t pt-4">
-            <h4 className="font-semibold mb-2">Análisis Completado</h4>
-            <ul className="list-disc list-inside text-sm space-y-1 text-gray-700">
-              <li>✓ Validación comercial Y1 (12 meses)</li>
-              <li>✓ Análisis USALI Y1</li>
-              <li>✓ Proyección operativa plurianual ({projectionAssumptions.horizonte} años)</li>
-              <li>✓ Cálculo de fees del operador</li>
-            </ul>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded p-4">
-            <p className="text-sm text-blue-800">
-              <strong>Nota:</strong> Este proyecto ha sido finalizado como "Operador".
-              Puedes descargar el documento Word con el análisis completo de fees y proyección operativa
-              usando el botón de abajo.
-            </p>
-          </div>
-        </div>
-
-        {/* Botones de acción */}
-        <div className="flex gap-4 items-center">
-          <button
-            className="px-6 py-3 border rounded-lg hover:bg-gray-50 font-semibold"
-            onClick={onBack}
-          >
-            ← Volver al Listado
-          </button>
-          <button
-            onClick={async () => {
-              try {
-                setLoading(prev => ({ ...prev, word: true }));
-                const { generateOperadorWordDocument } = await import('../utils/generateOperadorWordDocument');
-                const operadorData = await api(`/v1/projects/${projectId}/operador-data`);
-                await generateOperadorWordDocument(operadorData);
-              } catch (error) {
-                console.error('Error generando documento Word:', error);
-                alert('Hubo un error al generar el documento. Por favor, intenta de nuevo.');
-              } finally {
-                setLoading(prev => ({ ...prev, word: false }));
-              }
-            }}
-            disabled={loading.word}
-            className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-200"
-          >
-            {loading.word ? 'Generando...' : '📄 DESCARGAR DOCUMENTO OPERADOR'}
-          </button>
         </div>
       </div>
     );

@@ -569,10 +569,24 @@ router.post('/v1/projects/:id/finalize-operador', async (req, res) => {
     return res.status(400).json({ error: 'El proyecto debe estar en estado projection_2n (paso 3 completado) para finalizarse como operador' });
   }
 
+  // Validar que tenga HTML content
+  const htmlContent = req.body.htmlContent;
+  if (!htmlContent || typeof htmlContent !== 'string') {
+    return res.status(400).json({ error: 'Se requiere htmlContent en el body' });
+  }
+
   try {
-    // Marcar el proyecto como finalizado tipo operador (sin snapshot HTML, solo datos)
+    // Guardar snapshot HTML
     await pool.query(
-      `UPDATE projects SET estado='finalized', project_type='operador', updated_at=NOW(3) WHERE project_id=?`,
+      `INSERT INTO project_snapshots (project_id, html_content, finalized_at)
+       VALUES (?, ?, NOW(3))
+       ON DUPLICATE KEY UPDATE html_content=VALUES(html_content), finalized_at=NOW(3)`,
+      [projectId, htmlContent]
+    );
+
+    // Marcar el proyecto como finalizado tipo operador con snapshot
+    await pool.query(
+      `UPDATE projects SET estado='finalized', project_type='operador', snapshot_finalizado=TRUE, updated_at=NOW(3) WHERE project_id=?`,
       [projectId]
     );
 
