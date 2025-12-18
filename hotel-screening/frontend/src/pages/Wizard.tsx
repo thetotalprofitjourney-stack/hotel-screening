@@ -916,7 +916,20 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       if (!reportElement) {
         throw new Error('No se pudo capturar el contenido del proyecto');
       }
-      const htmlContent = reportElement.innerHTML;
+
+      // Clonar el elemento para manipularlo sin afectar el DOM
+      const clonedElement = reportElement.cloneNode(true) as HTMLElement;
+
+      // Eliminar todos los botones de "Guardar" del snapshot
+      const saveButtons = clonedElement.querySelectorAll('button');
+      saveButtons.forEach(button => {
+        const buttonText = button.textContent || '';
+        if (buttonText.includes('Guardar Paso')) {
+          button.remove();
+        }
+      });
+
+      const htmlContent = clonedElement.innerHTML;
 
       // Guardar campos editados antes de finalizar
       await saveEditedFields();
