@@ -4,7 +4,7 @@ USE hotel_screening;
 DROP VIEW IF EXISTS vw_selector_projects;
 CREATE VIEW vw_selector_projects AS
 SELECT
-  p.project_id, p.nombre, p.rol, p.owner_email, p.ubicacion, p.segmento, p.categoria, p.habitaciones, p.horizonte,
+  p.project_id, p.nombre, p.rol, p.owner_email, p.segmento, p.categoria, p.habitaciones, p.horizonte,
   p.estado, p.project_type, p.created_at,
   ft.precio_compra, IFNULL(ft.capex_inicial,0) AS capex_inicial, ft.ltv, ft.interes, ft.plazo_anios, ft.tipo_amortizacion,
   IFNULL(ps.coste_tx_compra_pct,0) AS coste_tx_compra_pct,
