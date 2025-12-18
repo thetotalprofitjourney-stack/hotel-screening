@@ -1089,10 +1089,19 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
           <button
             onClick={async () => {
             try {
-              // Load all necessary data for Word generation
               setLoading(prev => ({ ...prev, word: true }));
 
-              // Load data from backend
+              // Si es proyecto de operador, usar endpoint específico
+              if (projectType === 'operador') {
+                const { generateOperadorWordDocument } = await import('../utils/generateOperadorWordDocument');
+                const operadorData = await api(`/v1/projects/${projectId}/operador-data`);
+                await generateOperadorWordDocument(operadorData);
+                setLoading(prev => ({ ...prev, word: false }));
+                return;
+              }
+
+              // Para proyectos de inversión, usar flujo actual
+              // Load all necessary data for Word generation
               const [configData, projectionData, debtData, valuationData, commercialY1Data, usaliY1Data] = await Promise.all([
                 api(`/v1/projects/${projectId}/config`),
                 api(`/v1/projects/${projectId}/projection`),
@@ -2195,7 +2204,15 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                 <button
                   onClick={async () => {
                   try {
-                    // Preparar vr con datos de sensibilidad si existen
+                    // Si es proyecto de operador, usar endpoint específico
+                    if (projectType === 'operador') {
+                      const { generateOperadorWordDocument } = await import('../utils/generateOperadorWordDocument');
+                      const operadorData = await api(`/v1/projects/${projectId}/operador-data`);
+                      await generateOperadorWordDocument(operadorData);
+                      return;
+                    }
+
+                    // Para proyectos de inversión, preparar vr con datos de sensibilidad si existen
                     const vrWithSensitivity = {
                       ...vr,
                       sensitivity: sensitivityResults.length > 0 ? {
