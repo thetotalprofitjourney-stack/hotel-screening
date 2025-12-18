@@ -916,13 +916,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         body: JSON.stringify({})
       });
 
-      // Marcar como finalizado y actualizar estado
-      setProjectState('finalized');
-      setProjectionSaved(true);
-      setSnapshotFinalizado(true);
-
       // Mostrar mensaje de éxito
-      alert('Proyecto finalizado como operador exitosamente. Ahora puedes descargar el documento Word desde el listado de proyectos.');
+      alert('¡Proyecto finalizado como operador exitosamente!');
 
       // Volver al listado
       onBack();
