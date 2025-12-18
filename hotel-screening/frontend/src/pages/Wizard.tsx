@@ -79,6 +79,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   });
 
   const [projectState, setProjectState] = useState<string>('draft');
+  const [projectType, setProjectType] = useState<string | null>(null);
   const [anio, setAnio] = useState<number>(new Date().getFullYear());
   const [meses, setMeses] = useState<any[]>([]);
   const [benchmarkMeses, setBenchmarkMeses] = useState<any[]>([]); // Benchmark original para comparación
@@ -235,9 +236,10 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       const project = data.find((p: any) => p.project_id === projectId);
       if (project && project.estado) {
         setProjectState(project.estado);
+        setProjectType(project.project_type || null);
 
-        // Verificar si el proyecto tiene snapshot finalizado
-        if (project.snapshot_finalizado) {
+        // Para proyectos de inversión/banco finalizados: verificar snapshot
+        if (project.snapshot_finalizado && project.project_type !== 'operador') {
           setSnapshotFinalizado(true);
           // Cargar el snapshot HTML
           await loadSnapshot();
@@ -259,7 +261,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
           // Cargar datos de proyección guardados
           await loadSavedProjection();
         }
-        if (project.estado === 'finalized') {
+        // Solo cargar financiación y valoración si NO es proyecto operador
+        if (project.estado === 'finalized' && project.project_type !== 'operador') {
           setFinancingConfigSaved(true);
           // Cargar datos de deuda guardados
           await loadSavedDebt();
@@ -1160,6 +1163,114 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         >
           {loading.word ? 'Generando...' : 'DESCARGAR PROYECTO EN WORD'}
         </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Si es proyecto operador finalizado, mostrar solo pasos 1-3 en modo lectura
+  if (projectState === 'finalized' && projectType === 'operador') {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <button className="px-2 py-1 border rounded" onClick={onBack}>← Volver</button>
+          <div className="bg-purple-100 border border-purple-400 text-purple-700 px-4 py-2 rounded">
+            ✓ Proyecto Operador Finalizado - Vista de Solo Lectura
+          </div>
+        </div>
+
+        <div id="project-report">
+          {/* Datos básicos del proyecto (solo lectura) */}
+          <section>
+            <h3 className="text-lg font-semibold mb-2">Datos del Proyecto</h3>
+            <ProjectBasicInfoForm
+              data={basicInfo}
+              onChange={setBasicInfo}
+              onSubmit={saveBasicInfo}
+              readOnly
+            />
+          </section>
+
+          {/* Configuración de Operación (solo lectura) */}
+          <section>
+            <h3 className="text-lg font-semibold mb-2 mt-6">Configuración de Operación</h3>
+            <OperationConfigForm
+              data={operationConfig}
+              onChange={setOperationConfig}
+              onSubmit={() => {}}
+              readOnly
+            />
+          </section>
+
+          {/* Paso 1: Validación comercial Y1 (solo lectura) */}
+          <section>
+            <h3 className="text-lg font-semibold mb-2 mt-6">Paso 1 — Validación comercial Y1</h3>
+            <MonthlyTable
+              rows={meses}
+              onChange={() => {}}
+              habitaciones={basicInfo.habitaciones}
+              readOnly
+            />
+          </section>
+
+          {/* Paso 2: USALI Y1 (solo lectura) */}
+          {calc && (
+            <section>
+              <h3 className="text-lg font-semibold mb-2 mt-6">Paso 2 — USALI Y1</h3>
+              <UsaliEditor
+                calculatedUsali={calculatedUsali}
+                editedUsali={editedUsaliData}
+                onEditedChange={() => {}}
+                readOnly
+              />
+            </section>
+          )}
+
+          {/* Paso 3: Proyección 2-n años (solo lectura) */}
+          {annuals && annuals.length > 0 && (
+            <section>
+              <h3 className="text-lg font-semibold mb-2 mt-6">Paso 3 — Proyección 2-n años</h3>
+              <ProjectionAssumptionsForm
+                data={projectionAssumptions}
+                onChange={() => {}}
+                onSubmit={() => {}}
+                readOnly
+              />
+              <div className="mt-6">
+                <h4 className="font-semibold mb-3">Resultados Anuales (USALI)</h4>
+                <AnnualUsaliTable rows={annuals} />
+              </div>
+            </section>
+          )}
+        </div>
+
+        {/* Botones de acción final */}
+        <div className="flex gap-4 items-center mt-6">
+          <button
+            className="px-4 py-3 border rounded-lg hover:bg-gray-50 font-semibold"
+            onClick={onBack}
+          >
+            ← Volver
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                setLoading(prev => ({ ...prev, word: true }));
+                const { generateOperadorWordDocument } = await import('../utils/generateOperadorWordDocument');
+                const operadorData = await api(`/v1/projects/${projectId}/operador-data`);
+                await generateOperadorWordDocument(operadorData);
+              } catch (error) {
+                console.error('Error generando documento Word:', error);
+                alert('Hubo un error al generar el documento. Por favor, intenta de nuevo.');
+              } finally {
+                setLoading(prev => ({ ...prev, word: false }));
+              }
+            }}
+            disabled={loading.word}
+            className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-200"
+          >
+            {loading.word ? 'Generando...' : 'DESCARGAR DOCUMENTO OPERADOR'}
+          </button>
         </div>
       </div>
     );
