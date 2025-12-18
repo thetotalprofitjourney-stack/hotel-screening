@@ -1163,27 +1163,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
     );
   }
 
-  // Si es proyecto operador finalizado, mostrar solo pasos 1-3 en modo lectura
+  // Si es proyecto operador finalizado, mostrar resumen simplificado
   if (projectState === 'finalized' && projectType === 'operador') {
-    // Verificar que los datos se hayan cargado
-    const dataLoaded = basicInfo.nombre && annuals && annuals.length > 0;
-
-    if (!dataLoaded) {
-      return (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <button className="px-2 py-1 border rounded" onClick={onBack}>← Volver</button>
-            <div className="bg-purple-100 border border-purple-400 text-purple-700 px-4 py-2 rounded">
-              ✓ Proyecto Operador Finalizado
-            </div>
-          </div>
-          <div className="text-center py-8">
-            <p className="text-gray-600">Cargando datos del proyecto...</p>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -1193,83 +1174,58 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
           </div>
         </div>
 
-        <div id="project-report">
-          {/* Datos básicos del proyecto (solo lectura) */}
-          <section>
-            <h3 className="text-lg font-semibold mb-2">Datos del Proyecto</h3>
-            <ProjectBasicInfoForm
-              data={basicInfo}
-              onChange={setBasicInfo}
-              onSubmit={saveBasicInfo}
-              readOnly
-            />
-          </section>
-
-          {/* Configuración de Operación (solo lectura) */}
-          <section>
-            <h3 className="text-lg font-semibold mb-2 mt-6">Configuración de Operación</h3>
-            <OperationConfigForm
-              data={operationConfig}
-              onChange={setOperationConfig}
-              onSubmit={() => {}}
-              readOnly
-            />
-          </section>
-
-          {/* Paso 1: Validación comercial Y1 (solo lectura) */}
-          {meses && meses.length > 0 && (
-            <section>
-              <h3 className="text-lg font-semibold mb-2 mt-6">Paso 1 — Validación comercial Y1</h3>
-              <MonthlyTable
-                rows={meses}
-                onChange={() => {}}
-                habitaciones={basicInfo.habitaciones}
-                readOnly
-              />
-            </section>
-          )}
-
-          {/* Paso 2: USALI Y1 (solo lectura) */}
-          {calc && calculatedUsali && calculatedUsali.length > 0 && (
-            <section>
-              <h3 className="text-lg font-semibold mb-2 mt-6">Paso 2 — USALI Y1</h3>
-              <UsaliEditor
-                calculatedUsali={calculatedUsali}
-                editedUsali={editedUsaliData || calculatedUsali}
-                onEditedChange={() => {}}
-                readOnly
-              />
-            </section>
-          )}
-
-          {/* Paso 3: Proyección 2-n años (solo lectura) */}
-          {annuals && Array.isArray(annuals) && annuals.length > 0 && (
-            <section>
-              <h3 className="text-lg font-semibold mb-2 mt-6">Paso 3 — Proyección 2-n años</h3>
-              <div className="bg-gray-50 p-4 rounded border">
-                <h4 className="font-semibold mb-2">Supuestos de Proyección</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div><strong>Horizonte:</strong> {projectionAssumptions.horizonte} años</div>
-                  <div><strong>Crecimiento ADR:</strong> {(projectionAssumptions.adr_growth_pct * 100).toFixed(1)}%</div>
-                  <div><strong>Delta Ocupación:</strong> {projectionAssumptions.occ_delta_pp.toFixed(1)} pp</div>
-                  <div><strong>Cap Ocupación:</strong> {(projectionAssumptions.occ_cap * 100).toFixed(0)}%</div>
-                </div>
+        <div className="bg-white p-6 rounded-lg border shadow-sm space-y-6">
+          {/* Resumen del Proyecto */}
+          <div>
+            <h3 className="text-xl font-bold mb-4">{basicInfo.nombre || 'Proyecto Operador'}</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-semibold">Ubicación:</span>{' '}
+                {basicInfo.provincia && basicInfo.comunidad_autonoma
+                  ? `${basicInfo.provincia}, ${basicInfo.comunidad_autonoma}`
+                  : 'No especificada'}
               </div>
-              <div className="mt-6">
-                <h4 className="font-semibold mb-3">Resultados Anuales (USALI)</h4>
-                <AnnualUsaliTable rows={annuals} />
+              <div>
+                <span className="font-semibold">Segmento:</span>{' '}
+                <span className="capitalize">{basicInfo.segmento}</span>
               </div>
-            </section>
-          )}
+              <div>
+                <span className="font-semibold">Categoría:</span>{' '}
+                <span className="capitalize">{basicInfo.categoria?.replace('_', ' ')}</span>
+              </div>
+              <div>
+                <span className="font-semibold">Habitaciones:</span> {basicInfo.habitaciones}
+              </div>
+            </div>
+          </div>
+
+          {/* Información del análisis */}
+          <div className="border-t pt-4">
+            <h4 className="font-semibold mb-2">Análisis Completado</h4>
+            <ul className="list-disc list-inside text-sm space-y-1 text-gray-700">
+              <li>✓ Validación comercial Y1 (12 meses)</li>
+              <li>✓ Análisis USALI Y1</li>
+              <li>✓ Proyección operativa plurianual ({projectionAssumptions.horizonte} años)</li>
+              <li>✓ Cálculo de fees del operador</li>
+            </ul>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded p-4">
+            <p className="text-sm text-blue-800">
+              <strong>Nota:</strong> Este proyecto ha sido finalizado como "Operador".
+              Puedes descargar el documento Word con el análisis completo de fees y proyección operativa
+              usando el botón de abajo.
+            </p>
+          </div>
         </div>
 
-        {/* Botones de acción final */}
-        <div className="flex gap-4 items-center mt-6">
+        {/* Botones de acción */}
+        <div className="flex gap-4 items-center">
           <button
-            className="px-4 py-3 border rounded-lg hover:bg-gray-50 font-semibold"
+            className="px-6 py-3 border rounded-lg hover:bg-gray-50 font-semibold"
             onClick={onBack}
           >
-            ← Volver
+            ← Volver al Listado
           </button>
           <button
             onClick={async () => {
@@ -1288,7 +1244,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
             disabled={loading.word}
             className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-200"
           >
-            {loading.word ? 'Generando...' : 'DESCARGAR DOCUMENTO OPERADOR'}
+            {loading.word ? 'Generando...' : '📄 DESCARGAR DOCUMENTO OPERADOR'}
           </button>
         </div>
       </div>
