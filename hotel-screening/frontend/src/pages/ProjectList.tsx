@@ -12,9 +12,19 @@ export default function ProjectList({ onNew, onOpen, onSelector }:{ onNew:()=>vo
 
   useEffect(()=>{ loadProjects(); },[]);
 
-  const handleDownload = async (projectId: string) => {
+  const handleDownload = async (projectId: string, projectType: string | null) => {
     setDownloadingId(projectId);
     try {
+      // Si es proyecto de operador, usar endpoint específico
+      if (projectType === 'operador') {
+        // Importar dinámicamente el generador de Word para operador
+        const { generateOperadorWordDocument } = await import('../utils/generateOperadorWordDocument');
+        const operadorData = await api(`/v1/projects/${projectId}/operador-data`);
+        await generateOperadorWordDocument(operadorData);
+        return;
+      }
+
+      // Para proyectos de inversión, usar flujo actual
       // Load all necessary data for Word generation
       const [configData, projectionData, debtData, valuationData, commercialY1Data, usaliY1Data] = await Promise.all([
         api(`/v1/projects/${projectId}/config`),
@@ -117,6 +127,7 @@ export default function ProjectList({ onNew, onOpen, onSelector }:{ onNew:()=>vo
             <th className="p-2">Segmento</th>
             <th className="p-2">Categoría</th>
             <th className="p-2">Estado</th>
+            <th className="p-2">Tipo</th>
             <th className="p-2">Fecha de Alta</th>
             <th className="p-2"></th>
           </tr>
@@ -128,14 +139,40 @@ export default function ProjectList({ onNew, onOpen, onSelector }:{ onNew:()=>vo
               <td className="p-2 text-center text-xs">{r.comunidad_autonoma} - {r.provincia} - {r.zona}</td>
               <td className="p-2 text-center">{r.segmento}</td>
               <td className="p-2 text-center">{r.categoria}</td>
-              <td className="p-2 text-center">{r.estado}</td>
+              <td className="p-2 text-center">
+                <span className={`px-2 py-1 rounded text-xs ${
+                  r.estado === 'finalized' ? 'bg-green-100 text-green-800' :
+                  r.estado === 'projection_2n' ? 'bg-blue-100 text-blue-800' :
+                  r.estado === 'y1_usali' ? 'bg-yellow-100 text-yellow-800' :
+                  r.estado === 'y1_commercial' ? 'bg-orange-100 text-orange-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {r.estado === 'finalized' ? 'Finalizado' :
+                   r.estado === 'projection_2n' ? 'Paso 3' :
+                   r.estado === 'y1_usali' ? 'Paso 2' :
+                   r.estado === 'y1_commercial' ? 'Paso 1' :
+                   'Borrador'}
+                </span>
+              </td>
+              <td className="p-2 text-center">
+                {r.project_type ? (
+                  <span className={`px-2 py-1 rounded text-xs ${
+                    r.project_type === 'operador' ? 'bg-purple-100 text-purple-800' :
+                    'bg-indigo-100 text-indigo-800'
+                  }`}>
+                    {r.project_type === 'operador' ? 'Operador' : 'Inversión/Banco'}
+                  </span>
+                ) : (
+                  <span className="text-gray-400 text-xs">-</span>
+                )}
+              </td>
               <td className="p-2 text-center text-xs">{new Date(r.created_at).toLocaleDateString('es-ES')}</td>
               <td className="p-2 text-center">
                 <div className="flex gap-2 justify-center">
                   <button className="px-2 py-1 border rounded hover:bg-gray-50" onClick={()=>onOpen(r.project_id)}>Abrir</button>
                   <button
                     className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                    onClick={()=>handleDownload(r.project_id)}
+                    onClick={()=>handleDownload(r.project_id, r.project_type)}
                     disabled={r.estado !== 'finalized' || downloadingId === r.project_id}
                   >
                     {downloadingId === r.project_id ? 'Descargando...' : 'Descargar'}
@@ -146,7 +183,7 @@ export default function ProjectList({ onNew, onOpen, onSelector }:{ onNew:()=>vo
             </tr>
           ))}
           {!rows.length && (
-            <tr><td className="p-4 text-center text-gray-500" colSpan={7}>No hay proyectos</td></tr>
+            <tr><td className="p-4 text-center text-gray-500" colSpan={8}>No hay proyectos</td></tr>
           )}
         </tbody>
       </table>
