@@ -74,7 +74,7 @@ const updateConfigSchema = z.object({
 router.get('/v1/projects', async (req, res) => {
   const email = (req as any).userEmail as string;
   const [rows] = await pool.query(
-    `SELECT project_id, nombre, rol, comunidad_autonoma, provincia, zona, segmento, categoria, horizonte, estado, snapshot_finalizado, created_at, updated_at
+    `SELECT project_id, nombre, rol, comunidad_autonoma, provincia, zona, segmento, categoria, habitaciones, horizonte, estado, project_type, snapshot_finalizado, created_at, updated_at
        FROM projects
       WHERE owner_email=?
       ORDER BY updated_at DESC`,
