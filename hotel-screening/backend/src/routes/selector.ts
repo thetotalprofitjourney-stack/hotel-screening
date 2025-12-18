@@ -16,7 +16,7 @@ router.get('/v1/selector', async (req, res) => {
 
   const allowed = new Set([
     'irr_levered','moic_levered','price_per_key',
-    'y1_ebitda_margin','y1_operating_revenue','total_fees','fees_per_rn','created_at'
+    'y1_ebitda_margin','y1_operating_revenue','total_fees','fees_per_key','equity','created_at'
   ]);
   const sortCol = allowed.has(sort) ? sort : 'irr_levered';
 
