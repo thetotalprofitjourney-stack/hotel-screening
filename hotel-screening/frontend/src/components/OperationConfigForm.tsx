@@ -85,40 +85,9 @@ export default function OperationConfigForm({ data, onChange, onSubmit, showSubm
           )}
         </div>
 
-        {/* FILA 2: Tipo de GOP para cálculo de fees, FF&E */}
-        <div className="grid grid-cols-3 gap-3 mb-3">
-          {data.operacion_tipo === 'operador' && (
-            <label className="flex flex-col">
-              <span className="text-sm font-medium mb-1">Tipo de GOP para cálculo de fees</span>
-              <select
-                className="border px-3 py-2 rounded"
-                value={data.gop_ajustado ? 'ajustado' : 'standard'}
-                onChange={e => updateField('gop_ajustado', e.target.value === 'ajustado')}
-              >
-                <option value="standard">GOP (sin descontar FF&E)</option>
-                <option value="ajustado">GOP Ajustado (descontando FF&E)</option>
-              </select>
-              <span className="text-xs text-gray-500 mt-1">
-                Afecta al cálculo del Fee % sobre GOP y Fee incentivo %.
-              </span>
-            </label>
-          )}
-
-          <label className="flex flex-col">
-            <span className="text-sm font-medium mb-1">FF&E (% sobre ingresos) *</span>
-            <NumericInput
-              required
-              className="border px-3 py-2 rounded"
-              value={data.ffe * 100}
-              onChange={val => updateField('ffe', val / 100)}
-              decimals={2}
-            />
-          </label>
-        </div>
-
-        {/* FILA 3: Fee % sobre GOP, Hurdle GOP margin %, Fee incentivo % */}
+        {/* FILA 2: Fee % sobre GOP, Hurdle GOP margin %, Fee incentivo % */}
         {data.operacion_tipo === 'operador' && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-3 mb-3">
             <label className="flex flex-col">
               <span className="text-sm font-medium mb-1">Fee % sobre GOP</span>
               <NumericInput
@@ -150,6 +119,37 @@ export default function OperationConfigForm({ data, onChange, onSubmit, showSubm
             </label>
           </div>
         )}
+
+        {/* FILA 3: Tipo de GOP para cálculo de fees, FF&E */}
+        <div className="grid grid-cols-3 gap-3">
+          {data.operacion_tipo === 'operador' && (
+            <label className="flex flex-col">
+              <span className="text-sm font-medium mb-1">Tipo de GOP para cálculo de fees</span>
+              <select
+                className="border px-3 py-2 rounded"
+                value={data.gop_ajustado ? 'ajustado' : 'standard'}
+                onChange={e => updateField('gop_ajustado', e.target.value === 'ajustado')}
+              >
+                <option value="standard">GOP (sin descontar FF&E)</option>
+                <option value="ajustado">GOP Ajustado (descontando FF&E)</option>
+              </select>
+              <span className="text-xs text-gray-500 mt-1">
+                Afecta al cálculo del Fee % sobre GOP y Fee incentivo %.
+              </span>
+            </label>
+          )}
+
+          <label className="flex flex-col">
+            <span className="text-sm font-medium mb-1">FF&E (% sobre ingresos) *</span>
+            <NumericInput
+              required
+              className="border px-3 py-2 rounded"
+              value={data.ffe * 100}
+              onChange={val => updateField('ffe', val / 100)}
+              decimals={2}
+            />
+          </label>
+        </div>
       </section>
 
       {/* Sección: Non-Operating */}
