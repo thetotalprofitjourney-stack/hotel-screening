@@ -16,7 +16,7 @@ const OPTS = [
   { key:'y1_ebitda_margin', label:'EBITDA% Y1' },
   { key:'y1_operating_revenue', label:'Ingresos Y1' },
   { key:'total_fees', label:'FEES (€)' },
-  { key:'fees_per_rn', label:'FEES (€/rn)' }
+  { key:'fees_per_key', label:'FEES (€/key)' }
 ];
 
 const SEGMENTOS = ['urbano', 'vacacional'];
@@ -310,7 +310,7 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
               <th className="p-2">IRR lev.</th>
               <th className="p-2">MOIC lev.</th>
               <th className="p-2">FEES (€)</th>
-              <th className="p-2">FEES (€/rn)</th>
+              <th className="p-2">FEES (€/key)</th>
               <th className="p-2"></th>
             </tr>
           </thead>
@@ -338,7 +338,7 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
                 <td className="p-2 text-right">{isOperador ? '—' : (r.irr_levered!=null ? pct(r.irr_levered) : '—')}</td>
                 <td className="p-2 text-right">{isOperador ? '—' : (r.moic_levered!=null ? fmtDecimal(r.moic_levered, 2) + 'x' : '—')}</td>
                 <td className="p-2 text-right">{r.total_fees != null ? fmt(r.total_fees) : '—'}</td>
-                <td className="p-2 text-right">{r.fees_per_rn != null ? fmt(r.fees_per_rn) : '—'}</td>
+                <td className="p-2 text-right">{r.fees_per_key != null ? fmt(r.fees_per_key) : '—'}</td>
                 <td className="p-2 text-center">
                   <button className="px-2 py-1 border rounded hover:bg-gray-100" onClick={()=>onOpen(r.project_id)}>Abrir</button>
                 </td>

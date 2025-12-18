@@ -1,6 +1,11 @@
+-- Migración 015: Cambiar fees_per_rn por fees_per_key en vista del selector
+-- Fecha: 2025-12-18
+-- Descripción: Actualiza la vista vw_selector_projects para calcular FEES por
+--              habitación (key) en lugar de por room night (rn)
+
 USE hotel_screening;
 
--- Vista con KPIs para comparar proyectos del screening (sin capex anual)
+-- Recrear vista con FEES por key
 DROP VIEW IF EXISTS vw_selector_projects;
 CREATE VIEW vw_selector_projects AS
 SELECT
