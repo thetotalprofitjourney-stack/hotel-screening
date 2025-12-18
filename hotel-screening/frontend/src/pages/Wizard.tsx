@@ -931,15 +931,20 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       });
 
       // Eliminar el Paso 4 (Deuda) y pasos posteriores del snapshot de operador
-      const sections = clonedElement.querySelectorAll('section');
+      const sections = Array.from(clonedElement.querySelectorAll('section'));
       sections.forEach(section => {
         const heading = section.querySelector('h3');
         if (heading && heading.textContent) {
-          const headingText = heading.textContent;
-          // Eliminar Paso 4, 5 y cualquier paso posterior
-          if (headingText.includes('Paso 4') || headingText.includes('Paso 5') ||
-              headingText.includes('Deuda') || headingText.includes('Valoración')) {
-            section.remove();
+          const headingText = heading.textContent.trim();
+
+          // Eliminar cualquier paso a partir del Paso 4
+          // Usar regex que capture "Paso" seguido de espacio(s) y un número >= 4
+          const pasoMatch = headingText.match(/Paso\s+(\d+)/i);
+          if (pasoMatch) {
+            const pasoNumber = parseInt(pasoMatch[1], 10);
+            if (pasoNumber >= 4) {
+              section.remove();
+            }
           }
         }
       });
