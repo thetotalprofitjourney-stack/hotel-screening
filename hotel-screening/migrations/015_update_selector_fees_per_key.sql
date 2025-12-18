@@ -35,7 +35,9 @@ SELECT
   r.irr_levered, r.moic_levered, r.irr_unlevered, r.moic_unlevered,
   -- FEES totales y FEES por key (habitación)
   fees_totals.total_fees,
-  (fees_totals.total_fees / NULLIF(p.habitaciones, 0)) AS fees_per_key
+  (fees_totals.total_fees / NULLIF(p.habitaciones, 0)) AS fees_per_key,
+  -- Equity = Base de inversión * (1 - LTV)
+  ((ft.precio_compra + IFNULL(ft.capex_inicial,0)) * (1 + IFNULL(ps.coste_tx_compra_pct,0)) * (1 - IFNULL(ft.ltv,0))) AS equity
 FROM projects p
 LEFT JOIN financing_terms        ft  ON ft.project_id = p.project_id
 LEFT JOIN project_settings       ps  ON ps.project_id = p.project_id

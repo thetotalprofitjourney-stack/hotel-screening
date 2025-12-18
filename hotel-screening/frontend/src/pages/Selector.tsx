@@ -31,6 +31,7 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
   const [order, setOrder] = useState<'asc'|'desc'>('desc');
   const [rows, setRows] = useState<any[]>([]);
   const [allRows, setAllRows] = useState<any[]>([]);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   // Filtros
   const [selectedSegmentos, setSelectedSegmentos] = useState<string[]>([]);
@@ -121,6 +122,61 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
     setFechaMin('');
     setFechaMax('');
   };
+
+  async function handleDownload(projectId: string, projectType: string) {
+    setDownloadingId(projectId);
+    try {
+      // Si es proyecto de operador, usar endpoint específico
+      if (projectType === 'operador') {
+        const { generateOperadorWordDocument } = await import('../utils/generateOperadorWordDocument');
+        const operadorData = await api(`/v1/projects/${projectId}/operador-data`);
+        await generateOperadorWordDocument(operadorData);
+        return;
+      }
+
+      // Para proyectos de inversión, usar flujo actual
+      const { generateWordDocument } = await import('../utils/generateWordDocument');
+      const [configData, projectionData, debtData, valuationData, commercialY1Data, usaliY1Data] = await Promise.all([
+        api(`/v1/projects/${projectId}/config`),
+        api(`/v1/projects/${projectId}/projection`),
+        api(`/v1/projects/${projectId}/debt`),
+        api(`/v1/projects/${projectId}/valuation-and-returns`),
+        api(`/v1/projects/${projectId}/y1/commercial`).catch(() => ({ meses: [] })),
+        api(`/v1/projects/${projectId}/y1/usali`).catch(() => ({ usali: [] }))
+      ]);
+
+      await generateWordDocument({
+        basicInfo: {
+          nombre: configData.nombre,
+          segmento: configData.segmento,
+          categoria: configData.categoria,
+          provincia: configData.provincia,
+          comunidad_autonoma: configData.comunidad_autonoma,
+          zona: configData.zona,
+          habitaciones: configData.habitaciones,
+          horizonte: configData.horizonte
+        },
+        financing: {
+          precio_compra: configData.precio_compra,
+          capex_inicial: configData.capex_inicial,
+          coste_tx_compra_pct: configData.coste_tx_compra_pct,
+          ltv: configData.ltv,
+          interes: configData.interes,
+          plazo_anios: configData.plazo_anios
+        },
+        projection: projectionData.years || [],
+        debt: debtData.schedule || [],
+        vr: valuationData,
+        y1Commercial: commercialY1Data.meses || [],
+        y1Usali: usaliY1Data.usali || []
+      });
+    } catch (error) {
+      console.error('Error generando documento Word:', error);
+      alert('Error al generar documento Word: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+    } finally {
+      setDownloadingId(null);
+    }
+  }
 
   return (
     <div>
@@ -305,13 +361,14 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
               <th className="p-2">Segm</th>
               <th className="p-2">Cat</th>
               <th className="p-2">Tipo</th>
+              <th className="p-2">Equity</th>
               <th className="p-2">Keys</th>
               <th className="p-2">Price/Key</th>
               <th className="p-2">IRR lev.</th>
               <th className="p-2">MOIC lev.</th>
               <th className="p-2">FEES (€)</th>
               <th className="p-2">FEES (€/key)</th>
-              <th className="p-2"></th>
+              <th className="p-2" colSpan={2}>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -320,7 +377,7 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
               return (
               <tr key={r.project_id} className="border-t hover:bg-gray-50">
                 <td className="p-2 text-left">{r.nombre}</td>
-                <td className="p-2 text-center text-xs">{r.comunidad_autonoma} - {r.provincia} - {r.zona}</td>
+                <td className="p-2 text-center text-xs">{r.provincia}</td>
                 <td className="p-2 text-center capitalize">{r.segmento}</td>
                 <td className="p-2 text-center capitalize text-xs">{r.categoria?.replace('_', ' ')}</td>
                 <td className="p-2 text-center">
@@ -333,6 +390,7 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
                     </span>
                   ) : '-'}
                 </td>
+                <td className="p-2 text-right">{isOperador ? '—' : (r.equity != null ? fmt(r.equity) : '—')}</td>
                 <td className="p-2 text-right">{r.habitaciones}</td>
                 <td className="p-2 text-right">{isOperador ? '—' : fmt(r.price_per_key)}</td>
                 <td className="p-2 text-right">{isOperador ? '—' : (r.irr_levered!=null ? pct(r.irr_levered) : '—')}</td>
@@ -340,12 +398,21 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
                 <td className="p-2 text-right">{r.total_fees != null ? fmt(r.total_fees) : '—'}</td>
                 <td className="p-2 text-right">{r.fees_per_key != null ? fmt(r.fees_per_key) : '—'}</td>
                 <td className="p-2 text-center">
-                  <button className="px-2 py-1 border rounded hover:bg-gray-100" onClick={()=>onOpen(r.project_id)}>Abrir</button>
+                  <button className="px-2 py-1 border rounded hover:bg-gray-100 text-xs" onClick={()=>onOpen(r.project_id)}>Abrir</button>
+                </td>
+                <td className="p-2 text-center">
+                  <button
+                    className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-xs"
+                    onClick={()=>handleDownload(r.project_id, r.project_type)}
+                    disabled={downloadingId === r.project_id}
+                  >
+                    {downloadingId === r.project_id ? 'Descargando...' : 'Descargar'}
+                  </button>
                 </td>
               </tr>
             );
             })}
-            {!rows.length && <tr><td className="p-4 text-center text-gray-500" colSpan={12}>{allRows.length > 0 ? 'Ningún proyecto coincide con los filtros seleccionados' : 'Solo se muestran proyectos finalizados'}</td></tr>}
+            {!rows.length && <tr><td className="p-4 text-center text-gray-500" colSpan={14}>{allRows.length > 0 ? 'Ningún proyecto coincide con los filtros seleccionados' : 'Solo se muestran proyectos finalizados'}</td></tr>}
           </tbody>
         </table>
       </div>
