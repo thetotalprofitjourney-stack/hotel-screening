@@ -1198,23 +1198,25 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
           </section>
 
           {/* Paso 1: Validación comercial Y1 (solo lectura) */}
-          <section>
-            <h3 className="text-lg font-semibold mb-2 mt-6">Paso 1 — Validación comercial Y1</h3>
-            <MonthlyTable
-              rows={meses}
-              onChange={() => {}}
-              habitaciones={basicInfo.habitaciones}
-              readOnly
-            />
-          </section>
+          {meses && meses.length > 0 && (
+            <section>
+              <h3 className="text-lg font-semibold mb-2 mt-6">Paso 1 — Validación comercial Y1</h3>
+              <MonthlyTable
+                rows={meses}
+                onChange={() => {}}
+                habitaciones={basicInfo.habitaciones}
+                readOnly
+              />
+            </section>
+          )}
 
           {/* Paso 2: USALI Y1 (solo lectura) */}
-          {calc && (
+          {calc && calculatedUsali && calculatedUsali.length > 0 && (
             <section>
               <h3 className="text-lg font-semibold mb-2 mt-6">Paso 2 — USALI Y1</h3>
               <UsaliEditor
                 calculatedUsali={calculatedUsali}
-                editedUsali={editedUsaliData}
+                editedUsali={editedUsaliData || calculatedUsali}
                 onEditedChange={() => {}}
                 readOnly
               />
