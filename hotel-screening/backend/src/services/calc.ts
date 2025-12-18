@@ -30,7 +30,8 @@ export function calcUsaliY1Monthly(
   ratios: any,
   fees: { base_anual?:number; pct_total_rev?:number; pct_gop?:number; incentive_pct?:number; hurdle_gop_margin?:number; gop_ajustado?:boolean } | null,
   nonopAnnual: { taxes?:number; insurance?:number; rent?:number; other?:number } | null,
-  ffe_pct: number
+  ffe_pct: number,
+  tiene_oferta_fb: boolean = true
 ) {
   // Validaciones
   if (!comm || comm.length !== 12) {
@@ -64,7 +65,8 @@ export function calcUsaliY1Monthly(
 
   const monthly = comm.map(row => {
     const rooms = row.rooms_rev;
-    const r = Number(ratios.ratio_fb_sobre_rooms);
+    // Si no tiene oferta de F&B, poner ratio a 0
+    const r = tiene_oferta_fb ? Number(ratios.ratio_fb_sobre_rooms) : 0;
     const a = Number(ratios.ratio_other_sobre_total);
     const b = Number(ratios.ratio_misc_sobre_total);
 
@@ -83,6 +85,7 @@ export function calcUsaliY1Monthly(
     // Dept expenses
     const dept_rooms = Number(ratios.dept_rooms_pct) * rooms
       + (ratios.dept_rooms_eur_por_rn ? Number(ratios.dept_rooms_eur_por_rn) * row.rn : 0);
+    // Si fb es 0 (no hay oferta de F&B), dept_fb será 0 automáticamente
     const dept_fb    = (Number(ratios.fb_food_cost_pct) + Number(ratios.fb_labor_pct) + Number(ratios.fb_otros_pct)) * fb;
     const dept_other = Number(ratios.dept_other_pct) * other;
     const dept_total = dept_rooms + dept_fb + dept_other;

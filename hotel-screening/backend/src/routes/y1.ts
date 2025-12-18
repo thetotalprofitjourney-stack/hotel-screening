@@ -163,7 +163,7 @@ router.post('/v1/projects/:id/y1/calc', async (req, res) => {
 
   // Defaults de ffe/nonop/fees leídos desde tablas del proyecto
   const [[prj]]: any = await pool.query(
-    `SELECT p.segmento, p.categoria, p.habitaciones, ps.ffe,
+    `SELECT p.segmento, p.categoria, p.habitaciones, p.tiene_oferta_fb, ps.ffe,
             oc.operacion_tipo, oc.fee_base_anual, oc.fee_pct_total_rev, oc.fee_pct_gop, oc.fee_incentive_pct, oc.fee_hurdle_gop_margin, oc.gop_ajustado,
             no.nonop_taxes_anual, no.nonop_insurance_anual, no.nonop_rent_anual, no.nonop_other_anual
        FROM projects p
@@ -206,7 +206,7 @@ router.post('/v1/projects/:id/y1/calc', async (req, res) => {
     other: prj.nonop_other_anual ?? 0
   };
 
-  const { monthly, y1_anual } = calcUsaliY1Monthly(comm, ratios, fees, nonop, Number(prj.ffe));
+  const { monthly, y1_anual } = calcUsaliY1Monthly(comm, ratios, fees, nonop, Number(prj.ffe), Boolean(prj.tiene_oferta_fb));
 
   // Persistimos resultados Y1 (opcional; aquí sí lo guardamos)
   await pool.query(`DELETE FROM usali_y1_monthly WHERE project_id=?`, [projectId]);
