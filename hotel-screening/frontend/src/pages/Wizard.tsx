@@ -943,11 +943,8 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       // Cargar el snapshot para mostrarlo
       await loadSnapshot();
 
-      // Mostrar mensaje de éxito
-      alert('¡Proyecto finalizado como operador exitosamente!');
-
-      // Volver al listado
-      onBack();
+      // El componente ahora mostrará automáticamente la vista snapshot
+      // con los botones "Volver" y "Descargar Word"
     } catch (error) {
       console.error('Error finalizando proyecto como operador:', error);
       alert('Error al finalizar proyecto: ' + (error instanceof Error ? error.message : 'Error desconocido'));
