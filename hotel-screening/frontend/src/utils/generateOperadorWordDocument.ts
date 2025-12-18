@@ -312,16 +312,8 @@ export async function generateOperadorWordDocument(data: OperadorData) {
         children: [
           new TableCell({ children: [new Paragraph({ text: 'Fees Totales' })] }),
           new TableCell({ children: [new Paragraph({ text: fmt(totals.fees), alignment: AlignmentType.RIGHT })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(feesPerKeyTotal), alignment: AlignmentType.RIGHT })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(feesPerRnTotal), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Room Nights Totales' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmtDecimal(totals.rn, 0), alignment: AlignmentType.RIGHT })] }),
-          new TableCell({ children: [new Paragraph({ text: fmtDecimal(totals.rn / keys, 0), alignment: AlignmentType.RIGHT })] }),
-          new TableCell({ children: [new Paragraph({ text: '-', alignment: AlignmentType.RIGHT })] }),
+          new TableCell({ children: [new Paragraph({ text: `${fmtDecimal(feesPerKeyTotal, 2)} €`, alignment: AlignmentType.RIGHT })] }),
+          new TableCell({ children: [new Paragraph({ text: `${fmtDecimal(feesPerRnTotal, 2)} €`, alignment: AlignmentType.RIGHT })] }),
         ],
       }),
     ];
@@ -332,7 +324,7 @@ export async function generateOperadorWordDocument(data: OperadorData) {
         width: { size: 90, type: WidthType.PERCENTAGE },
       }),
       new Paragraph({
-        text: `Los fees por habitación ascienden a ${fmt(feesPerKeyTotal)} durante el período de ${project.horizonte} años, equivalente a ${fmt(feesPerKeyTotal / project.horizonte)} por habitación y año. Por room night, los fees se sitúan en ${fmt(feesPerRnTotal)}, reflejando el valor económico del servicio de gestión por cada noche vendida.`,
+        text: `Los fees por habitación ascienden a ${fmtDecimal(feesPerKeyTotal, 2)} € durante el período de ${project.horizonte} años, equivalente a ${fmtDecimal(feesPerKeyTotal / project.horizonte, 2)} € por habitación y año. Por room night, los fees se sitúan en ${fmtDecimal(feesPerRnTotal, 2)} €, reflejando el valor económico del servicio de gestión por cada noche vendida.`,
         spacing: { before: 200, after: 400 },
       }),
 
@@ -370,8 +362,8 @@ export async function generateOperadorWordDocument(data: OperadorData) {
           children: [
             new TableCell({ children: [new Paragraph({ text: year.anio.toString() })] }),
             new TableCell({ children: [new Paragraph({ text: fmt(year.fees ?? 0), alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(feesPerKey), alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(feesPerRn), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: `${fmtDecimal(feesPerKey, 2)} €`, alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: `${fmtDecimal(feesPerRn, 2)} €`, alignment: AlignmentType.RIGHT })] }),
             new TableCell({ children: [new Paragraph({ text: fmtPct(feesPctRevenue), alignment: AlignmentType.RIGHT })] }),
             new TableCell({ children: [new Paragraph({ text: fmtPct(feesPctGop), alignment: AlignmentType.RIGHT })] }),
           ],
@@ -398,7 +390,7 @@ export async function generateOperadorWordDocument(data: OperadorData) {
         spacing: { after: 300 },
       }),
       new Paragraph({
-        text: `El análisis proyecta unos fees totales para el operador de ${fmt(totals.fees)} durante el período de ${project.horizonte} años, equivalente a ${fmt(feesPerKeyTotal)} por habitación y ${fmt(feesPerRnTotal)} por room night.`,
+        text: `El análisis proyecta unos fees totales para el operador de ${fmt(totals.fees)} durante el período de ${project.horizonte} años, equivalente a ${fmtDecimal(feesPerKeyTotal, 2)} € por habitación y ${fmtDecimal(feesPerRnTotal, 2)} € por room night.`,
         spacing: { after: 200 },
       }),
       new Paragraph({
