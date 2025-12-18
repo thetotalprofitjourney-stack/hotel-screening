@@ -984,7 +984,6 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         body: JSON.stringify({ htmlContent })
       });
 
-      alert('Proyecto finalizado exitosamente. Cuando abras este proyecto, verás exactamente los mismos resultados.');
       setSnapshotFinalizado(true);
 
       // Recargar el proyecto para mostrar el snapshot
@@ -1010,9 +1009,16 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         <div
           dangerouslySetInnerHTML={{ __html: snapshotHtml }}
         />
-        {/* Word Download Button for finalized projects */}
-        <button
-          onClick={async () => {
+        {/* Action buttons at the bottom */}
+        <div className="flex gap-4 items-center">
+          <button
+            className="px-4 py-3 border rounded-lg hover:bg-gray-50 font-semibold"
+            onClick={onBack}
+          >
+            ← Volver
+          </button>
+          <button
+            onClick={async () => {
             try {
               // Load all necessary data for Word generation
               setLoading(prev => ({ ...prev, word: true }));
@@ -1106,10 +1112,11 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
             }
           }}
           disabled={loading.word}
-          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-200"
+          className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-200"
         >
           {loading.word ? 'Generando...' : 'DESCARGAR PROYECTO EN WORD'}
         </button>
+        </div>
       </div>
     );
   }
@@ -2109,8 +2116,15 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded text-center">
                 ✓ Proyecto finalizado. Los datos están guardados como instantánea.
               </div>
-              <button
-                onClick={async () => {
+              <div className="flex gap-4 items-center">
+                <button
+                  className="px-4 py-3 border rounded-lg hover:bg-gray-50 font-semibold"
+                  onClick={onBack}
+                >
+                  ← Volver
+                </button>
+                <button
+                  onClick={async () => {
                   try {
                     // Preparar vr con datos de sensibilidad si existen
                     const vrWithSensitivity = {
@@ -2145,11 +2159,11 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
                     alert('Hubo un error al generar el documento. Por favor, intenta de nuevo.');
                   }
                 }}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-200"
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-200"
               >
                 DESCARGAR PROYECTO EN WORD
               </button>
-
+              </div>
             </>
           )}
         </div>
