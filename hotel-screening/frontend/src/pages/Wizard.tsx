@@ -930,6 +930,20 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         }
       });
 
+      // Eliminar el Paso 4 (Deuda) y pasos posteriores del snapshot de operador
+      const sections = clonedElement.querySelectorAll('section');
+      sections.forEach(section => {
+        const heading = section.querySelector('h3');
+        if (heading && heading.textContent) {
+          const headingText = heading.textContent;
+          // Eliminar Paso 4, 5 y cualquier paso posterior
+          if (headingText.includes('Paso 4') || headingText.includes('Paso 5') ||
+              headingText.includes('Deuda') || headingText.includes('Valoración')) {
+            section.remove();
+          }
+        }
+      });
+
       const htmlContent = clonedElement.innerHTML;
 
       // Guardar campos editados antes de finalizar
