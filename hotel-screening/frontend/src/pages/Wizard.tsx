@@ -105,6 +105,9 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
   const [snapshotFinalizado, setSnapshotFinalizado] = useState(false);
   const [snapshotHtml, setSnapshotHtml] = useState<string | null>(null);
 
+  // Estado para el modal de finalización después del paso 3
+  const [showFinalizationModal, setShowFinalizationModal] = useState(false);
+
   // Registro de campos editados manualmente por el usuario
   type EditedField = { mes?: number; anio?: number; campo: string };
   const [editedFieldsStep1, setEditedFieldsStep1] = useState<EditedField[]>([]);
@@ -876,14 +879,55 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         body: JSON.stringify({ years, assumptions })
       });
 
-      // Asegurarse de que annuals esté actualizado ANTES de marcar como guardado
+      // Asegurarse de que annuals esté actualizado ANTES de mostrar el modal
       setAnnuals(editedAnnuals);
-      setProjectionSaved(true);
+
+      // Mostrar modal de finalización solo si el proyecto NO está ya finalizado
+      if (projectState !== 'finalized') {
+        setShowFinalizationModal(true);
+      } else {
+        setProjectionSaved(true);
+      }
     } catch (error) {
       console.error('Error guardando proyección:', error);
       alert('Error al guardar proyección: ' + (error instanceof Error ? error.message : 'Error desconocido'));
     } finally {
       setLoading(prev => ({ ...prev, save_projection: false }));
+    }
+  }
+
+  // Continuar con datos de inversión (flujo normal)
+  function continueWithInvestment() {
+    setShowFinalizationModal(false);
+    setProjectionSaved(true);
+  }
+
+  // Finalizar proyecto como operador
+  async function finalizeAsOperador() {
+    setShowFinalizationModal(false);
+    setLoading(prev => ({ ...prev, finalize: true }));
+
+    try {
+      await api(`/v1/projects/${projectId}/finalize-operador`, {
+        method: 'POST',
+        body: JSON.stringify({})
+      });
+
+      // Marcar como finalizado y actualizar estado
+      setProjectState('finalized');
+      setProjectionSaved(true);
+      setSnapshotFinalizado(true);
+
+      // Mostrar mensaje de éxito
+      alert('Proyecto finalizado como operador exitosamente. Ahora puedes descargar el documento Word desde el listado de proyectos.');
+
+      // Volver al listado
+      onBack();
+    } catch (error) {
+      console.error('Error finalizando proyecto como operador:', error);
+      alert('Error al finalizar proyecto: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+    } finally {
+      setLoading(prev => ({ ...prev, finalize: false }));
     }
   }
 
@@ -2166,6 +2210,53 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* Modal de finalización después del Paso 3 */}
+      {showFinalizationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-lg w-full mx-4 shadow-xl">
+            <h2 className="text-2xl font-bold mb-4">¿Cómo deseas continuar?</h2>
+            <p className="text-gray-700 mb-6">
+              Has completado la proyección operativa (Paso 3). Ahora puedes elegir:
+            </p>
+
+            <div className="space-y-4">
+              <button
+                onClick={continueWithInvestment}
+                disabled={loading.finalize}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold py-4 px-6 rounded-lg transition duration-200 flex items-center justify-center"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+                SEGUIR CON DATOS DE INVERSIÓN
+              </button>
+
+              <div className="border-t border-gray-300 my-4"></div>
+
+              <button
+                onClick={finalizeAsOperador}
+                disabled={loading.finalize}
+                className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 text-white font-semibold py-4 px-6 rounded-lg transition duration-200 flex items-center justify-center"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                {loading.finalize ? 'Finalizando...' : 'FINALIZAR PROYECTO PARA EL OPERADOR'}
+              </button>
+            </div>
+
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600">
+                <strong>Opción 1:</strong> Continúa con el análisis completo incluyendo financiación, valoración y retornos (pasos 4 y 5).
+              </p>
+              <p className="text-sm text-gray-600 mt-2">
+                <strong>Opción 2:</strong> Finaliza aquí el proyecto y genera un documento Word enfocado en USALI y FEES para el operador.
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>

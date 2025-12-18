@@ -548,7 +548,42 @@ router.post('/v1/projects/:id/sensitivity-scenarios', async (req, res) => {
   res.json({ success: true, count: scenarios.length });
 });
 
-// POST /v1/projects/:id/finalize - Finalizar proyecto y guardar snapshot HTML
+// POST /v1/projects/:id/finalize-operador - Finalizar proyecto como operador (paso 3)
+router.post('/v1/projects/:id/finalize-operador', async (req, res) => {
+  const email = (req as any).userEmail as string;
+  const projectId = req.params.id;
+
+  // Verificar que el usuario es dueño del proyecto
+  const [projectRows] = await pool.query<any[]>(
+    `SELECT * FROM projects WHERE project_id=? AND owner_email=?`,
+    [projectId, email]
+  );
+  if (!projectRows || projectRows.length === 0) {
+    return res.status(404).json({ error: 'Proyecto no encontrado' });
+  }
+
+  const project = projectRows[0];
+
+  // Verificar que el proyecto esté en estado 'projection_2n' (paso 3 completado)
+  if (project.estado !== 'projection_2n') {
+    return res.status(400).json({ error: 'El proyecto debe estar en estado projection_2n (paso 3 completado) para finalizarse como operador' });
+  }
+
+  try {
+    // Marcar el proyecto como finalizado tipo operador
+    await pool.query(
+      `UPDATE projects SET estado='finalized', project_type='operador', snapshot_finalizado=TRUE, updated_at=NOW(3) WHERE project_id=?`,
+      [projectId]
+    );
+
+    res.json({ success: true, message: 'Proyecto finalizado como operador exitosamente' });
+  } catch (e: any) {
+    console.error('Error finalizando proyecto como operador:', e);
+    res.status(500).json({ error: 'Error al finalizar proyecto: ' + e.message });
+  }
+});
+
+// POST /v1/projects/:id/finalize - Finalizar proyecto y guardar snapshot HTML (inversión completa)
 router.post('/v1/projects/:id/finalize', async (req, res) => {
   const email = (req as any).userEmail as string;
   const projectId = req.params.id;
@@ -584,9 +619,9 @@ router.post('/v1/projects/:id/finalize', async (req, res) => {
       [projectId, htmlContent]
     );
 
-    // Marcar el proyecto como snapshot_finalizado
+    // Marcar el proyecto como snapshot_finalizado y tipo inversión
     await pool.query(
-      `UPDATE projects SET snapshot_finalizado=TRUE, updated_at=NOW(3) WHERE project_id=?`,
+      `UPDATE projects SET snapshot_finalizado=TRUE, project_type='inversión', updated_at=NOW(3) WHERE project_id=?`,
       [projectId]
     );
 
@@ -633,6 +668,101 @@ router.get('/v1/projects/:id/snapshot', async (req, res) => {
     htmlContent: snapshot.html_content,
     finalizedAt: snapshot.finalized_at
   });
+});
+
+// GET /v1/projects/:id/operador-data - Obtener datos para documento Word de operador
+router.get('/v1/projects/:id/operador-data', async (req, res) => {
+  const email = (req as any).userEmail as string;
+  const projectId = req.params.id;
+
+  try {
+    // Verificar que el usuario es dueño del proyecto
+    const [projectRows] = await pool.query<any[]>(
+      `SELECT * FROM projects WHERE project_id=? AND owner_email=?`,
+      [projectId, email]
+    );
+    if (!projectRows || projectRows.length === 0) {
+      return res.status(404).json({ error: 'Proyecto no encontrado' });
+    }
+
+    const project = projectRows[0];
+
+    // Verificar que sea un proyecto de operador
+    if (project.project_type !== 'operador') {
+      return res.status(400).json({ error: 'Este endpoint es solo para proyectos de tipo operador' });
+    }
+
+    // Obtener datos del proyecto
+    const [[settings]]: any = await pool.query(
+      `SELECT * FROM project_settings WHERE project_id=?`,
+      [projectId]
+    );
+
+    const [[operator]]: any = await pool.query(
+      `SELECT * FROM operator_contracts WHERE project_id=?`,
+      [projectId]
+    );
+
+    // Obtener USALI anual
+    const [annuals]: any = await pool.query(
+      `SELECT anio, rn, rooms_rev, fb, other_operated, misc_income, occupancy, adr,
+              operating_revenue, dept_total, dept_profit, und_total, gop, fees,
+              nonop, ebitda, ffe, ebitda_less_ffe,
+              gop_margin, ebitda_margin, ebitda_less_ffe_margin
+       FROM usali_annual
+       WHERE project_id=?
+       ORDER BY anio`,
+      [projectId]
+    );
+
+    if (!annuals || annuals.length === 0) {
+      return res.status(404).json({ error: 'No se encontraron datos de USALI' });
+    }
+
+    // Calcular totales
+    const totals = annuals.reduce((acc: any, year: any) => ({
+      operating_revenue: acc.operating_revenue + (year.operating_revenue || 0),
+      gop: acc.gop + (year.gop || 0),
+      fees: acc.fees + (year.fees || 0),
+      ebitda: acc.ebitda + (year.ebitda || 0),
+      rn: acc.rn + (year.rn || 0),
+    }), {
+      operating_revenue: 0,
+      gop: 0,
+      fees: 0,
+      ebitda: 0,
+      rn: 0,
+    });
+
+    res.json({
+      project: {
+        nombre: project.nombre,
+        comunidad_autonoma: project.comunidad_autonoma,
+        provincia: project.provincia,
+        zona: project.zona,
+        segmento: project.segmento,
+        categoria: project.categoria,
+        habitaciones: project.habitaciones,
+        horizonte: project.horizonte,
+      },
+      operator: {
+        operacion_tipo: operator?.operacion_tipo || 'operador',
+        fee_base_anual: operator?.fee_base_anual || 0,
+        fee_pct_total_rev: operator?.fee_pct_total_rev || 0,
+        fee_pct_gop: operator?.fee_pct_gop || 0,
+        fee_incentive_pct: operator?.fee_incentive_pct || 0,
+        fee_hurdle_gop_margin: operator?.fee_hurdle_gop_margin || 0,
+      },
+      settings: {
+        ffe: settings?.ffe || 0,
+      },
+      annuals,
+      totals,
+    });
+  } catch (e: any) {
+    console.error('Error obteniendo datos de operador:', e);
+    res.status(500).json({ error: 'Error al obtener datos: ' + e.message });
+  }
 });
 
 export default router;

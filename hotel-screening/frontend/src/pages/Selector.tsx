@@ -16,11 +16,17 @@ const OPTS = [
   { key:'y1_noi_cap_rate', label:'Cap Rate Y1' },
   { key:'price_per_key', label:'Price/Key' },
   { key:'y1_ebitda_margin', label:'EBITDA% Y1' },
-  { key:'y1_operating_revenue', label:'Ingresos Y1' }
+  { key:'y1_operating_revenue', label:'Ingresos Y1' },
+  { key:'total_fees', label:'FEES (€)' },
+  { key:'fees_per_rn', label:'FEES (€/rn)' }
 ];
 
 const SEGMENTOS = ['urbano', 'vacacional'];
 const CATEGORIAS = ['economy', 'midscale', 'upper_midscale', 'upscale', 'upper_upscale', 'luxury'];
+const PROJECT_TYPES = [
+  { key: 'operador', label: 'Operador' },
+  { key: 'inversión', label: 'Inversión/Banco' }
+];
 
 export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; onBack:()=>void }) {
   const [sort, setSort] = useState('irr_levered');
@@ -31,6 +37,7 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
   // Filtros
   const [selectedSegmentos, setSelectedSegmentos] = useState<string[]>([]);
   const [selectedCategorias, setSelectedCategorias] = useState<string[]>([]);
+  const [selectedProjectTypes, setSelectedProjectTypes] = useState<string[]>([]);
   const [irrMin, setIrrMin] = useState<number | null>(null);
   const [irrMax, setIrrMax] = useState<number | null>(null);
   const [fechaMin, setFechaMin] = useState<string>('');
@@ -58,6 +65,11 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
       filtered = filtered.filter(r => selectedCategorias.includes(r.categoria));
     }
 
+    // Filtro por tipo de proyecto
+    if (selectedProjectTypes.length > 0) {
+      filtered = filtered.filter(r => r.project_type && selectedProjectTypes.includes(r.project_type));
+    }
+
     // Filtro por rango de IRR
     if (irrMin !== null) {
       filtered = filtered.filter(r => r.irr_levered !== null && r.irr_levered >= irrMin / 100);
@@ -82,7 +94,7 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
 
   useEffect(() => {
     applyFilters();
-  }, [selectedSegmentos, selectedCategorias, irrMin, irrMax, fechaMin, fechaMax, allRows]);
+  }, [selectedSegmentos, selectedCategorias, selectedProjectTypes, irrMin, irrMax, fechaMin, fechaMax, allRows]);
 
   const toggleSegmento = (seg: string) => {
     setSelectedSegmentos(prev =>
@@ -96,8 +108,15 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
     );
   };
 
+  const toggleProjectType = (type: string) => {
+    setSelectedProjectTypes(prev =>
+      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+    );
+  };
+
   const clearFilters = () => {
     setSelectedSegmentos([]);
+    setSelectedProjectTypes([]);
     setSelectedCategorias([]);
     setIrrMin(null);
     setIrrMax(null);
@@ -180,6 +199,24 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
               </div>
             </div>
 
+            {/* Filtro por tipo de proyecto */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Tipo de Proyecto</label>
+              <div className="space-y-1">
+                {PROJECT_TYPES.map(type => (
+                  <label key={type.key} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedProjectTypes.includes(type.key)}
+                      onChange={() => toggleProjectType(type.key)}
+                      className="rounded"
+                    />
+                    <span className="text-sm">{type.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             {/* Filtro por rango de IRR */}
             <div>
               <label className="block text-sm font-medium mb-2">Rango de IRR Levered (%)</label>
@@ -236,11 +273,12 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
           </div>
 
           {/* Resumen de filtros activos */}
-          {(selectedSegmentos.length > 0 || selectedCategorias.length > 0 || irrMin !== null || irrMax !== null || fechaMin || fechaMax) && (
+          {(selectedSegmentos.length > 0 || selectedCategorias.length > 0 || selectedProjectTypes.length > 0 || irrMin !== null || irrMax !== null || fechaMin || fechaMax) && (
             <div className="mt-3 pt-3 border-t text-sm">
               <strong>Filtros activos:</strong>{' '}
               {selectedSegmentos.length > 0 && <span className="text-blue-600">Segmentos: {selectedSegmentos.join(', ')} </span>}
               {selectedCategorias.length > 0 && <span className="text-green-600">Categorías: {selectedCategorias.join(', ')} </span>}
+              {selectedProjectTypes.length > 0 && <span className="text-indigo-600">Tipo: {selectedProjectTypes.map(t => PROJECT_TYPES.find(pt => pt.key === t)?.label).join(', ')} </span>}
               {(irrMin !== null || irrMax !== null) && (
                 <span className="text-purple-600">
                   IRR: {irrMin ?? '-∞'}% - {irrMax ?? '+∞'}%{' '}
@@ -268,34 +306,52 @@ export default function Selector({ onOpen, onBack }:{ onOpen:(id:string)=>void; 
               <th className="p-2">Ubicación</th>
               <th className="p-2">Segm</th>
               <th className="p-2">Cat</th>
+              <th className="p-2">Tipo</th>
               <th className="p-2">Keys</th>
               <th className="p-2">Price/Key</th>
               <th className="p-2">Cap Rate Y1</th>
               <th className="p-2">Yield on Cost Y1</th>
               <th className="p-2">DSCR Y1</th>
               <th className="p-2">IRR lev.</th>
+              <th className="p-2">FEES (€)</th>
+              <th className="p-2">FEES (€/rn)</th>
               <th className="p-2"></th>
             </tr>
           </thead>
           <tbody>
-            {rows.map(r=>(
+            {rows.map(r=>{
+              const isOperador = r.project_type === 'operador';
+              return (
               <tr key={r.project_id} className="border-t hover:bg-gray-50">
                 <td className="p-2 text-left">{r.nombre}</td>
                 <td className="p-2 text-center text-xs">{r.comunidad_autonoma} - {r.provincia} - {r.zona}</td>
                 <td className="p-2 text-center capitalize">{r.segmento}</td>
                 <td className="p-2 text-center capitalize text-xs">{r.categoria?.replace('_', ' ')}</td>
+                <td className="p-2 text-center">
+                  {r.project_type ? (
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      r.project_type === 'operador' ? 'bg-purple-100 text-purple-800' :
+                      'bg-indigo-100 text-indigo-800'
+                    }`}>
+                      {r.project_type === 'operador' ? 'Oper.' : 'Inv.'}
+                    </span>
+                  ) : '-'}
+                </td>
                 <td className="p-2 text-right">{r.habitaciones}</td>
-                <td className="p-2 text-right">{fmt(r.price_per_key)}</td>
-                <td className="p-2 text-right">{pct(r.y1_noi_cap_rate)}</td>
-                <td className="p-2 text-right">{pct(r.y1_yield_on_cost)}</td>
-                <td className="p-2 text-right">{r.y1_dscr ? fmtDecimal(r.y1_dscr, 2) : '—'}</td>
-                <td className="p-2 text-right">{r.irr_levered!=null ? pct(r.irr_levered) : '—'}</td>
+                <td className="p-2 text-right">{isOperador ? '—' : fmt(r.price_per_key)}</td>
+                <td className="p-2 text-right">{isOperador ? '—' : pct(r.y1_noi_cap_rate)}</td>
+                <td className="p-2 text-right">{isOperador ? '—' : pct(r.y1_yield_on_cost)}</td>
+                <td className="p-2 text-right">{isOperador ? '—' : (r.y1_dscr ? fmtDecimal(r.y1_dscr, 2) : '—')}</td>
+                <td className="p-2 text-right">{isOperador ? '—' : (r.irr_levered!=null ? pct(r.irr_levered) : '—')}</td>
+                <td className="p-2 text-right">{r.total_fees != null ? fmt(r.total_fees) : '—'}</td>
+                <td className="p-2 text-right">{r.fees_per_rn != null ? fmt(r.fees_per_rn) : '—'}</td>
                 <td className="p-2 text-center">
                   <button className="px-2 py-1 border rounded hover:bg-gray-100" onClick={()=>onOpen(r.project_id)}>Abrir</button>
                 </td>
               </tr>
-            ))}
-            {!rows.length && <tr><td className="p-4 text-center text-gray-500" colSpan={11}>{allRows.length > 0 ? 'Ningún proyecto coincide con los filtros seleccionados' : 'Sin datos (calcula Y1 / proyección / deuda / valoración)'}</td></tr>}
+            );
+            })}
+            {!rows.length && <tr><td className="p-4 text-center text-gray-500" colSpan={14}>{allRows.length > 0 ? 'Ningún proyecto coincide con los filtros seleccionados' : 'Solo se muestran proyectos finalizados'}</td></tr>}
           </tbody>
         </table>
       </div>
