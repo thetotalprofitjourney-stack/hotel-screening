@@ -32,6 +32,28 @@ function fmtDecimal(n: number, decimals: number = 2): string {
   });
 }
 
+// Función para formatear moneda con separador de miles, 2 decimales y símbolo €
+function fmtMoney(n: number): string {
+  const sign = n < 0 ? '-' : '';
+  const abs = Math.abs(n);
+  const integerPart = Math.floor(abs);
+  const decimalPart = Math.round((abs - integerPart) * 100);
+
+  // Formatear parte entera con separador de miles
+  const intStr = integerPart.toString();
+  const parts = [];
+  for (let i = intStr.length; i > 0; i -= 3) {
+    const start = Math.max(0, i - 3);
+    parts.unshift(intStr.substring(start, i));
+  }
+  const formattedInt = parts.join('.');
+
+  // Formatear parte decimal (siempre 2 dígitos)
+  const formattedDec = decimalPart.toString().padStart(2, '0');
+
+  return `${sign}${formattedInt},${formattedDec} €`;
+}
+
 function fmtPct(n: number, decimals: number = 2): string {
   return `${fmtDecimal(n * 100, decimals)}%`;
 }
@@ -362,8 +384,8 @@ export async function generateOperadorWordDocument(data: OperadorData) {
           children: [
             new TableCell({ children: [new Paragraph({ text: year.anio.toString() })] }),
             new TableCell({ children: [new Paragraph({ text: fmt(year.fees ?? 0), alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: `${fmtDecimal(feesPerKey, 2)} €`, alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: `${fmtDecimal(feesPerRn, 2)} €`, alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtMoney(feesPerKey), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtMoney(feesPerRn), alignment: AlignmentType.RIGHT })] }),
             new TableCell({ children: [new Paragraph({ text: fmtPct(feesPctRevenue), alignment: AlignmentType.RIGHT })] }),
             new TableCell({ children: [new Paragraph({ text: fmtPct(feesPctGop), alignment: AlignmentType.RIGHT })] }),
           ],
