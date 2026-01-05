@@ -41,7 +41,8 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
 
   // Verificar si existe Y1 guardado en usali_annual
   const [[y1Saved]]: any = await pool.query(
-    `SELECT rn, operating_revenue, dept_total, dept_profit, und_total, gop, fees, nonop, ebitda, ffe, ebitda_less_ffe,
+    `SELECT rn, rooms_rev, fb, other_operated, misc_income, occupancy, adr,
+            operating_revenue, dept_total, dept_profit, und_total, gop, fees, nonop, ebitda, ffe, ebitda_less_ffe,
             gop_margin, ebitda_margin, ebitda_less_ffe_margin
      FROM usali_annual
      WHERE project_id=? AND anio=1`,
@@ -53,10 +54,36 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
     throw new Error('Y1_NOT_SAVED_YET: Debes guardar el USALI Y1 antes de proyectar');
   }
 
-  // ✅ LEER TODOS LOS DATOS DEL Y1 DESDE usali_y1_monthly (fuente única de verdad)
-  // Leer datos mensuales guardados del Y1
+  // ✅ USAR DATOS DE usali_annual anio=1 COMO FUENTE ÚNICA DE VERDAD
+  // Los datos del Y1 ya fueron editados y guardados en el PASO 2
+  const rn1 = Number(y1Saved.rn);
+  const y1_rooms_rev = Number(y1Saved.rooms_rev);
+  const y1_fb = Number(y1Saved.fb);
+  const y1_other = Number(y1Saved.other_operated);
+  const y1_misc = Number(y1Saved.misc_income);
+  const y1_total_rev = Number(y1Saved.operating_revenue);
+  const y1_dept_total = Number(y1Saved.dept_total);
+  const y1_und_total = Number(y1Saved.und_total);
+
+  if (rn1 <= 0 || y1_rooms_rev <= 0) throw new Error('Y1_DATA_INCOMPLETE');
+
+  // Calcular occ y ADR desde los datos guardados en usali_annual
+  const occ1 = Number(y1Saved.occupancy);
+  const adr1 = Number(y1Saved.adr);
+
+  // Obtener suma de días de operativa del año 1 desde y1_commercial (necesario para cálculos de años futuros)
+  const [y1CommercialDays]: any = await pool.query(
+    `SELECT SUM(y1_mes_dias) as total_dias
+     FROM y1_commercial
+     WHERE project_id=?`,
+    [project_id]
+  );
+  const suma_dias_y1 = Number(y1CommercialDays[0]?.total_dias ?? 365);
+
+  // Leer datos mensuales para calcular distribuciones departamentales y undistributed
+  // (necesario para aplicar proporciones correctas en años 2-N)
   const [y1Monthly]: any = await pool.query(
-    `SELECT rooms, fb, other_operated, misc_income, total_rev,
+    `SELECT rooms, fb, other_operated, misc_income,
             dept_rooms, dept_fb, dept_other,
             und_ag, und_it, und_sm, und_pom, und_eww
      FROM usali_y1_monthly
@@ -69,58 +96,33 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
     throw new Error('Y1_USALI_NOT_SAVED: Debes guardar el USALI Y1 antes de proyectar');
   }
 
-  // Sumar totales anuales del Y1 guardado (fuente única de verdad)
+  // Sumar componentes mensuales para calcular porcentajes (solo para proyección de años 2-N)
   const sum = (field: string) => (y1Monthly as any[]).reduce((acc: number, m: any) => acc + Number(m[field] || 0), 0);
 
-  const y1_total_rooms = sum('rooms');
-  const y1_total_fb = sum('fb');
-  const y1_total_other = sum('other_operated');
-  const y1_total_misc = sum('misc_income');
-  const y1_total_rev = sum('total_rev');
-
-  // Obtener suma de días de operativa del año 1 desde y1_commercial
-  const [y1CommercialDays]: any = await pool.query(
-    `SELECT SUM(y1_mes_dias) as total_dias
-     FROM y1_commercial
-     WHERE project_id=?`,
-    [project_id]
-  );
-  const suma_dias_y1 = Number(y1CommercialDays[0]?.total_dias ?? 365);
-
-  // Calcular RN desde y1_saved (debe coincidir con los ingresos)
-  const rn1 = Number(y1Saved.rn);
-  if (rn1 <= 0 || y1_total_rooms <= 0) throw new Error('Y1_DATA_INCOMPLETE');
-
-  // Calcular occ y ADR desde los datos guardados
-  // ✅ CORRECCIÓN: Usar suma de días de operativa del año 1, no 365 días
-  const occ1 = rn1 / (prj.habitaciones * suma_dias_y1);
-  const adr1 = y1_total_rooms / rn1;  // ✅ Usar y1_total_rooms (de usali_y1_monthly), no rooms_rev1
   const y1_dept_rooms = sum('dept_rooms');
   const y1_dept_fb = sum('dept_fb');
   const y1_dept_other = sum('dept_other');
-  const y1_dept_total = y1_dept_rooms + y1_dept_fb + y1_dept_other;
 
   const y1_und_ag = sum('und_ag');
   const y1_und_it = sum('und_it');
   const y1_und_sm = sum('und_sm');
   const y1_und_pom = sum('und_pom');
   const y1_und_eww = sum('und_eww');
-  const y1_und_total = y1_und_ag + y1_und_it + y1_und_sm + y1_und_pom + y1_und_eww;
 
-  // Calcular porcentajes REALES del Y1 guardado
+  // Calcular porcentajes REALES del Y1 guardado (para aplicar en años 2-N)
   const realY1Pct = {
     // Departamentales como % de su línea de ingreso correspondiente
-    dept_rooms_pct: y1_total_rooms > 0 ? y1_dept_rooms / y1_total_rooms : 0,
+    dept_rooms_pct: y1_rooms_rev > 0 ? y1_dept_rooms / y1_rooms_rev : 0,
     dept_rooms_eur_por_rn: 0, // No usamos este campo en la proyección de Y1 editado
 
     // FB: separamos los 3 componentes (food cost, labor, otros) del total dept_fb
     // Como no guardamos el detalle, calculamos el total como % de FB revenue
-    fb_total_pct: y1_total_fb > 0 ? y1_dept_fb / y1_total_fb : 0,
+    fb_total_pct: y1_fb > 0 ? y1_dept_fb / y1_fb : 0,
     fb_food_cost_pct: 0, // Se usará fb_total_pct en su lugar
     fb_labor_pct: 0,
     fb_otros_pct: 0,
 
-    dept_other_pct: y1_total_other > 0 ? y1_dept_other / y1_total_other : 0,
+    dept_other_pct: y1_other > 0 ? y1_dept_other / y1_other : 0,
 
     // Undistributed como % del total revenue
     und_ag_pct: y1_total_rev > 0 ? y1_und_ag / y1_total_rev : 0,
@@ -130,9 +132,9 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
     und_eww_pct: y1_total_rev > 0 ? y1_und_eww / y1_total_rev : 0,
 
     // Ratios de ingresos (mantener los mismos del Y1)
-    r: y1_total_rooms > 0 ? y1_total_fb / y1_total_rooms : 0,
-    a: y1_total_rev > 0 ? y1_total_other / y1_total_rev : 0,
-    b: y1_total_rev > 0 ? y1_total_misc / y1_total_rev : 0,
+    r: y1_rooms_rev > 0 ? y1_fb / y1_rooms_rev : 0,
+    a: y1_total_rev > 0 ? y1_other / y1_total_rev : 0,
+    b: y1_total_rev > 0 ? y1_misc / y1_total_rev : 0,
   };
 
   const res: any[] = [];
@@ -160,25 +162,28 @@ export async function projectYears(project_id: string, assumptions: Assumptions)
 
   for (let y = 1; y <= horizon; y++) {
     if (y === 1) {
-      // ✅ AÑO 1: Usar datos guardados directamente de usali_y1_monthly (editados por el usuario)
+      // ✅ AÑO 1: Usar datos guardados DIRECTAMENTE de usali_annual anio=1 (editados por el usuario en PASO 2)
+      // Esta es una copia EXACTA de los datos del PASO 2, sin recalcular nada
+      const rn1 = Number(y1Saved.rn);
+
       // Ocupación financiera (sobre inventario total de 365 días)
       const inventario_total_y1 = prj.habitaciones * 365;
       const occupancy_financiera_y1 = inventario_total_y1 > 0 ? rn1 / inventario_total_y1 : 0;
 
       res.push({
         anio: 1,
-        occupancy: occ1,
+        occupancy: Number(y1Saved.occupancy),
         occupancy_financiera: occupancy_financiera_y1, // Nueva: ocupación sobre 365 días
-        adr: adr1,
+        adr: Number(y1Saved.adr),
         rn: rn1,
-        rooms_rev: y1_total_rooms,  // ✅ Usar valor de usali_y1_monthly
-        fb: y1_total_fb,            // ✅ Usar valor de usali_y1_monthly
-        other_operated: y1_total_other,  // ✅ Usar valor de usali_y1_monthly
-        misc_income: y1_total_misc,      // ✅ Usar valor de usali_y1_monthly
+        rooms_rev: Number(y1Saved.rooms_rev),  // ✅ Usar valor exacto de usali_annual
+        fb: Number(y1Saved.fb),                // ✅ Usar valor exacto de usali_annual
+        other_operated: Number(y1Saved.other_operated),  // ✅ Usar valor exacto de usali_annual
+        misc_income: Number(y1Saved.misc_income),        // ✅ Usar valor exacto de usali_annual
         operating_revenue: Number(y1Saved.operating_revenue),
-        dept_total: y1_dept_total,
+        dept_total: Number(y1Saved.dept_total),
         dept_profit: Number(y1Saved.dept_profit),
-        und_total: y1_und_total,
+        und_total: Number(y1Saved.und_total),
         gop: Number(y1Saved.gop),
         fees: Number(y1Saved.fees),
         nonop: Number(y1Saved.nonop),
