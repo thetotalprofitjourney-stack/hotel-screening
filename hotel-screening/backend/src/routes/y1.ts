@@ -208,61 +208,8 @@ router.post('/v1/projects/:id/y1/calc', async (req, res) => {
 
   const { monthly, y1_anual } = calcUsaliY1Monthly(comm, ratios, fees, nonop, Number(prj.ffe), Boolean(prj.tiene_oferta_fb));
 
-  // Persistimos resultados Y1 (opcional; aquí sí lo guardamos)
-  await pool.query(`DELETE FROM usali_y1_monthly WHERE project_id=?`, [projectId]);
-  const placeholders = monthly.map(()=>'(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').join(',');
-  const vals: any[] = [];
-  monthly.forEach(m => {
-    vals.push(
-      projectId, m.mes,
-      m.rooms, m.fb, m.other_operated, m.misc_income, m.total_rev,
-      m.dept_rooms, m.dept_fb, m.dept_other, m.dept_total, m.dept_profit,
-      m.und_ag, m.und_it, m.und_sm, m.und_pom, m.und_eww, m.und_total,
-      m.gop, m.fees_base, m.fees_variable, m.fees_incentive, m.fees_total,
-      m.income_before_nonop, m.nonop_total, m.ebitda, m.ffe_amount, m.ebitda_less_ffe
-    );
-  });
-  await pool.query(
-    `INSERT INTO usali_y1_monthly
-     (project_id,mes,rooms,fb,other_operated,misc_income,total_rev,
-      dept_rooms,dept_fb,dept_other,dept_total,dept_profit,
-      und_ag,und_it,und_sm,und_pom,und_eww,und_total,
-      gop,fees_base,fees_variable,fees_incentive,fees_total,
-      income_before_nonop,nonop_total,ebitda,ffe_amount,ebitda_less_ffe)
-     VALUES ${placeholders}`,
-    vals
-  );
-
-  // Calcular RN total de Y1 desde y1_commercial
-  const y1_rn_total = comm.reduce((sum: number, m: any) => sum + Number(m.rn || 0), 0);
-  const y1_dept_total = monthly.reduce((sum, m) => sum + (m.dept_total || 0), 0);
-  const y1_dept_profit_total = monthly.reduce((sum, m) => sum + (m.dept_profit || 0), 0);
-  const y1_und_total = monthly.reduce((sum, m) => sum + (m.und_total || 0), 0);
-
-  // Calcular nuevos campos para usali_annual
-  const y1_rooms_rev = monthly.reduce((sum, m) => sum + (m.rooms || 0), 0);
-  const y1_fb = monthly.reduce((sum, m) => sum + (m.fb || 0), 0);
-  const y1_other_operated = monthly.reduce((sum, m) => sum + (m.other_operated || 0), 0);
-  const y1_misc_income = monthly.reduce((sum, m) => sum + (m.misc_income || 0), 0);
-
-  // Calcular suma de días de y1_commercial
-  const suma_dias = comm.reduce((sum: number, m: any) => sum + Number(m.dias || 0), 0);
-
-  // Calcular occupancy y adr
-  const habitaciones_disponibles = prj.habitaciones * suma_dias;
-  const y1_occupancy = habitaciones_disponibles > 0 ? y1_rn_total / habitaciones_disponibles : 0;
-  const y1_adr = y1_rn_total > 0 ? y1_rooms_rev / y1_rn_total : 0;
-
-  await pool.query(
-    `REPLACE INTO usali_annual
-     (project_id, anio, rn, rooms_rev, fb, other_operated, misc_income, occupancy, adr, operating_revenue, dept_total, dept_profit, und_total, gop, fees, nonop, ebitda, ffe, ebitda_less_ffe, gop_margin, ebitda_margin, ebitda_less_ffe_margin)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [
-      projectId, 1, y1_rn_total, y1_rooms_rev, y1_fb, y1_other_operated, y1_misc_income, y1_occupancy, y1_adr,
-      y1_anual.operating_revenue, y1_dept_total, y1_dept_profit_total, y1_und_total, y1_anual.gop, y1_anual.fees, y1_anual.nonop, y1_anual.ebitda,
-      y1_anual.ffe, y1_anual.ebitda_less_ffe, y1_anual.gop_margin, y1_anual.ebitda_margin, y1_anual.ebitda_less_ffe_margin
-    ]
-  );
+  // ✅ NO PERSISTIR - Este endpoint es solo para preview/cálculo
+  // Solo el endpoint PUT /v1/usali debería guardar las ediciones del usuario
 
   res.json({
     ratios_origen: {
