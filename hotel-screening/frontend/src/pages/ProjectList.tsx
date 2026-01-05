@@ -29,7 +29,7 @@ export default function ProjectList({ onNew, onOpen, onSelector }:{ onNew:()=>vo
       const [configData, projectionData, debtData, valuationData, commercialY1Data, usaliY1Data] = await Promise.all([
         api(`/v1/projects/${projectId}/config`),
         api(`/v1/projects/${projectId}/projection`),
-        api(`/v1/projects/${projectId}/debt`),
+        api(`/v1/projects/${projectId}/debt`).catch(() => ({ loan_amount: 0, schedule: [] })),
         api(`/v1/projects/${projectId}/valuation-and-returns`),
         api(`/v1/projects/${projectId}/y1/commercial`).catch(() => ({ meses: [] })),
         api(`/v1/projects/${projectId}/y1/usali`).catch(() => ({ usali: [] }))
