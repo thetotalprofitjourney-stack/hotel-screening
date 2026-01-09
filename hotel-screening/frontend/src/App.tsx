@@ -10,14 +10,19 @@ const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
 export default function App() {
   const [view, setView] = useState<View>({ name:'list' });
+  const [userEmail, setUserEmail] = useState<string>('');
 
   useEffect(() => {
     const initializeUser = async () => {
-      if (!localStorage.getItem('email')) {
+      const storedEmail = localStorage.getItem('email');
+      if (storedEmail) {
+        setUserEmail(storedEmail);
+      } else {
         const e = prompt('Email de usuario (simulado Kajabi):','demo@user.com');
         if (e) {
           const normalizedEmail = e.toLowerCase();
           localStorage.setItem('email', normalizedEmail);
+          setUserEmail(normalizedEmail);
 
           // Hacer una llamada al backend para que el middleware cree el usuario automáticamente
           try {
@@ -38,7 +43,7 @@ export default function App() {
     <div className="p-6 max-w-6xl mx-auto">
       <header className="flex items-center justify-between mb-6">
         <div></div>
-        <div className="text-sm text-gray-500">usuario: {localStorage.getItem('email')}</div>
+        <div className="text-sm text-gray-500">usuario: {userEmail}</div>
       </header>
 
 	  {view.name==='list'    && <ProjectList onNew={()=>setView({name:'new'})} onOpen={(id)=>setView({name:'wizard', projectId:id})} onSelector={()=>setView({name:'selector'})} />}
