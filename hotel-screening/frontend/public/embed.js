@@ -12,7 +12,7 @@
  *
  * 3. Opcionalmente, puedes definir una variable global MA con información del usuario:
  *    <script>
- *      var MA = {
+ *      var TPJ = {
  *        user: {
  *          email: 'usuario@ejemplo.com',
  *          kajabiUserId: '12345'
@@ -93,5 +93,6 @@
 	// Incrustar iframes en todos los divs con clase 'ma-hotel-screening'
 	insertIframes('.ma-hotel-screening', url);
 })();
+
 
 
