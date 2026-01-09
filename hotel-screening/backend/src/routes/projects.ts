@@ -5,6 +5,14 @@ import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
 
+// POST /v1/auth/init - Endpoint específico para inicializar usuario
+router.post('/v1/auth/init', async (req, res) => {
+  const email = (req as any).userEmail as string;
+  // El middleware ya creó o actualizó el usuario
+  // Solo devolvemos confirmación
+  res.json({ success: true, email });
+});
+
 const createProjectSchema = z.object({
   rol: z.enum(['inversor','operador','banco']).optional().default('inversor'),
   nombre: z.string().min(2),
