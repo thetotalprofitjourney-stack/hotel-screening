@@ -74,7 +74,7 @@
 	let url = 'https://ma.thetotalprofitjourney.com/';
 
 	// Si hay información del usuario disponible, añadirla a la URL
-	if (typeof MA !== 'undefined' && MA.user) {
+	if (typeof TPJ !== 'undefined' && TPJ.user) {
 		const params = new URLSearchParams();
 	
 		if (TPJ.user.email) {
@@ -93,4 +93,5 @@
 	// Incrustar iframes en todos los divs con clase 'ma-hotel-screening'
 	insertIframes('.ma-hotel-screening', url);
 })();
+
 
