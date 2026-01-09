@@ -8,7 +8,7 @@
 
 function postUpdateHeight() {
 	if (window.parent && window.parent !== window) {
-		const height = document.documentElement.scrollHeight;
+		const height = document.body.scrollHeight;
 		window.parent.postMessage({height: height}, '*');
 	}
 }
@@ -34,3 +34,4 @@ if (typeof MutationObserver !== 'undefined') {
 		attributes: true
 	});
 }
+
