@@ -84,9 +84,9 @@ server {
 
     # Control de acceso para el resto de la aplicación
     location / {
-        # Si NO está permitido, retornar 403
+        # Si NO está permitido, redirigir a la página principal de Kajabi
         if ($access_allowed = 0) {
-            return 403 "Acceso directo no permitido. Por favor accede desde la plataforma autorizada.";
+            return 302 https://totalprofitjourney.com;
         }
 
         # Si está permitido, servir la aplicación
@@ -203,7 +203,7 @@ Si usas Plesk, la configuración es más sencilla:
 ### Probar con acceso BLOQUEADO (ALLOW_DIRECT_ACCESS=false)
 
 ```bash
-# Acceso directo → debe retornar 403
+# Acceso directo → debe redirigir con 302 a https://totalprofitjourney.com
 curl -I https://ma.thetotalprofitjourney.com/
 
 # Acceso desde Kajabi → debe retornar 200
@@ -297,7 +297,7 @@ Usuario → https://ma.thetotalprofitjourney.com
       - allow_direct: false
       - access_allowed: 0
          ↓
-      → 403 Forbidden
+      → 302 Redirect → https://totalprofitjourney.com
 ```
 
 ### Escenario 2: Usuario accede desde Kajabi (ALLOW_DIRECT_ACCESS=false)
