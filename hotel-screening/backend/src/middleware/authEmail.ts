@@ -13,14 +13,24 @@ export async function requireEmail(req: Request, res: Response, next: NextFuncti
   if (!email) return res.status(401).json({ error: 'Missing x-user-email' });
 
   const normalizedEmail = email.toLowerCase();
+  const kajabiUserId = req.header('x-kajabi-user-id');
 
   try {
-    // Intentar crear el usuario si no existe (usando INSERT IGNORE)
-    // Esto garantiza que el usuario exista antes de cualquier operación
-    await pool.query(
-      `INSERT IGNORE INTO users (email) VALUES (?)`,
-      [normalizedEmail]
-    );
+    // Crear o actualizar el usuario con su kajabi_user_id si viene en el header
+    // Si el usuario ya existe, actualizar solo el kajabi_user_id si viene en el header
+    if (kajabiUserId) {
+      await pool.query(
+        `INSERT INTO users (email, kajabi_user_id) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE kajabi_user_id = VALUES(kajabi_user_id)`,
+        [normalizedEmail, kajabiUserId]
+      );
+    } else {
+      // Si no hay kajabi_user_id, solo crear el usuario si no existe
+      await pool.query(
+        `INSERT IGNORE INTO users (email) VALUES (?)`,
+        [normalizedEmail]
+      );
+    }
 
     (req as any).userEmail = normalizedEmail;
     next();

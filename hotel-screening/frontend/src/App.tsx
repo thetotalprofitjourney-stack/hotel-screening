@@ -14,6 +14,35 @@ export default function App() {
 
   useEffect(() => {
     const initializeUser = async () => {
+      // Verificar si hay parámetros en la URL (email y userid)
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlEmail = urlParams.get('email');
+      const urlUserId = urlParams.get('userid');
+
+      // Si hay email en la URL, usarlo directamente sin popup
+      if (urlEmail) {
+        const normalizedEmail = urlEmail.toLowerCase();
+        localStorage.setItem('email', normalizedEmail);
+        setUserEmail(normalizedEmail);
+
+        // Hacer llamada al backend incluyendo userid si existe
+        try {
+          const headers: Record<string, string> = { 'x-user-email': normalizedEmail };
+          if (urlUserId) {
+            headers['x-kajabi-user-id'] = urlUserId;
+          }
+
+          await fetch(`${API_URL}/v1/projects`, { headers });
+        } catch (error) {
+          console.error('Error inicializando usuario desde URL:', error);
+        }
+
+        // Limpiar los parámetros de la URL para que no se vuelvan a procesar
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+      }
+
+      // Si no hay email en URL, verificar localStorage o mostrar popup
       const storedEmail = localStorage.getItem('email');
       if (storedEmail) {
         setUserEmail(storedEmail);
