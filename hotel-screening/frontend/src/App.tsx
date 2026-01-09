@@ -14,12 +14,15 @@ export default function App() {
 
   useEffect(() => {
     const initializeUser = async () => {
-      // Verificar si hay parámetros en la URL (email y userid)
+      // Verificar si hay parámetros en la URL
+      // - email: OBLIGATORIO para evitar popup (si no está, se mostrará el popup)
+      // - userid: OPCIONAL (si existe, se guarda como kajabi_user_id)
       const urlParams = new URLSearchParams(window.location.search);
       const urlEmail = urlParams.get('email');
       const urlUserId = urlParams.get('userid');
 
       // Si hay email en la URL, usarlo directamente sin popup
+      // El userid es opcional: si existe se envía, si no existe se crea usuario sin él
       if (urlEmail) {
         const normalizedEmail = urlEmail.toLowerCase();
         localStorage.setItem('email', normalizedEmail);
