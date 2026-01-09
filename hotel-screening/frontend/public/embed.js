@@ -76,13 +76,13 @@
 	// Si hay información del usuario disponible, añadirla a la URL
 	if (typeof MA !== 'undefined' && MA.user) {
 		const params = new URLSearchParams();
-
-		if (MA.user.email) {
-			params.append('email', MA.user.email);
+	
+		if (TPJ.user.email) {
+			params.append('email', TPJ.user.email);
 		}
 
-		if (MA.user.kajabiUserId) {
-			params.append('userid', MA.user.kajabiUserId);
+		if (TPJ.user.kajabiUserId) {
+			params.append('userid', TPJ.user.kajabiUserId);
 		}
 
 		if (params.toString()) {
@@ -93,3 +93,4 @@
 	// Incrustar iframes en todos los divs con clase 'ma-hotel-screening'
 	insertIframes('.ma-hotel-screening', url);
 })();
+
