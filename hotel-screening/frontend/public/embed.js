@@ -15,7 +15,7 @@
  *      var TPJ = {
  *        user: {
  *          email: 'usuario@ejemplo.com',
- *          kajabiUserId: '12345'
+ *          userid: '12345'
  *        }
  *      };
  *    </script>
@@ -81,8 +81,8 @@
 			params.append('email', TPJ.user.email);
 		}
 
-		if (TPJ.user.kajabiUserId) {
-			params.append('userid', TPJ.user.kajabiUserId);
+		if (TPJ.user.userid) {
+			params.append('userid', TPJ.user.userid);
 		}
 
 		if (params.toString()) {
@@ -93,6 +93,7 @@
 	// Incrustar iframes en todos los divs con clase 'ma-hotel-screening'
 	insertIframes('.ma-hotel-screening', url);
 })();
+
 
 
 
