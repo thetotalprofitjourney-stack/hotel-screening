@@ -229,6 +229,19 @@ docker run -d --name hotel-backend --restart unless-stopped -p 127.0.0.1:3001:30
 
 ---
 
+## 🔒 Control de Acceso
+
+Para configurar si se permite el acceso directo a `https://ma.thetotalprofitjourney.com` o solo desde el embed de Kajabi, consulta:
+
+📖 **[NGINX_ACCESS_CONTROL.md](./NGINX_ACCESS_CONTROL.md)**
+
+Este documento explica cómo:
+- Permitir/bloquear acceso directo mediante variable de entorno
+- Siempre permitir acceso desde Kajabi (embebido)
+- Configurar nginx con control granular de acceso
+
+---
+
 ## 🆘 Soporte
 
 Si encuentras problemas durante el despliegue:
