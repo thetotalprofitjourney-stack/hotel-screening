@@ -28,14 +28,27 @@ export default function App() {
         localStorage.setItem('email', normalizedEmail);
         setUserEmail(normalizedEmail);
 
-        // Hacer llamada al backend incluyendo userid si existe
+        // Hacer llamada al backend para crear/actualizar usuario incluyendo userid si existe
         try {
-          const headers: Record<string, string> = { 'x-user-email': normalizedEmail };
+          const headers: Record<string, string> = {
+            'x-user-email': normalizedEmail,
+            'Content-Type': 'application/json'
+          };
           if (urlUserId) {
             headers['x-kajabi-user-id'] = urlUserId;
           }
 
-          await fetch(`${API_URL}/v1/projects`, { headers });
+          const response = await fetch(`${API_URL}/v1/auth/init`, {
+            method: 'POST',
+            headers
+          });
+
+          if (!response.ok) {
+            console.error('Error al inicializar usuario:', response.status, response.statusText);
+          } else {
+            const data = await response.json();
+            console.log('Usuario inicializado correctamente:', data);
+          }
         } catch (error) {
           console.error('Error inicializando usuario desde URL:', error);
         }
@@ -58,9 +71,20 @@ export default function App() {
 
           // Hacer una llamada al backend para que el middleware cree el usuario automáticamente
           try {
-            await fetch(`${API_URL}/v1/projects`, {
-              headers: { 'x-user-email': normalizedEmail }
+            const response = await fetch(`${API_URL}/v1/auth/init`, {
+              method: 'POST',
+              headers: {
+                'x-user-email': normalizedEmail,
+                'Content-Type': 'application/json'
+              }
             });
+
+            if (!response.ok) {
+              console.error('Error al inicializar usuario:', response.status, response.statusText);
+            } else {
+              const data = await response.json();
+              console.log('Usuario inicializado correctamente:', data);
+            }
           } catch (error) {
             console.error('Error inicializando usuario:', error);
           }
