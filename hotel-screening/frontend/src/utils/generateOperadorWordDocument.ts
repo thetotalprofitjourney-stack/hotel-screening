@@ -94,6 +94,8 @@ interface OperadorData {
     gop: number;
     fees: number;
     ebitda: number;
+    ffe: number;
+    ebitda_less_ffe: number;
     rn: number;
   };
 }
@@ -187,8 +189,8 @@ export async function generateOperadorWordDocument(data: OperadorData) {
       const nonOpOther = (settings.nonop_other_anual ?? 0) * project.horizonte;
       const totalNonOpCosts = nonOpRent + nonOpTaxes + nonOpInsurance + nonOpOther;
 
-      // Calcular beneficio neto operativo (EBITDA - costes no operativos)
-      const netOperatingProfit = totals.ebitda - totalNonOpCosts;
+      // Calcular beneficio neto operativo (EBITDA-FF&E - costes no operativos)
+      const netOperatingProfit = totals.ebitda_less_ffe - totalNonOpCosts;
       const netOperatingProfitPerKey = netOperatingProfit / keys;
       const netOperatingProfitPerKeyYear = netOperatingProfitPerKey / project.horizonte;
 
@@ -206,13 +208,13 @@ export async function generateOperadorWordDocument(data: OperadorData) {
           spacing: { after: 200 },
         }),
         new Paragraph({
-          text: `El análisis se centra en la proyección de resultados operativos (USALI) y el beneficio neto operativo que percibiría el propietario/gestor durante un horizonte de ${project.horizonte} años. Los resultados muestran unos ingresos totales proyectados de ${fmt(totals.operating_revenue)}, con un GOP acumulado de ${fmt(totals.gop)} (margen promedio ${fmtPct(totals.gop / totals.operating_revenue)}) y un EBITDA-FF&E de ${fmt(totals.ebitda)}.`,
+          text: `El análisis se centra en la proyección de resultados operativos (USALI) y el beneficio neto operativo que percibiría el propietario/gestor durante un horizonte de ${project.horizonte} años. Los resultados muestran unos ingresos totales proyectados de ${fmt(totals.operating_revenue)}, con un GOP acumulado de ${fmt(totals.gop)} (margen promedio ${fmtPct(totals.gop / totals.operating_revenue)}) y un EBITDA-FF&E de ${fmt(totals.ebitda_less_ffe)}.`,
           spacing: { after: 200 },
         }),
         new Paragraph({
           text: (() => {
             const avgGopMargin = totals.gop / totals.operating_revenue;
-            const ebitdaPerKeyYear = (totals.ebitda / keys) / project.horizonte;
+            const ebitdaPerKeyYear = (totals.ebitda_less_ffe / keys) / project.horizonte;
 
             let marginQuality = '';
             if (avgGopMargin >= 0.40) {
@@ -246,7 +248,7 @@ export async function generateOperadorWordDocument(data: OperadorData) {
           spacing: { after: 300 },
         }),
         new Paragraph({
-          text: 'La siguiente tabla muestra la proyección de resultados operativos bajo el modelo de gestión propia, donde el propietario/gestor captura la totalidad del GOP y EBITDA generados por el activo:',
+          text: 'La siguiente tabla muestra la proyección de resultados operativos bajo el modelo de gestión propia, donde el propietario/gestor captura la totalidad del GOP y EBITDA-FF&E generados por el activo:',
           spacing: { after: 200 },
         })
       );
@@ -272,7 +274,7 @@ export async function generateOperadorWordDocument(data: OperadorData) {
               new TableCell({ children: [new Paragraph({ text: fmt(year.operating_revenue ?? 0), alignment: AlignmentType.RIGHT })] }),
               new TableCell({ children: [new Paragraph({ text: fmt(year.gop ?? 0), alignment: AlignmentType.RIGHT })] }),
               new TableCell({ children: [new Paragraph({ text: fmtPct(year.gop_margin ?? 0), alignment: AlignmentType.RIGHT })] }),
-              new TableCell({ children: [new Paragraph({ text: fmt(year.ebitda ?? 0), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(year.ebitda_less_ffe ?? 0), alignment: AlignmentType.RIGHT })] }),
             ],
           })
         );
@@ -286,7 +288,7 @@ export async function generateOperadorWordDocument(data: OperadorData) {
             new TableCell({ children: [new Paragraph({ text: fmt(totals.operating_revenue), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
             new TableCell({ children: [new Paragraph({ text: fmt(totals.gop), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
             new TableCell({ children: [new Paragraph({ text: fmtPct(totals.gop / totals.operating_revenue), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-            new TableCell({ children: [new Paragraph({ text: fmt(totals.ebitda), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totals.ebitda_less_ffe), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
           ],
         })
       );
@@ -299,7 +301,7 @@ export async function generateOperadorWordDocument(data: OperadorData) {
         new Paragraph({
           text: (() => {
             const avgGopMargin = totals.gop / totals.operating_revenue;
-            const avgEbitdaMargin = totals.ebitda / totals.operating_revenue;
+            const avgEbitdaMargin = totals.ebitda_less_ffe / totals.operating_revenue;
 
             // Análisis de tendencia
             const firstYearMargin = annuals[0]?.gop_margin ?? 0;
@@ -449,8 +451,8 @@ export async function generateOperadorWordDocument(data: OperadorData) {
         new TableRow({
           children: [
             new TableCell({ children: [new Paragraph({ text: 'EBITDA-FF&E' })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(totals.ebitda), alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmtPct(totals.ebitda / totals.operating_revenue), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totals.ebitda_less_ffe), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(totals.ebitda_less_ffe / totals.operating_revenue), alignment: AlignmentType.RIGHT })] }),
           ],
         }),
       ];
@@ -524,7 +526,7 @@ export async function generateOperadorWordDocument(data: OperadorData) {
         new Paragraph({
           children: [
             new TextRun({ text: '• Captura total de valor operativo: ', bold: true }),
-            new TextRun({ text: `El modelo de gestión propia permite capturar un EBITDA-FF&E total de ${fmt(totals.ebitda)} durante ${project.horizonte} años (${fmtCurrency((totals.ebitda / keys) / project.horizonte)} por habitación y año), frente a ${fmt(totals.fees)} que se pagarían en fees bajo un modelo de operador externo. Esto representa un valor incremental de ${fmt(totals.ebitda - totals.fees)} que permanece en el propietario.` }),
+            new TextRun({ text: `El modelo de gestión propia permite capturar un EBITDA-FF&E total de ${fmt(totals.ebitda_less_ffe)} durante ${project.horizonte} años (${fmtCurrency((totals.ebitda_less_ffe / keys) / project.horizonte)} por habitación y año), frente a ${fmt(totals.fees)} que se pagarían en fees bajo un modelo de operador externo. Esto representa un valor incremental de ${fmt(totals.ebitda_less_ffe - totals.fees)} que permanece en el propietario.` }),
           ],
           spacing: { after: 150 },
         }),
@@ -535,7 +537,7 @@ export async function generateOperadorWordDocument(data: OperadorData) {
               if (totalNonOpCosts > 0) {
                 return `Después de costes no operativos (${fmt(totalNonOpCosts)}), el beneficio neto operativo se sitúa en ${fmt(netOperatingProfit)} (${fmtPct(netOperatingProfit / totals.operating_revenue)} sobre revenue), equivalente a ${fmtCurrency(netOperatingProfitPerKeyYear)} por habitación y año. Este flujo constituye el cash flow operativo disponible antes de servicio de deuda e impuestos.`;
               } else {
-                return `Sin costes no operativos adicionales, todo el EBITDA-FF&E (${fmt(totals.ebitda)}, ${fmtPct(totals.ebitda / totals.operating_revenue)} sobre revenue) constituye el beneficio neto operativo, equivalente a ${fmtCurrency(netOperatingProfitPerKeyYear)} por habitación y año.`;
+                return `Sin costes no operativos adicionales, todo el EBITDA-FF&E (${fmt(totals.ebitda_less_ffe)}, ${fmtPct(totals.ebitda_less_ffe / totals.operating_revenue)} sobre revenue) constituye el beneficio neto operativo, equivalente a ${fmtCurrency(netOperatingProfitPerKeyYear)} por habitación y año.`;
               }
             })() }),
           ],
@@ -571,7 +573,7 @@ export async function generateOperadorWordDocument(data: OperadorData) {
         new Paragraph({
           children: [
             new TextRun({ text: '• Comparación con modelo de operador: ', bold: true }),
-            new TextRun({ text: `Bajo un modelo de operador externo, se pagarían fees de ${fmt(totals.fees)}, reteniendo un EBITDA neto de ${fmt(totals.ebitda - totals.fees)}. La gestión propia ofrece un valor adicional de ${fmt(totals.ebitda - totals.fees - (totalNonOpCosts > 0 ? totalNonOpCosts : 0))}, pero a cambio de asumir todo el riesgo operativo, complejidad de gestión y requisitos de capital humano especializado.` }),
+            new TextRun({ text: `Bajo un modelo de operador externo, se pagarían fees de ${fmt(totals.fees)}, reteniendo un EBITDA neto de ${fmt(totals.ebitda_less_ffe - totals.fees)}. La gestión propia ofrece un valor adicional de ${fmt(totals.ebitda_less_ffe - totals.fees - (totalNonOpCosts > 0 ? totalNonOpCosts : 0))}, pero a cambio de asumir todo el riesgo operativo, complejidad de gestión y requisitos de capital humano especializado.` }),
           ],
           spacing: { after: 300 },
         }),
@@ -763,7 +765,7 @@ export async function generateOperadorWordDocument(data: OperadorData) {
             new TableCell({ children: [new Paragraph({ text: 'GOP (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
             new TableCell({ children: [new Paragraph({ text: 'GOP %', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
             new TableCell({ children: [new Paragraph({ text: 'Fees (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-            new TableCell({ children: [new Paragraph({ text: 'EBITDA (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'EBITDA-FF&E (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
           ],
         }),
       ];
@@ -777,7 +779,7 @@ export async function generateOperadorWordDocument(data: OperadorData) {
               new TableCell({ children: [new Paragraph({ text: fmt(year.gop ?? 0), alignment: AlignmentType.RIGHT })] }),
               new TableCell({ children: [new Paragraph({ text: fmtPct(year.gop_margin ?? 0), alignment: AlignmentType.RIGHT })] }),
               new TableCell({ children: [new Paragraph({ text: fmt(year.fees ?? 0), alignment: AlignmentType.RIGHT })] }),
-              new TableCell({ children: [new Paragraph({ text: fmt(year.ebitda ?? 0), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(year.ebitda_less_ffe ?? 0), alignment: AlignmentType.RIGHT })] }),
             ],
           })
         );
@@ -792,7 +794,7 @@ export async function generateOperadorWordDocument(data: OperadorData) {
             new TableCell({ children: [new Paragraph({ text: fmt(totals.gop), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
             new TableCell({ children: [new Paragraph({ text: fmtPct(totals.gop / totals.operating_revenue), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
             new TableCell({ children: [new Paragraph({ text: fmt(totals.fees), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-            new TableCell({ children: [new Paragraph({ text: fmt(totals.ebitda), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totals.ebitda_less_ffe), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
           ],
         })
       );
