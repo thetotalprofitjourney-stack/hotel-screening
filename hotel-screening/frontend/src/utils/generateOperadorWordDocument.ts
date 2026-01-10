@@ -83,6 +83,10 @@ interface OperadorData {
   };
   settings: {
     ffe: number;
+    nonop_rent_anual?: number;
+    nonop_taxes_anual?: number;
+    nonop_insurance_anual?: number;
+    nonop_other_anual?: number;
   };
   annuals: any[];
   totals: {
@@ -100,6 +104,7 @@ export async function generateOperadorWordDocument(data: OperadorData) {
 
     const { project, operator, settings, annuals, totals } = data;
     const keys = project.habitaciones;
+    const isGestionPropia = operator.operacion_tipo === 'gestion_propia';
 
     const sections = [];
 
@@ -114,7 +119,7 @@ export async function generateOperadorWordDocument(data: OperadorData) {
         spacing: { after: 400 },
       }),
       new Paragraph({
-        text: 'Análisis Operativo - Fees del Operador',
+        text: isGestionPropia ? 'Análisis de Resultados Operativos - Gestión Propia' : 'Análisis Operativo - Fees del Operador',
         alignment: AlignmentType.CENTER,
         spacing: { after: 600 },
       }),
@@ -163,365 +168,787 @@ export async function generateOperadorWordDocument(data: OperadorData) {
       new Paragraph({
         text: '',
         pageBreakBefore: true,
-      }),
-
-      // ========================================
-      // 2. RESUMEN EJECUTIVO
-      // ========================================
-      new Paragraph({
-        text: '1. Resumen Ejecutivo',
-        heading: HeadingLevel.HEADING_1,
-        spacing: { after: 300 },
-      }),
-      new Paragraph({
-        text: `Este documento presenta un análisis operativo del proyecto ${project.nombre}, un activo hotelero ${project.segmento.toLowerCase()} de categoría ${project.categoria} ubicado en ${project.provincia}, ${project.comunidad_autonoma}, con ${keys} habitaciones.`,
-        spacing: { after: 200 },
-      }),
-      new Paragraph({
-        text: `El análisis se centra en la proyección de resultados operativos (USALI) y los fees de gestión que percibiría el operador durante un horizonte de ${project.horizonte} años. Los resultados muestran unos ingresos totales proyectados de ${fmt(totals.operating_revenue)}, con un GOP acumulado de ${fmt(totals.gop)} (margen promedio ${fmtPct(totals.gop / totals.operating_revenue)}) y fees totales para el operador de ${fmt(totals.fees)}.`,
-        spacing: { after: 200 },
-      }),
-      new Paragraph({
-        text: (() => {
-          // Análisis inteligente del perfil de fees
-          const feeBase = operator.fee_base_anual * project.horizonte;
-          const fixedComponent = totals.fees > 0 ? feeBase / totals.fees : 0;
-          const variableComponent = 1 - fixedComponent;
-          const feesPerRn = totals.fees / totals.rn;
-          const feesPerKeyYear = (totals.fees / keys) / project.horizonte;
-
-          let feeProfile = '';
-          if (variableComponent > 0.7) {
-            feeProfile = 'La estructura de remuneración está fuertemente orientada a performance (más del 70% variable), alineando significativamente los incentivos del operador con el desempeño operativo del activo.';
-          } else if (variableComponent > 0.4) {
-            feeProfile = 'La estructura de remuneración presenta un balance equilibrado entre componentes fijos y variables, típico de contratos de gestión hotelera estándar en el mercado.';
-          } else {
-            feeProfile = 'La estructura de remuneración tiene predominio de fees fijos, proporcionando alta predictibilidad de ingresos para el operador aunque limitando la exposición directa al desempeño operativo.';
-          }
-
-          return `Los fees representan el ${fmtPct(totals.fees / totals.operating_revenue)} de los ingresos totales y el ${fmtPct(totals.fees / totals.gop)} del GOP, con un valor económico de ${fmtCurrency(feesPerRn)} por room night y ${fmtCurrency(feesPerKeyYear)} por habitación y año. ${feeProfile}`;
-        })(),
-        spacing: { after: 400 },
-      }),
-
-      // ========================================
-      // 3. ESTRUCTURA DE FEES
-      // ========================================
-      new Paragraph({
-        text: '2. Estructura de Fees del Operador',
-        heading: HeadingLevel.HEADING_1,
-        spacing: { after: 300 },
-      }),
-      new Paragraph({
-        text: 'La estructura de fees del contrato de gestión contempla los siguientes componentes:',
-        spacing: { after: 200 },
       })
     );
 
-    const feeStructureRows = [
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Componente', bold: true })], shading: { fill: 'E7E6E6' } }),
-          new TableCell({ children: [new Paragraph({ text: 'Valor', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Fee base anual' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(operator.fee_base_anual), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Fee % sobre Revenue Total' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmtPct(operator.fee_pct_total_rev), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Fee % sobre GOP' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmtPct(operator.fee_pct_gop), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Fee incentivo % (si GOP/Revenue ≥ hurdle)' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmtPct(operator.fee_incentive_pct), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Hurdle GOP margin para incentivo' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmtPct(operator.fee_hurdle_gop_margin), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-    ];
+    // ========================================
+    // BIFURCACIÓN: Gestión Propia vs Operador
+    // ========================================
 
-    sections.push(
-      new Table({
-        rows: feeStructureRows,
-        width: { size: 70, type: WidthType.PERCENTAGE },
-      }),
-      new Paragraph({
-        text: 'Los fees se calculan mensualmente y se devengan de forma acumulativa a lo largo del período de gestión.',
-        spacing: { before: 200, after: 300 },
-      }),
-      new Paragraph({
-        text: 'Análisis de la Estructura de Fees',
-        bold: true,
-        spacing: { after: 150 },
-      }),
-      new Paragraph({
-        text: (() => {
-          // Análisis profundo de la estructura de fees
-          const feeBase = operator.fee_base_anual * project.horizonte;
-          const fixedComponent = totals.fees > 0 ? feeBase / totals.fees : 0;
-          const variableComponent = 1 - fixedComponent;
+    if (isGestionPropia) {
+      // ============================================================
+      // REPORTE PARA GESTIÓN PROPIA (Owner/Operator or Lessee)
+      // ============================================================
 
-          // 1. Análisis de componente fijo vs variable
-          let componentAnalysis = '';
-          if (variableComponent > 0.7) {
-            componentAnalysis = `La estructura de fees es predominantemente variable (${fmtPct(variableComponent)} del total), lo que maximiza la alineación entre los intereses del operador y el desempeño del activo. El operador asume exposición significativa al riesgo comercial (ocupación, ADR) y operativo (eficiencia de costes), incentivando una gestión activa y orientada a resultados.`;
-          } else if (variableComponent > 0.4) {
-            componentAnalysis = `El equilibrio entre fees fijos (${fmtPct(fixedComponent)}) y variables (${fmtPct(variableComponent)}) proporciona al operador una base estable de ingresos mientras mantiene incentivos significativos para optimizar el desempeño. Esta estructura es típica en contratos de gestión hotelera estándar y refleja un balance razonable entre riesgo y predictibilidad.`;
-          } else {
-            componentAnalysis = `Los fees fijos representan ${fmtPct(fixedComponent)} del total, proporcionando al operador alta predictibilidad de ingresos con exposición limitada a las fluctuaciones operativas del activo. Esta estructura minimiza el riesgo del operador pero reduce los incentivos directos para maximizar resultados más allá de los estándares contractuales básicos.`;
-          }
+      // Calcular costes no operativos totales
+      const nonOpRent = (settings.nonop_rent_anual ?? 0) * project.horizonte;
+      const nonOpTaxes = (settings.nonop_taxes_anual ?? 0) * project.horizonte;
+      const nonOpInsurance = (settings.nonop_insurance_anual ?? 0) * project.horizonte;
+      const nonOpOther = (settings.nonop_other_anual ?? 0) * project.horizonte;
+      const totalNonOpCosts = nonOpRent + nonOpTaxes + nonOpInsurance + nonOpOther;
 
-          // 2. Análisis de hurdle si existe fee incentivo
-          let hurdleAnalysis = '';
-          if (operator.fee_incentive_pct > 0 && operator.fee_hurdle_gop_margin > 0) {
+      // Calcular beneficio neto operativo (EBITDA - costes no operativos)
+      const netOperatingProfit = totals.ebitda - totalNonOpCosts;
+      const netOperatingProfitPerKey = netOperatingProfit / keys;
+      const netOperatingProfitPerKeyYear = netOperatingProfitPerKey / project.horizonte;
+
+      sections.push(
+        // ========================================
+        // 2. RESUMEN EJECUTIVO
+        // ========================================
+        new Paragraph({
+          text: '1. Resumen Ejecutivo',
+          heading: HeadingLevel.HEADING_1,
+          spacing: { after: 300 },
+        }),
+        new Paragraph({
+          text: `Este documento presenta un análisis operativo del proyecto ${project.nombre}, un activo hotelero ${project.segmento.toLowerCase()} de categoría ${project.categoria} ubicado en ${project.provincia}, ${project.comunidad_autonoma}, con ${keys} habitaciones bajo modelo de gestión propia.`,
+          spacing: { after: 200 },
+        }),
+        new Paragraph({
+          text: `El análisis se centra en la proyección de resultados operativos (USALI) y el beneficio neto operativo que percibiría el propietario/gestor durante un horizonte de ${project.horizonte} años. Los resultados muestran unos ingresos totales proyectados de ${fmt(totals.operating_revenue)}, con un GOP acumulado de ${fmt(totals.gop)} (margen promedio ${fmtPct(totals.gop / totals.operating_revenue)}) y un EBITDA-FF&E de ${fmt(totals.ebitda)}.`,
+          spacing: { after: 200 },
+        }),
+        new Paragraph({
+          text: (() => {
             const avgGopMargin = totals.gop / totals.operating_revenue;
-            const hurdleGap = avgGopMargin - operator.fee_hurdle_gop_margin;
+            const ebitdaPerKeyYear = (totals.ebitda / keys) / project.horizonte;
 
-            if (hurdleGap >= 0.05) {
-              hurdleAnalysis = ` El fee incentivo del ${fmtPct(operator.fee_incentive_pct)} se activa superando un margen GOP del ${fmtPct(operator.fee_hurdle_gop_margin)}. Con proyecciones que sitúan el margen promedio en ${fmtPct(avgGopMargin)} (${fmtPct(hurdleGap)} por encima del hurdle), este incentivo se activaría de forma recurrente, proporcionando una palanca adicional significativa de remuneración vinculada a eficiencia operativa superior.`;
-            } else if (hurdleGap >= 0) {
-              hurdleAnalysis = ` El fee incentivo del ${fmtPct(operator.fee_incentive_pct)} requiere superar un margen GOP del ${fmtPct(operator.fee_hurdle_gop_margin)}. Las proyecciones sitúan el margen promedio en ${fmtPct(avgGopMargin)}, apenas por encima del hurdle (margen de ${fmtPct(hurdleGap)}), lo que sugiere que la activación del incentivo estará condicionada a una ejecución operativa muy ajustada y dependerá críticamente de la evolución de costes variables.`;
+            let marginQuality = '';
+            if (avgGopMargin >= 0.40) {
+              marginQuality = 'excelente (≥40%)';
+            } else if (avgGopMargin >= 0.32) {
+              marginQuality = 'robusto (32-40%)';
+            } else if (avgGopMargin >= 0.25) {
+              marginQuality = 'aceptable (25-32%)';
             } else {
-              hurdleAnalysis = ` El fee incentivo del ${fmtPct(operator.fee_incentive_pct)} se activa con márgenes GOP superiores al ${fmtPct(operator.fee_hurdle_gop_margin)}, umbral que según las proyecciones actuales (margen promedio ${fmtPct(avgGopMargin)}) no se alcanzaría consistentemente. Este hurdle representa un objetivo aspiracional que requeriría mejoras significativas de eficiencia operativa o condiciones de mercado más favorables para su consecución.`;
+              marginQuality = 'ajustado (<25%)';
             }
-          }
 
-          // 3. Benchmarking implícito
-          const feesPerKeyYear = (totals.fees / keys) / project.horizonte;
-          let benchmarkContext = '';
-          if (project.segmento.toLowerCase().includes('urbano') || project.segmento.toLowerCase().includes('ciudad')) {
-            benchmarkContext = ` Para activos urbanos de categoría ${project.categoria}, fees anuales de ${fmtCurrency(feesPerKeyYear)} por habitación se sitúan en el rango típico de contratos de gestión de cadenas hoteleras establecidas.`;
-          } else if (project.segmento.toLowerCase().includes('vacacional') || project.segmento.toLowerCase().includes('resort')) {
-            benchmarkContext = ` En el segmento vacacional, con mayor estacionalidad y costes operativos variables, fees anuales de ${fmtCurrency(feesPerKeyYear)} por habitación reflejan la complejidad añadida de la gestión respecto a activos urbanos.`;
-          }
+            let nonOpSummary = '';
+            if (totalNonOpCosts > 0) {
+              nonOpSummary = ` Después de deducir costes no operativos (alquiler, impuestos, seguros y otros) por un total de ${fmt(totalNonOpCosts)}, el beneficio neto operativo se sitúa en ${fmt(netOperatingProfit)} (${fmtCurrency(netOperatingProfitPerKeyYear)} por habitación y año).`;
+            } else {
+              nonOpSummary = ` Al tratarse de gestión propia sin costes no operativos adicionales, todo el EBITDA-FF&E (${fmtCurrency(ebitdaPerKeyYear)} por habitación y año) constituye el beneficio neto operativo del proyecto.`;
+            }
 
-          return componentAnalysis + hurdleAnalysis + benchmarkContext + ' La estructura debe evaluarse en conjunto considerando el perfil de riesgo del activo, experiencia del operador y alternativas de gestión disponibles en el mercado local.';
-        })(),
-        spacing: { after: 400 },
-      }),
+            return `El margen GOP promedio se sitúa en ${fmtPct(avgGopMargin)}, considerado ${marginQuality} para el segmento ${project.segmento.toLowerCase()}.${nonOpSummary} Esta estructura de gestión propia permite al propietario capturar la totalidad del valor operativo generado por el activo.`;
+          })(),
+          spacing: { after: 400 },
+        }),
 
-      // ========================================
-      // 4. RESULTADOS OPERATIVOS PROYECTADOS (USALI)
-      // ========================================
-      new Paragraph({
-        text: '3. Resultados Operativos Proyectados (USALI)',
-        heading: HeadingLevel.HEADING_1,
-        spacing: { after: 300 },
-      })
-    );
+        // ========================================
+        // 2. RESULTADOS OPERATIVOS PROYECTADOS (USALI)
+        // ========================================
+        new Paragraph({
+          text: '2. Resultados Operativos Proyectados (USALI)',
+          heading: HeadingLevel.HEADING_1,
+          spacing: { after: 300 },
+        }),
+        new Paragraph({
+          text: 'La siguiente tabla muestra la proyección de resultados operativos bajo el modelo de gestión propia, donde el propietario/gestor captura la totalidad del GOP y EBITDA generados por el activo:',
+          spacing: { after: 200 },
+        })
+      );
 
-    // Tabla anual de USALI
-    const usaliRows = [
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Año', bold: true })], shading: { fill: 'E7E6E6' } }),
-          new TableCell({ children: [new Paragraph({ text: 'Revenue (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-          new TableCell({ children: [new Paragraph({ text: 'GOP (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-          new TableCell({ children: [new Paragraph({ text: 'GOP %', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-          new TableCell({ children: [new Paragraph({ text: 'Fees (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-          new TableCell({ children: [new Paragraph({ text: 'EBITDA (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-        ],
-      }),
-    ];
+      // Tabla anual de USALI para gestión propia
+      const usaliGestionPropiaRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Año', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Revenue (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'GOP (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'GOP %', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'EBITDA-FF&E (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+      ];
 
-    annuals.forEach((year: any) => {
+      annuals.forEach((year: any) => {
+        usaliGestionPropiaRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph({ text: year.anio.toString() })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(year.operating_revenue ?? 0), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(year.gop ?? 0), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmtPct(year.gop_margin ?? 0), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(year.ebitda ?? 0), alignment: AlignmentType.RIGHT })] }),
+            ],
+          })
+        );
+      });
+
+      // Fila de totales
+      usaliGestionPropiaRows.push(
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'TOTAL', bold: true })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totals.operating_revenue), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totals.gop), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(totals.gop / totals.operating_revenue), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totals.ebitda), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+          ],
+        })
+      );
+
+      sections.push(
+        new Table({
+          rows: usaliGestionPropiaRows,
+          width: { size: 100, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: (() => {
+            const avgGopMargin = totals.gop / totals.operating_revenue;
+            const avgEbitdaMargin = totals.ebitda / totals.operating_revenue;
+
+            // Análisis de tendencia
+            const firstYearMargin = annuals[0]?.gop_margin ?? 0;
+            const lastYearMargin = annuals[annuals.length - 1]?.gop_margin ?? 0;
+            const marginTrend = lastYearMargin - firstYearMargin;
+
+            let trendAnalysis = '';
+            if (marginTrend > 0.03) {
+              trendAnalysis = `La evolución de márgenes muestra una mejora progresiva desde ${fmtPct(firstYearMargin)} en el primer año hasta ${fmtPct(lastYearMargin)} al final del período, reflejando eficiencias operativas crecientes conforme el activo alcanza madurez operativa.`;
+            } else if (marginTrend < -0.03) {
+              trendAnalysis = `Los márgenes GOP muestran compresión desde ${fmtPct(firstYearMargin)} hasta ${fmtPct(lastYearMargin)}, sugiriendo presión de costes que requeriría análisis detallado de drivers departamentales.`;
+            } else {
+              trendAnalysis = `Los márgenes GOP se mantienen relativamente estables entre ${fmtPct(firstYearMargin)} y ${fmtPct(lastYearMargin)}, reflejando consistencia operativa proyectada.`;
+            }
+
+            return `El GOP promedio se sitúa en ${fmtPct(avgGopMargin)}, mientras que el EBITDA-FF&E promedio alcanza ${fmtPct(avgEbitdaMargin)}. ${trendAnalysis} La gestión propia permite al propietario capturar la totalidad de estos márgenes operativos, sin deducción de fees a operadores externos.`;
+          })(),
+          spacing: { before: 200, after: 400 },
+        }),
+
+        // ========================================
+        // 3. COSTES NO OPERATIVOS Y BENEFICIO NETO
+        // ========================================
+        new Paragraph({
+          text: '3. Costes No Operativos y Beneficio Neto Operativo',
+          heading: HeadingLevel.HEADING_1,
+          spacing: { after: 300 },
+        })
+      );
+
+      // Construir tabla de costes no operativos
+      const nonOpCostRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Concepto', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Anual (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: `Total ${project.horizonte} años (€)`, bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+      ];
+
+      if ((settings.nonop_rent_anual ?? 0) > 0) {
+        nonOpCostRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph({ text: 'Alquiler / Renta' })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(settings.nonop_rent_anual ?? 0), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(nonOpRent), alignment: AlignmentType.RIGHT })] }),
+            ],
+          })
+        );
+      }
+
+      if ((settings.nonop_taxes_anual ?? 0) > 0) {
+        nonOpCostRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph({ text: 'Impuestos sobre la propiedad' })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(settings.nonop_taxes_anual ?? 0), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(nonOpTaxes), alignment: AlignmentType.RIGHT })] }),
+            ],
+          })
+        );
+      }
+
+      if ((settings.nonop_insurance_anual ?? 0) > 0) {
+        nonOpCostRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph({ text: 'Seguros' })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(settings.nonop_insurance_anual ?? 0), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(nonOpInsurance), alignment: AlignmentType.RIGHT })] }),
+            ],
+          })
+        );
+      }
+
+      if ((settings.nonop_other_anual ?? 0) > 0) {
+        nonOpCostRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph({ text: 'Otros costes no operativos' })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(settings.nonop_other_anual ?? 0), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(nonOpOther), alignment: AlignmentType.RIGHT })] }),
+            ],
+          })
+        );
+      }
+
+      if (totalNonOpCosts > 0) {
+        nonOpCostRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph({ text: 'TOTAL Costes No Operativos', bold: true })], shading: { fill: 'F2F2F2' } }),
+              new TableCell({ children: [new Paragraph({ text: fmt((settings.nonop_rent_anual ?? 0) + (settings.nonop_taxes_anual ?? 0) + (settings.nonop_insurance_anual ?? 0) + (settings.nonop_other_anual ?? 0)), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+              new TableCell({ children: [new Paragraph({ text: fmt(totalNonOpCosts), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+            ],
+          })
+        );
+      }
+
+      if (totalNonOpCosts > 0) {
+        sections.push(
+          new Paragraph({
+            text: 'Los costes no operativos del proyecto se desglosan de la siguiente manera:',
+            spacing: { after: 200 },
+          }),
+          new Table({
+            rows: nonOpCostRows,
+            width: { size: 80, type: WidthType.PERCENTAGE },
+          }),
+          new Paragraph({
+            text: `Estos costes se deducen del EBITDA-FF&E para calcular el beneficio neto operativo que percibiría el propietario/gestor. El mayor componente no operativo es ${(() => {
+              const costs = [
+                { name: 'el alquiler', value: nonOpRent },
+                { name: 'los impuestos', value: nonOpTaxes },
+                { name: 'los seguros', value: nonOpInsurance },
+                { name: 'otros costes', value: nonOpOther }
+              ].filter(c => c.value > 0).sort((a, b) => b.value - a.value);
+              return costs[0].name;
+            })()}, que representa el ${fmtPct((() => {
+              const costs = [nonOpRent, nonOpTaxes, nonOpInsurance, nonOpOther];
+              const maxCost = Math.max(...costs);
+              return maxCost / totalNonOpCosts;
+            })())} del total de costes no operativos.`,
+            spacing: { before: 200, after: 400 },
+          })
+        );
+      } else {
+        sections.push(
+          new Paragraph({
+            text: 'El proyecto no presenta costes no operativos adicionales (alquiler, impuestos sobre la propiedad, seguros u otros). Por tanto, el EBITDA-FF&E constituye directamente el beneficio neto operativo disponible para el propietario/gestor.',
+            spacing: { after: 400 },
+          })
+        );
+      }
+
+      // Tabla resumen de beneficio neto
+      const netProfitRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Concepto', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: `Total ${project.horizonte} años (€)`, bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: '% sobre Revenue', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'EBITDA-FF&E' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totals.ebitda), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(totals.ebitda / totals.operating_revenue), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+      ];
+
+      if (totalNonOpCosts > 0) {
+        nonOpCostRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph({ text: '(-) Costes No Operativos' })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(-totalNonOpCosts), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmtPct(-totalNonOpCosts / totals.operating_revenue), alignment: AlignmentType.RIGHT })] }),
+            ],
+          })
+        );
+      }
+
+      netProfitRows.push(
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'BENEFICIO NETO OPERATIVO', bold: true })], shading: { fill: 'D4EDDA' } }),
+            new TableCell({ children: [new Paragraph({ text: fmt(netOperatingProfit), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D4EDDA' } }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(netOperatingProfit / totals.operating_revenue), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'D4EDDA' } }),
+          ],
+        })
+      );
+
+      sections.push(
+        new Paragraph({
+          text: 'Cálculo del Beneficio Neto Operativo',
+          bold: true,
+          spacing: { after: 150 },
+        }),
+        new Table({
+          rows: netProfitRows,
+          width: { size: 80, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: (() => {
+            const netMargin = netOperatingProfit / totals.operating_revenue;
+
+            let profitAnalysis = '';
+            if (totalNonOpCosts > 0) {
+              const costImpact = totalNonOpCosts / totals.operating_revenue;
+              profitAnalysis = `El beneficio neto operativo de ${fmt(netOperatingProfit)} representa el ${fmtPct(netMargin)} de los ingresos totales, tras deducir ${fmt(totalNonOpCosts)} (${fmtPct(costImpact)} del revenue) en costes no operativos. `;
+            } else {
+              profitAnalysis = `El beneficio neto operativo de ${fmt(netOperatingProfit)} (${fmtPct(netMargin)} sobre revenue) coincide con el EBITDA-FF&E al no existir costes no operativos adicionales. `;
+            }
+
+            return profitAnalysis + `Esto equivale a ${fmtCurrency(netOperatingProfitPerKeyYear)} por habitación y año, constituyendo el flujo de caja operativo disponible antes de servicio de deuda e impuestos para el propietario/gestor bajo el modelo de gestión propia.`;
+          })(),
+          spacing: { before: 200, after: 400 },
+        }),
+
+        // ========================================
+        // 4. CONCLUSIONES
+        // ========================================
+        new Paragraph({
+          text: '4. Conclusiones e Insights Clave',
+          heading: HeadingLevel.HEADING_1,
+          spacing: { after: 300 },
+        }),
+        new Paragraph({
+          text: `El modelo de gestión propia de ${project.nombre} ofrece al propietario/gestor la oportunidad de capturar la totalidad del valor operativo generado por el activo. A continuación se presentan los insights clave del análisis:`,
+          spacing: { after: 300 },
+        }),
+        new Paragraph({
+          text: 'Key Takeaways',
+          bold: true,
+          spacing: { after: 200 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: '• Captura total de valor operativo: ', bold: true }),
+            new TextRun({ text: `El modelo de gestión propia permite capturar un EBITDA-FF&E total de ${fmt(totals.ebitda)} durante ${project.horizonte} años (${fmtCurrency((totals.ebitda / keys) / project.horizonte)} por habitación y año), frente a ${fmt(totals.fees)} que se pagarían en fees bajo un modelo de operador externo. Esto representa un valor incremental de ${fmt(totals.ebitda - totals.fees)} que permanece en el propietario.` }),
+          ],
+          spacing: { after: 150 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: '• Beneficio neto operativo: ', bold: true }),
+            new TextRun({ text: (() => {
+              if (totalNonOpCosts > 0) {
+                return `Después de costes no operativos (${fmt(totalNonOpCosts)}), el beneficio neto operativo se sitúa en ${fmt(netOperatingProfit)} (${fmtPct(netOperatingProfit / totals.operating_revenue)} sobre revenue), equivalente a ${fmtCurrency(netOperatingProfitPerKeyYear)} por habitación y año. Este flujo constituye el cash flow operativo disponible antes de servicio de deuda e impuestos.`;
+              } else {
+                return `Sin costes no operativos adicionales, todo el EBITDA-FF&E (${fmt(totals.ebitda)}, ${fmtPct(totals.ebitda / totals.operating_revenue)} sobre revenue) constituye el beneficio neto operativo, equivalente a ${fmtCurrency(netOperatingProfitPerKeyYear)} por habitación y año.`;
+              }
+            })() }),
+          ],
+          spacing: { after: 150 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: '• Márgenes operativos: ', bold: true }),
+            new TextRun({ text: (() => {
+              const avgGopMargin = totals.gop / totals.operating_revenue;
+              let marginQuality = '';
+              if (avgGopMargin >= 0.40) {
+                marginQuality = 'excelentes (≥40%)';
+              } else if (avgGopMargin >= 0.32) {
+                marginQuality = 'robustos (32-40%)';
+              } else if (avgGopMargin >= 0.25) {
+                marginQuality = 'aceptables (25-32%)';
+              } else {
+                marginQuality = 'ajustados (<25%)';
+              }
+              return `Margen GOP promedio del ${fmtPct(avgGopMargin)}, considerado ${marginQuality} para el segmento ${project.segmento.toLowerCase()}. La capacidad de mantener o mejorar estos márgenes será crítica para maximizar el retorno operativo del activo.`;
+            })() }),
+          ],
+          spacing: { after: 150 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: '• Requisitos de gestión: ', bold: true }),
+            new TextRun({ text: `El modelo de gestión propia requiere que el propietario asuma todas las funciones operativas (revenue management, operaciones F&B, housekeeping, mantenimiento, etc.) o contrate personal cualificado para ello. Es crítico contar con expertise operativo hotelero para mantener los estándares de servicio y eficiencias operativas proyectadas. La alternativa de gestión con operador externo reduciría el upside económico pero transferiría el riesgo operativo y aportaría know-how especializado.` }),
+          ],
+          spacing: { after: 150 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: '• Comparación con modelo de operador: ', bold: true }),
+            new TextRun({ text: `Bajo un modelo de operador externo, se pagarían fees de ${fmt(totals.fees)}, reteniendo un EBITDA neto de ${fmt(totals.ebitda - totals.fees)}. La gestión propia ofrece un valor adicional de ${fmt(totals.ebitda - totals.fees - (totalNonOpCosts > 0 ? totalNonOpCosts : 0))}, pero a cambio de asumir todo el riesgo operativo, complejidad de gestión y requisitos de capital humano especializado.` }),
+          ],
+          spacing: { after: 300 },
+        }),
+        new Paragraph({
+          text: 'Nota Metodológica',
+          bold: true,
+          spacing: { after: 150 },
+        }),
+        new Paragraph({
+          text: `Esta proyección se basa en supuestos operativos y de mercado que requieren validación mediante due diligence operativa. Los beneficios mostrados son brutos antes de impuestos y servicio de deuda. La viabilidad del modelo de gestión propia debe evaluarse considerando la disponibilidad de expertise operativo, capacidad de gestión del propietario y alternativas de operadores en el mercado local.`,
+          spacing: { after: 200 },
+        })
+      );
+
+    } else {
+      // ============================================================
+      // REPORTE PARA OPERADOR (Third-party operator managing the asset)
+      // ============================================================
+
+      sections.push(
+        // ========================================
+        // 2. RESUMEN EJECUTIVO
+        // ========================================
+        new Paragraph({
+          text: '1. Resumen Ejecutivo',
+          heading: HeadingLevel.HEADING_1,
+          spacing: { after: 300 },
+        }),
+        new Paragraph({
+          text: `Este documento presenta un análisis operativo del proyecto ${project.nombre}, un activo hotelero ${project.segmento.toLowerCase()} de categoría ${project.categoria} ubicado en ${project.provincia}, ${project.comunidad_autonoma}, con ${keys} habitaciones.`,
+          spacing: { after: 200 },
+        }),
+        new Paragraph({
+          text: `El análisis se centra en la proyección de resultados operativos (USALI) y los fees de gestión que percibiría el operador durante un horizonte de ${project.horizonte} años. Los resultados muestran unos ingresos totales proyectados de ${fmt(totals.operating_revenue)}, con un GOP acumulado de ${fmt(totals.gop)} (margen promedio ${fmtPct(totals.gop / totals.operating_revenue)}) y fees totales para el operador de ${fmt(totals.fees)}.`,
+          spacing: { after: 200 },
+        }),
+        new Paragraph({
+          text: (() => {
+            // Análisis inteligente del perfil de fees
+            const feeBase = operator.fee_base_anual * project.horizonte;
+            const fixedComponent = totals.fees > 0 ? feeBase / totals.fees : 0;
+            const variableComponent = 1 - fixedComponent;
+            const feesPerRn = totals.fees / totals.rn;
+            const feesPerKeyYear = (totals.fees / keys) / project.horizonte;
+
+            let feeProfile = '';
+            if (variableComponent > 0.7) {
+              feeProfile = 'La estructura de remuneración está fuertemente orientada a performance (más del 70% variable), alineando significativamente los incentivos del operador con el desempeño operativo del activo.';
+            } else if (variableComponent > 0.4) {
+              feeProfile = 'La estructura de remuneración presenta un balance equilibrado entre componentes fijos y variables, típico de contratos de gestión hotelera estándar en el mercado.';
+            } else {
+              feeProfile = 'La estructura de remuneración tiene predominio de fees fijos, proporcionando alta predictibilidad de ingresos para el operador aunque limitando la exposición directa al desempeño operativo.';
+            }
+
+            return `Los fees representan el ${fmtPct(totals.fees / totals.operating_revenue)} de los ingresos totales y el ${fmtPct(totals.fees / totals.gop)} del GOP, con un valor económico de ${fmtCurrency(feesPerRn)} por room night y ${fmtCurrency(feesPerKeyYear)} por habitación y año. ${feeProfile}`;
+          })(),
+          spacing: { after: 400 },
+        }),
+
+        // ========================================
+        // 3. ESTRUCTURA DE FEES
+        // ========================================
+        new Paragraph({
+          text: '2. Estructura de Fees del Operador',
+          heading: HeadingLevel.HEADING_1,
+          spacing: { after: 300 },
+        }),
+        new Paragraph({
+          text: 'La estructura de fees del contrato de gestión contempla los siguientes componentes:',
+          spacing: { after: 200 },
+        })
+      );
+
+      const feeStructureRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Componente', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Valor', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Fee base anual' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(operator.fee_base_anual), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Fee % sobre Revenue Total' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(operator.fee_pct_total_rev), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Fee % sobre GOP' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(operator.fee_pct_gop), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Fee incentivo % (si GOP/Revenue ≥ hurdle)' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(operator.fee_incentive_pct), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Hurdle GOP margin para incentivo' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(operator.fee_hurdle_gop_margin), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+      ];
+
+      sections.push(
+        new Table({
+          rows: feeStructureRows,
+          width: { size: 70, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: 'Los fees se calculan mensualmente y se devengan de forma acumulativa a lo largo del período de gestión.',
+          spacing: { before: 200, after: 300 },
+        }),
+        new Paragraph({
+          text: 'Análisis de la Estructura de Fees',
+          bold: true,
+          spacing: { after: 150 },
+        }),
+        new Paragraph({
+          text: (() => {
+            // Análisis profundo de la estructura de fees
+            const feeBase = operator.fee_base_anual * project.horizonte;
+            const fixedComponent = totals.fees > 0 ? feeBase / totals.fees : 0;
+            const variableComponent = 1 - fixedComponent;
+
+            // 1. Análisis de componente fijo vs variable
+            let componentAnalysis = '';
+            if (variableComponent > 0.7) {
+              componentAnalysis = `La estructura de fees es predominantemente variable (${fmtPct(variableComponent)} del total), lo que maximiza la alineación entre los intereses del operador y el desempeño del activo. El operador asume exposición significativa al riesgo comercial (ocupación, ADR) y operativo (eficiencia de costes), incentivando una gestión activa y orientada a resultados.`;
+            } else if (variableComponent > 0.4) {
+              componentAnalysis = `El equilibrio entre fees fijos (${fmtPct(fixedComponent)}) y variables (${fmtPct(variableComponent)}) proporciona al operador una base estable de ingresos mientras mantiene incentivos significativos para optimizar el desempeño. Esta estructura es típica en contratos de gestión hotelera estándar y refleja un balance razonable entre riesgo y predictibilidad.`;
+            } else {
+              componentAnalysis = `Los fees fijos representan ${fmtPct(fixedComponent)} del total, proporcionando al operador alta predictibilidad de ingresos con exposición limitada a las fluctuaciones operativas del activo. Esta estructura minimiza el riesgo del operador pero reduce los incentivos directos para maximizar resultados más allá de los estándares contractuales básicos.`;
+            }
+
+            // 2. Análisis de hurdle si existe fee incentivo
+            let hurdleAnalysis = '';
+            if (operator.fee_incentive_pct > 0 && operator.fee_hurdle_gop_margin > 0) {
+              const avgGopMargin = totals.gop / totals.operating_revenue;
+              const hurdleGap = avgGopMargin - operator.fee_hurdle_gop_margin;
+
+              if (hurdleGap >= 0.05) {
+                hurdleAnalysis = ` El fee incentivo del ${fmtPct(operator.fee_incentive_pct)} se activa superando un margen GOP del ${fmtPct(operator.fee_hurdle_gop_margin)}. Con proyecciones que sitúan el margen promedio en ${fmtPct(avgGopMargin)} (${fmtPct(hurdleGap)} por encima del hurdle), este incentivo se activaría de forma recurrente, proporcionando una palanca adicional significativa de remuneración vinculada a eficiencia operativa superior.`;
+              } else if (hurdleGap >= 0) {
+                hurdleAnalysis = ` El fee incentivo del ${fmtPct(operator.fee_incentive_pct)} requiere superar un margen GOP del ${fmtPct(operator.fee_hurdle_gop_margin)}. Las proyecciones sitúan el margen promedio en ${fmtPct(avgGopMargin)}, apenas por encima del hurdle (margen de ${fmtPct(hurdleGap)}), lo que sugiere que la activación del incentivo estará condicionada a una ejecución operativa muy ajustada y dependerá críticamente de la evolución de costes variables.`;
+              } else {
+                hurdleAnalysis = ` El fee incentivo del ${fmtPct(operator.fee_incentive_pct)} se activa con márgenes GOP superiores al ${fmtPct(operator.fee_hurdle_gop_margin)}, umbral que según las proyecciones actuales (margen promedio ${fmtPct(avgGopMargin)}) no se alcanzaría consistentemente. Este hurdle representa un objetivo aspiracional que requeriría mejoras significativas de eficiencia operativa o condiciones de mercado más favorables para su consecución.`;
+              }
+            }
+
+            // 3. Benchmarking implícito
+            const feesPerKeyYear = (totals.fees / keys) / project.horizonte;
+            let benchmarkContext = '';
+            if (project.segmento.toLowerCase().includes('urbano') || project.segmento.toLowerCase().includes('ciudad')) {
+              benchmarkContext = ` Para activos urbanos de categoría ${project.categoria}, fees anuales de ${fmtCurrency(feesPerKeyYear)} por habitación se sitúan en el rango típico de contratos de gestión de cadenas hoteleras establecidas.`;
+            } else if (project.segmento.toLowerCase().includes('vacacional') || project.segmento.toLowerCase().includes('resort')) {
+              benchmarkContext = ` En el segmento vacacional, con mayor estacionalidad y costes operativos variables, fees anuales de ${fmtCurrency(feesPerKeyYear)} por habitación reflejan la complejidad añadida de la gestión respecto a activos urbanos.`;
+            }
+
+            return componentAnalysis + hurdleAnalysis + benchmarkContext + ' La estructura debe evaluarse en conjunto considerando el perfil de riesgo del activo, experiencia del operador y alternativas de gestión disponibles en el mercado local.';
+          })(),
+          spacing: { after: 400 },
+        }),
+
+        // ========================================
+        // 4. RESULTADOS OPERATIVOS PROYECTADOS (USALI)
+        // ========================================
+        new Paragraph({
+          text: '3. Resultados Operativos Proyectados (USALI)',
+          heading: HeadingLevel.HEADING_1,
+          spacing: { after: 300 },
+        })
+      );
+
+      // Tabla anual de USALI for operador
+      const usaliRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Año', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Revenue (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'GOP (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'GOP %', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Fees (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'EBITDA (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+      ];
+
+      annuals.forEach((year: any) => {
+        usaliRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph({ text: year.anio.toString() })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(year.operating_revenue ?? 0), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(year.gop ?? 0), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmtPct(year.gop_margin ?? 0), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(year.fees ?? 0), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(year.ebitda ?? 0), alignment: AlignmentType.RIGHT })] }),
+            ],
+          })
+        );
+      });
+
+      // Fila de totales
       usaliRows.push(
         new TableRow({
           children: [
-            new TableCell({ children: [new Paragraph({ text: year.anio.toString() })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(year.operating_revenue ?? 0), alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(year.gop ?? 0), alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmtPct(year.gop_margin ?? 0), alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(year.fees ?? 0), alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(year.ebitda ?? 0), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: 'TOTAL', bold: true })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totals.operating_revenue), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totals.gop), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(totals.gop / totals.operating_revenue), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totals.fees), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totals.ebitda), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
           ],
         })
       );
-    });
 
-    // Fila de totales
-    usaliRows.push(
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'TOTAL', bold: true })], shading: { fill: 'F2F2F2' } }),
-          new TableCell({ children: [new Paragraph({ text: fmt(totals.operating_revenue), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-          new TableCell({ children: [new Paragraph({ text: fmt(totals.gop), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-          new TableCell({ children: [new Paragraph({ text: fmtPct(totals.gop / totals.operating_revenue), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-          new TableCell({ children: [new Paragraph({ text: fmt(totals.fees), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-          new TableCell({ children: [new Paragraph({ text: fmt(totals.ebitda), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-        ],
-      })
-    );
+      sections.push(
+        new Table({
+          rows: usaliRows,
+          width: { size: 100, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: (() => {
+            // Análisis inteligente de evolución operativa
+            const avgGopMargin = totals.gop / totals.operating_revenue;
 
-    sections.push(
-      new Table({
-        rows: usaliRows,
-        width: { size: 100, type: WidthType.PERCENTAGE },
-      }),
-      new Paragraph({
-        text: (() => {
-          // Análisis inteligente de evolución operativa
-          const avgGopMargin = totals.gop / totals.operating_revenue;
+            // Encontrar año de mejor y peor margen GOP
+            let bestYear = annuals[0];
+            let worstYear = annuals[0];
+            annuals.forEach((year: any) => {
+              if (year.gop_margin > bestYear.gop_margin) bestYear = year;
+              if (year.gop_margin < worstYear.gop_margin) worstYear = year;
+            });
 
-          // Encontrar año de mejor y peor margen GOP
-          let bestYear = annuals[0];
-          let worstYear = annuals[0];
-          annuals.forEach((year: any) => {
-            if (year.gop_margin > bestYear.gop_margin) bestYear = year;
-            if (year.gop_margin < worstYear.gop_margin) worstYear = year;
-          });
+            const marginRange = bestYear.gop_margin - worstYear.gop_margin;
 
-          const marginRange = bestYear.gop_margin - worstYear.gop_margin;
+            // Analizar tendencia de márgenes
+            const firstYearMargin = annuals[0]?.gop_margin ?? 0;
+            const lastYearMargin = annuals[annuals.length - 1]?.gop_margin ?? 0;
+            const marginTrend = lastYearMargin - firstYearMargin;
 
-          // Analizar tendencia de márgenes
-          const firstYearMargin = annuals[0]?.gop_margin ?? 0;
-          const lastYearMargin = annuals[annuals.length - 1]?.gop_margin ?? 0;
-          const marginTrend = lastYearMargin - firstYearMargin;
+            let trendAnalysis = '';
+            if (marginTrend > 0.03) {
+              trendAnalysis = `La evolución de márgenes muestra una mejora progresiva desde ${fmtPct(firstYearMargin)} en el primer año hasta ${fmtPct(lastYearMargin)} al final del período, reflejando eficiencias operativas crecientes conforme el activo alcanza madurez operativa y optimización de estructura de costes.`;
+            } else if (marginTrend < -0.03) {
+              trendAnalysis = `Los márgenes GOP muestran compresión desde ${fmtPct(firstYearMargin)} en el primer año hasta ${fmtPct(lastYearMargin)}, sugiriendo presión de costes o dilución de eficiencia operativa que requeriría análisis detallado de drivers de costes departamentales.`;
+            } else {
+              trendAnalysis = `Los márgenes GOP se mantienen relativamente estables entre ${fmtPct(firstYearMargin)} y ${fmtPct(lastYearMargin)}, reflejando consistencia operativa a lo largo del período proyectado.`;
+            }
 
-          let trendAnalysis = '';
-          if (marginTrend > 0.03) {
-            trendAnalysis = `La evolución de márgenes muestra una mejora progresiva desde ${fmtPct(firstYearMargin)} en el primer año hasta ${fmtPct(lastYearMargin)} al final del período, reflejando eficiencias operativas crecientes conforme el activo alcanza madurez operativa y optimización de estructura de costes.`;
-          } else if (marginTrend < -0.03) {
-            trendAnalysis = `Los márgenes GOP muestran compresión desde ${fmtPct(firstYearMargin)} en el primer año hasta ${fmtPct(lastYearMargin)}, sugiriendo presión de costes o dilución de eficiencia operativa que requeriría análisis detallado de drivers de costes departamentales.`;
-          } else {
-            trendAnalysis = `Los márgenes GOP se mantienen relativamente estables entre ${fmtPct(firstYearMargin)} y ${fmtPct(lastYearMargin)}, reflejando consistencia operativa a lo largo del período proyectado.`;
-          }
+            // Análisis de fees
+            const feesPerKey = totals.fees / keys;
+            const feesPerKeyYear = feesPerKey / project.horizonte;
 
-          // Análisis de fees
-          const feesPerKey = totals.fees / keys;
-          const feesPerKeyYear = feesPerKey / project.horizonte;
+            let marginQuality = '';
+            if (avgGopMargin >= 0.40) {
+              marginQuality = 'excelente (≥40%)';
+            } else if (avgGopMargin >= 0.32) {
+              marginQuality = 'robusto (32-40%)';
+            } else if (avgGopMargin >= 0.25) {
+              marginQuality = 'aceptable (25-32%)';
+            } else {
+              marginQuality = 'ajustado (<25%)';
+            }
 
-          let marginQuality = '';
-          if (avgGopMargin >= 0.40) {
-            marginQuality = 'excelente (≥40%)';
-          } else if (avgGopMargin >= 0.32) {
-            marginQuality = 'robusto (32-40%)';
-          } else if (avgGopMargin >= 0.25) {
-            marginQuality = 'aceptable (25-32%)';
-          } else {
-            marginQuality = 'ajustado (<25%)';
-          }
+            return `El GOP promedio se sitúa en ${fmtPct(avgGopMargin)}, considerado un margen ${marginQuality} para el segmento ${project.segmento.toLowerCase()}. ${trendAnalysis} El mejor margen GOP se alcanza en el año ${bestYear.anio} (${fmtPct(bestYear.gop_margin)}), mientras que el más ajustado corresponde al año ${worstYear.anio} (${fmtPct(worstYear.gop_margin)}), representando una variabilidad de ${fmtPct(marginRange)} puntos que ilustra la evolución operativa del activo. Los fees totales del operador durante el período ascienden a ${fmt(totals.fees)}, equivalentes a ${fmtCurrency(feesPerKey)} por habitación (${fmtCurrency(feesPerKeyYear)} por hab/año).`;
+          })(),
+          spacing: { before: 200, after: 400 },
+        }),
 
-          return `El GOP promedio se sitúa en ${fmtPct(avgGopMargin)}, considerado un margen ${marginQuality} para el segmento ${project.segmento.toLowerCase()}. ${trendAnalysis} El mejor margen GOP se alcanza en el año ${bestYear.anio} (${fmtPct(bestYear.gop_margin)}), mientras que el más ajustado corresponde al año ${worstYear.anio} (${fmtPct(worstYear.gop_margin)}), representando una variabilidad de ${fmtPct(marginRange)} puntos que ilustra la evolución operativa del activo. Los fees totales del operador durante el período ascienden a ${fmt(totals.fees)}, equivalentes a ${fmtCurrency(feesPerKey)} por habitación (${fmtCurrency(feesPerKeyYear)} por hab/año).`;
-        })(),
-        spacing: { before: 200, after: 400 },
-      }),
+        // ========================================
+        // 5. ANÁLISIS DE FEES POR HABITACIÓN Y ROOM NIGHT
+        // ========================================
+        new Paragraph({
+          text: '4. Análisis de Fees por Habitación y Room Night',
+          heading: HeadingLevel.HEADING_1,
+          spacing: { after: 300 },
+        })
+      );
 
-      // ========================================
-      // 5. ANÁLISIS DE FEES POR HABITACIÓN Y ROOM NIGHT
-      // ========================================
-      new Paragraph({
-        text: '4. Análisis de Fees por Habitación y Room Night',
-        heading: HeadingLevel.HEADING_1,
-        spacing: { after: 300 },
-      })
-    );
+      const feesPerKeyTotal = totals.fees / keys;
+      const feesPerRnTotal = totals.fees / totals.rn;
 
-    const feesPerKeyTotal = totals.fees / keys;
-    const feesPerRnTotal = totals.fees / totals.rn;
-
-    const feesAnalysisRows = [
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Métrica', bold: true })], shading: { fill: 'E7E6E6' } }),
-          new TableCell({ children: [new Paragraph({ text: 'Total', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-          new TableCell({ children: [new Paragraph({ text: 'Por Habitación', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-          new TableCell({ children: [new Paragraph({ text: 'Por Room Night', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Fees Totales' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(totals.fees), alignment: AlignmentType.RIGHT })] }),
-          new TableCell({ children: [new Paragraph({ text: fmtCurrency(feesPerKeyTotal), alignment: AlignmentType.RIGHT })] }),
-          new TableCell({ children: [new Paragraph({ text: fmtCurrency(feesPerRnTotal), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-    ];
-
-    sections.push(
-      new Table({
-        rows: feesAnalysisRows,
-        width: { size: 90, type: WidthType.PERCENTAGE },
-      }),
-      new Paragraph({
-        text: `Los fees por habitación ascienden a ${fmtCurrency(feesPerKeyTotal)} durante el período de ${project.horizonte} años, equivalente a ${fmtCurrency(feesPerKeyTotal / project.horizonte)} por habitación y año. Por room night, los fees se sitúan en ${fmtCurrency(feesPerRnTotal)}, reflejando el valor económico del servicio de gestión por cada noche vendida.`,
-        spacing: { before: 200, after: 400 },
-      }),
-
-      // ========================================
-      // 6. FEES ANUALES PROYECTADOS
-      // ========================================
-      new Paragraph({
-        text: '5. Fees Anuales Proyectados',
-        heading: HeadingLevel.HEADING_1,
-        spacing: { after: 300 },
-      })
-    );
-
-    const feesYearlyRows = [
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Año', bold: true })], shading: { fill: 'E7E6E6' } }),
-          new TableCell({ children: [new Paragraph({ text: 'Fees (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-          new TableCell({ children: [new Paragraph({ text: 'Fees €/hab', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-          new TableCell({ children: [new Paragraph({ text: 'Fees €/RN', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-          new TableCell({ children: [new Paragraph({ text: '% Revenue', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-          new TableCell({ children: [new Paragraph({ text: '% GOP', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-        ],
-      }),
-    ];
-
-    annuals.forEach((year: any) => {
-      const feesPerKey = (year.fees ?? 0) / keys;
-      const feesPerRn = year.rn > 0 ? (year.fees ?? 0) / year.rn : 0;
-      const feesPctRevenue = year.operating_revenue > 0 ? (year.fees ?? 0) / year.operating_revenue : 0;
-      const feesPctGop = year.gop > 0 ? (year.fees ?? 0) / year.gop : 0;
-
-      feesYearlyRows.push(
+      const feesAnalysisRows = [
         new TableRow({
           children: [
-            new TableCell({ children: [new Paragraph({ text: year.anio.toString() })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(year.fees ?? 0), alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmtMoney(feesPerKey), alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmtMoney(feesPerRn), alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmtPct(feesPctRevenue), alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmtPct(feesPctGop), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: 'Métrica', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Total', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Por Habitación', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Por Room Night', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
           ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Fees Totales' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totals.fees), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtCurrency(feesPerKeyTotal), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtCurrency(feesPerRnTotal), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+      ];
+
+      sections.push(
+        new Table({
+          rows: feesAnalysisRows,
+          width: { size: 90, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: `Los fees por habitación ascienden a ${fmtCurrency(feesPerKeyTotal)} durante el período de ${project.horizonte} años, equivalente a ${fmtCurrency(feesPerKeyTotal / project.horizonte)} por habitación y año. Por room night, los fees se sitúan en ${fmtCurrency(feesPerRnTotal)}, reflejando el valor económico del servicio de gestión por cada noche vendida.`,
+          spacing: { before: 200, after: 400 },
+        }),
+
+        // ========================================
+        // 6. FEES ANUALES PROYECTADOS
+        // ========================================
+        new Paragraph({
+          text: '5. Fees Anuales Proyectados',
+          heading: HeadingLevel.HEADING_1,
+          spacing: { after: 300 },
         })
       );
-    });
 
-    sections.push(
-      new Table({
-        rows: feesYearlyRows,
-        width: { size: 100, type: WidthType.PERCENTAGE },
-      }),
-      new Paragraph({
-        text: (() => {
-          // Análisis inteligente de evolución de fees
-          const firstYearFees = annuals[0]?.fees ?? 0;
-          const lastYearFees = annuals[annuals.length - 1]?.fees ?? 0;
+      const feesYearlyRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Año', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Fees (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Fees €/hab', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Fees €/RN', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: '% Revenue', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: '% GOP', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+      ];
 
-          // Calcular CAGR de fees
-          const years = project.horizonte;
+      annuals.forEach((year: any) => {
+        const feesPerKey = (year.fees ?? 0) / keys;
+        const feesPerRn = year.rn > 0 ? (year.fees ?? 0) / year.rn : 0;
+        const feesPctRevenue = year.operating_revenue > 0 ? (year.fees ?? 0) / year.operating_revenue : 0;
+        const feesPctGop = year.gop > 0 ? (year.fees ?? 0) / year.gop : 0;
+
+        feesYearlyRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph({ text: year.anio.toString() })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(year.fees ?? 0), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmtMoney(feesPerKey), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmtMoney(feesPerRn), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmtPct(feesPctRevenue), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmtPct(feesPctGop), alignment: AlignmentType.RIGHT })] }),
+            ],
+          })
+        );
+      });
+
+      sections.push(
+        new Table({
+          rows: feesYearlyRows,
+          width: { size: 100, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: (() => {
+            // Análisis inteligente de evolución de fees
+            const firstYearFees = annuals[0]?.fees ?? 0;
+            const lastYearFees = annuals[annuals.length - 1]?.fees ?? 0;
+
+            // Calcular CAGR de fees
+            const years = project.horizonte;
           const cagr = years > 1 && firstYearFees > 0
             ? Math.pow(lastYearFees / firstYearFees, 1 / (years - 1)) - 1
             : 0;
@@ -713,6 +1140,8 @@ export async function generateOperadorWordDocument(data: OperadorData) {
         spacing: { after: 200 },
       })
     );
+
+    } // End of else block (operador case)
 
     // Crear el documento
     console.log('Creando documento Word con', sections.length, 'secciones...');
