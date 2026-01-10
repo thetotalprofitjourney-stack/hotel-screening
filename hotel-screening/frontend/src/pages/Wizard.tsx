@@ -930,9 +930,18 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
         }
       });
 
-      // Eliminar el Paso 4 (Deuda) y pasos posteriores del snapshot de operador
+      // Eliminar la sección de decisión del snapshot (el antiguo popup)
       const sections = Array.from(clonedElement.querySelectorAll('section'));
       sections.forEach(section => {
+        const heading = section.querySelector('h3');
+        if (heading && heading.textContent && heading.textContent.includes('¿Cómo deseas continuar?')) {
+          section.remove();
+        }
+      });
+
+      // Eliminar el Paso 4 (Deuda) y pasos posteriores del snapshot de operador
+      const allSections = Array.from(clonedElement.querySelectorAll('section'));
+      allSections.forEach(section => {
         const heading = section.querySelector('h3');
         if (heading && heading.textContent) {
           const headingText = heading.textContent.trim();
