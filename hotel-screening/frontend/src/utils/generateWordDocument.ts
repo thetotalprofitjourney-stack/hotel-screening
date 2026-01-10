@@ -82,11 +82,11 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     const keys = basicInfo.habitaciones;
     const base = financingConfig.precio_compra ?? 0;
     const capex = financingConfig.capex_inicial ?? 0;
-    const costs_buy = (base + capex) * (financingConfig.coste_tx_compra_pct ?? 0);
+    const costs_buy = base * (financingConfig.coste_tx_compra_pct ?? 0); // Costes de transacción solo sobre precio de compra
     const totalInvestment = base + capex + costs_buy;
     // CORRECCIÓN: LTV se aplica solo sobre precio_compra + capex, NO sobre costes de transacción
     const loan0 = (base + capex) * (financingConfig.ltv ?? 0);
-    const equity0 = (base + capex) * (1 - (financingConfig.ltv ?? 0)) + costs_buy;
+    const equity0 = base + capex + costs_buy - loan0;
 
     // 1) HORIZONTE DE INVERSIÓN: usar annuals.length como fuente de verdad
     // Esto asegura 100% coherencia entre proyección y documento
