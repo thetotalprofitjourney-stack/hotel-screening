@@ -95,6 +95,19 @@ export default function App() {
     initializeUser();
   }, []);
 
+  // No renderizar los componentes hasta que el email esté disponible
+  // Esto evita la race condition donde ProjectList intenta cargar proyectos
+  // antes de que localStorage tenga el email guardado
+  if (!userEmail) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-gray-500">Cargando...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <header className="flex items-center justify-between mb-6">
