@@ -477,13 +477,143 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
       new Paragraph({
         text: `Durante el horizonte completo de ${holdingYears} años, el activo genera un EBITDA acumulado de ${fmt(totals.ebitda)} y un EBITDA-FF&E de ${fmt(totals.ebitda_less_ffe)} (${fmt(totals.ebitda_less_ffe / keys)} por habitación). La evolución de los flujos refleja la maduración operativa del activo y la estabilización de márgenes conforme se consolida el posicionamiento de mercado. La capacidad de generación de caja del proyecto constituye la base para el servicio de deuda y la rentabilidad del equity.`,
         spacing: { before: 200, after: 400 },
-      }),
+      })
+    );
 
+    // ========================================
+    // 4B. REMUNERACIÓN DEL OPERADOR (CONDICIONAL)
+    // ========================================
+    // Solo mostrar si operacion_tipo !== 'gestion_propia'
+    if (operationConfig.operacion_tipo !== 'gestion_propia') {
+      sections.push(
+        new Paragraph({
+          text: '5. Remuneración del Operador',
+          heading: HeadingLevel.HEADING_1,
+          spacing: { after: 300 },
+        }),
+        new Paragraph({
+          text: 'El proyecto contempla un contrato de gestión con operador externo. La estructura de remuneración del operador se detalla a continuación, incluyendo la proyección de fees durante el período de holding.',
+          spacing: { after: 200 },
+        })
+      );
+
+      // Tabla de estructura de fees
+      const operatorFeeStructureRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Componente', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Valor', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Fee base anual' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(operationConfig.fee_base_anual ?? 0), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Fee % sobre Revenue Total' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(operationConfig.fee_pct_total_rev ?? 0), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Fee % sobre GOP' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(operationConfig.fee_pct_gop ?? 0), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Fee incentivo % (si GOP/Revenue ≥ hurdle)' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(operationConfig.fee_incentive_pct ?? 0), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Hurdle GOP margin para incentivo' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(operationConfig.fee_hurdle_gop_margin ?? 0), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+      ];
+
+      sections.push(
+        new Table({
+          rows: operatorFeeStructureRows,
+          width: { size: 70, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: '',
+          spacing: { before: 200, after: 300 },
+        })
+      );
+
+      // Tabla anual de fees proyectados
+      const operatorFeesYearlyRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Año', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Fees (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Fees €/hab', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: '% Revenue', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: '% GOP', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+      ];
+
+      annuals.forEach((year: any) => {
+        const feesPerKey = (year.fees ?? 0) / keys;
+        const feesPctRevenue = year.operating_revenue > 0 ? (year.fees ?? 0) / year.operating_revenue : 0;
+        const feesPctGop = year.gop > 0 ? (year.fees ?? 0) / year.gop : 0;
+
+        operatorFeesYearlyRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph({ text: year.anio.toString() })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(year.fees ?? 0), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(feesPerKey), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmtPct(feesPctRevenue), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmtPct(feesPctGop), alignment: AlignmentType.RIGHT })] }),
+            ],
+          })
+        );
+      });
+
+      // Fila de totales
+      const totalFeesPerKey = totals.fees / keys;
+      const totalFeesPctRevenue = totals.operating_revenue > 0 ? totals.fees / totals.operating_revenue : 0;
+      const totalFeesPctGop = totals.gop > 0 ? totals.fees / totals.gop : 0;
+
+      operatorFeesYearlyRows.push(
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'TOTAL', bold: true })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totals.fees), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totalFeesPerKey), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(totalFeesPctRevenue), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(totalFeesPctGop), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+          ],
+        })
+      );
+
+      sections.push(
+        new Table({
+          rows: operatorFeesYearlyRows,
+          width: { size: 100, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: `Los fees totales del operador durante el período de ${holdingYears} años ascienden a ${fmt(totals.fees)}, equivalente a ${fmt(totalFeesPerKey)} por habitación. Los fees representan aproximadamente el ${fmtPct(totalFeesPctRevenue)} de los ingresos totales y el ${fmtPct(totalFeesPctGop)} del GOP generado durante el período. Esta estructura de remuneración alinea los incentivos del operador con la generación de resultados operativos eficientes, dado que parte significativa de la remuneración está vinculada al desempeño del activo.`,
+          spacing: { before: 200, after: 400 },
+        })
+      );
+    }
+
+    sections.push(
       // ========================================
-      // 5. ESTRUCTURA DE LA INVERSIÓN (FUENTES & USOS)
+      // 5 o 6. ESTRUCTURA DE LA INVERSIÓN (FUENTES & USOS)
       // ========================================
       new Paragraph({
-        text: '5. Estructura de la Inversión',
+        text: operationConfig.operacion_tipo !== 'gestion_propia' ? '6. Estructura de la Inversión' : '5. Estructura de la Inversión',
         heading: HeadingLevel.HEADING_1,
         spacing: { after: 300 },
       })
@@ -550,6 +680,16 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
       }),
     ];
 
+    // Calcular número de sección dinámicamente
+    const hasOperatorSection = operationConfig.operacion_tipo !== 'gestion_propia';
+    const sectionInvestment = hasOperatorSection ? 6 : 5;
+    const sectionFinancing = hasOperatorSection ? 7 : 6;
+    const sectionValuation = hasOperatorSection ? 8 : 7;
+    const sectionPPA = hasOperatorSection ? 9 : 8;
+    const sectionReturns = hasOperatorSection ? 10 : 9;
+    const sectionSensitivity = hasOperatorSection ? 11 : 10;
+    const sectionConclusions = hasOperatorSection ? 12 : 11;
+
     sections.push(
       new Table({
         rows: investmentRows,
@@ -558,80 +698,268 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
       new Paragraph({
         text: `La estructura de capital contempla un apalancamiento del ${fmtPct(financingConfig.ltv ?? 0)} sobre la inversión total, requiriendo una aportación de equity de ${fmt(equity0)}, equivalente a ${fmt(equity0 / keys)} por habitación. Esta configuración busca optimizar el retorno al capital mediante el uso eficiente de deuda senior.`,
         spacing: { before: 200, after: 400 },
-      }),
-
-      // ========================================
-      // 6. FINANCIACIÓN Y PERFIL DE DEUDA
-      // ========================================
-      new Paragraph({
-        text: '6. Financiación y Perfil de Deuda',
-        heading: HeadingLevel.HEADING_1,
-        spacing: { after: 300 },
-      }),
-      new Paragraph({
-        text: `El proyecto contempla financiación mediante préstamo ${financingConfig.tipo_amortizacion === 'frances' ? 'con amortización francesa' : 'bullet'} a ${financingConfig.plazo_anios} años, con tipo de interés del ${fmtPct(financingConfig.interes ?? 0)}. El principal inicial asciende a ${fmt(loan0)}, sobre el cual se calcula el servicio de deuda durante el período de holding.`,
-        spacing: { after: 200 },
       })
     );
 
-    const debtRows = [
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Concepto', bold: true })], shading: { fill: 'E7E6E6' } }),
-          new TableCell({ children: [new Paragraph({ text: 'Importe (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Principal inicial' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(loan0), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: `Deuda pendiente año ${lastYear}` })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(saldoDeudaFinal), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Intereses pagados (holding)' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(totalIntereses), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Principal amortizado (holding)' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(totalAmortizacion), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Servicio total de deuda', bold: true })], shading: { fill: 'F2F2F2' } }),
-          new TableCell({ children: [new Paragraph({ text: fmt(totalCuota), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-        ],
-      }),
-    ];
+    // ========================================
+    // 6 o 7. FINANCIACIÓN Y PERFIL DE DEUDA (CONDICIONAL - SOLO SI LTV > 0)
+    // ========================================
+    if ((financingConfig.ltv ?? 0) > 0) {
+      sections.push(
+        new Paragraph({
+          text: `${sectionFinancing}. Financiación y Perfil de Deuda`,
+          heading: HeadingLevel.HEADING_1,
+          spacing: { after: 300 },
+        }),
+        new Paragraph({
+          text: `El proyecto contempla financiación mediante préstamo ${financingConfig.tipo_amortizacion === 'frances' ? 'con amortización francesa' : 'bullet'} a ${financingConfig.plazo_anios} años, con tipo de interés del ${fmtPct(financingConfig.interes ?? 0)}. El principal inicial asciende a ${fmt(loan0)}, sobre el cual se calcula el servicio de deuda durante el período de holding.`,
+          spacing: { after: 200 },
+        })
+      );
+
+      // Tabla de resumen de deuda
+      const debtRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Concepto', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Importe (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Principal inicial' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(loan0), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: `Deuda pendiente año ${lastYear}` })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(saldoDeudaFinal), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Intereses pagados (holding)' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totalIntereses), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Principal amortizado (holding)' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totalAmortizacion), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Servicio total de deuda', bold: true })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totalCuota), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+          ],
+        }),
+      ];
+
+      sections.push(
+        new Table({
+          rows: debtRows,
+          width: { size: 70, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: `El servicio acumulado de deuda suma ${fmt(totalCuota)} durante el holding, de los cuales ${fmt(totalIntereses)} corresponden a intereses y ${fmt(totalAmortizacion)} a amortización de principal. Al momento de la salida en el año ${lastYear}, la deuda pendiente asciende a ${fmt(saldoDeudaFinal)}, importe que será liquidado con cargo al valor de exit antes de distribuir el equity neto.`,
+          spacing: { before: 200, after: 300 },
+        })
+      );
+
+      // Tabla de amortización anual completa
+      sections.push(
+        new Paragraph({
+          text: 'Cuadro de Amortización Anual',
+          bold: true,
+          spacing: { after: 200 },
+        })
+      );
+
+      const debtScheduleRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Año', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Intereses (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Amortización (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Cuota Total (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Saldo Final (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+      ];
+
+      // Iterar sobre el debt schedule para construir la tabla
+      if (debt?.schedule && Array.isArray(debt.schedule)) {
+        debt.schedule.forEach((row: any) => {
+          debtScheduleRows.push(
+            new TableRow({
+              children: [
+                new TableCell({ children: [new Paragraph({ text: row.anio?.toString() ?? '' })] }),
+                new TableCell({ children: [new Paragraph({ text: fmt(row.intereses ?? 0), alignment: AlignmentType.RIGHT })] }),
+                new TableCell({ children: [new Paragraph({ text: fmt(row.amortizacion ?? 0), alignment: AlignmentType.RIGHT })] }),
+                new TableCell({ children: [new Paragraph({ text: fmt(row.cuota ?? 0), alignment: AlignmentType.RIGHT })] }),
+                new TableCell({ children: [new Paragraph({ text: fmt(row.saldo_final ?? 0), alignment: AlignmentType.RIGHT })] }),
+              ],
+            })
+          );
+        });
+      }
+
+      sections.push(
+        new Table({
+          rows: debtScheduleRows,
+          width: { size: 100, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: 'El cuadro de amortización muestra la evolución anual del servicio de deuda, permitiendo identificar el perfil de pagos y la reducción progresiva del saldo pendiente durante el período de holding.',
+          spacing: { before: 200, after: 300 },
+        })
+      );
+
+      // Cálculo de DSCR (Debt Service Coverage Ratio)
+      sections.push(
+        new Paragraph({
+          text: 'Cobertura de Servicio de Deuda (DSCR)',
+          bold: true,
+          spacing: { after: 200 },
+        }),
+        new Paragraph({
+          text: 'El DSCR (Debt Service Coverage Ratio) mide la capacidad del activo para cubrir el servicio de deuda con los flujos operativos. Se calcula como EBITDA-FF&E dividido por el servicio de deuda anual. Un DSCR superior a 1.0x indica capacidad de cobertura suficiente.',
+          spacing: { after: 200 },
+        })
+      );
+
+      const dscrRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Año', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'EBITDA-FF&E (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Servicio Deuda (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'DSCR', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+      ];
+
+      let minDSCR = Infinity;
+      let minDSCRYear = 0;
+
+      // Calcular DSCR para cada año
+      annuals.forEach((year: any, idx: number) => {
+        const ebitdaLessFfe = year.ebitda_less_ffe ?? 0;
+        const debtRow = debt?.schedule?.find((d: any) => d.anio === year.anio);
+        const debtService = debtRow?.cuota ?? 0;
+        const dscr = debtService > 0 ? ebitdaLessFfe / debtService : 0;
+
+        if (dscr > 0 && dscr < minDSCR) {
+          minDSCR = dscr;
+          minDSCRYear = year.anio;
+        }
+
+        dscrRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph({ text: year.anio.toString() })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(ebitdaLessFfe), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(debtService), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: debtService > 0 ? `${fmtDecimal(dscr, 2)}x` : 'N/A', alignment: AlignmentType.RIGHT })] }),
+            ],
+          })
+        );
+      });
+
+      sections.push(
+        new Table({
+          rows: dscrRows,
+          width: { size: 90, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: minDSCR < Infinity
+            ? `El DSCR mínimo se registra en el año ${minDSCRYear} con ${fmtDecimal(minDSCR, 2)}x. ${minDSCR >= 1.25 ? 'El proyecto muestra cobertura robusta en todos los años, superando el umbral típico de 1.25x exigido por entidades financieras.' : minDSCR >= 1.0 ? 'El proyecto mantiene cobertura positiva en todos los años, aunque en algunos períodos se sitúa por debajo del umbral típico de 1.25x exigido por entidades financieras.' : 'Atención: El proyecto presenta años con DSCR inferior a 1.0x, indicando insuficiente capacidad de cobertura del servicio de deuda con flujos operativos. Se recomienda revisar los supuestos o la estructura de financiación.'}`
+            : 'No se pudo calcular el DSCR para los años analizados.',
+          spacing: { before: 200, after: 300 },
+        })
+      );
+
+      // Métricas clave para bancos
+      sections.push(
+        new Paragraph({
+          text: 'Métricas Clave para Financiadores',
+          bold: true,
+          spacing: { after: 200 },
+        })
+      );
+
+      // Calcular LTV final
+      const ltvFinal = vr.valuation.valor_salida_neto > 0 ? saldoDeudaFinal / vr.valuation.valor_salida_neto : 0;
+
+      const bankMetricsRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Métrica', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Valor', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'LTV inicial' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(financingConfig.ltv ?? 0), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: `LTV al exit (sobre valor año ${lastYear})` })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(ltvFinal), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'DSCR mínimo (período)' })] }),
+            new TableCell({ children: [new Paragraph({ text: minDSCR < Infinity ? `${fmtDecimal(minDSCR, 2)}x (año ${minDSCRYear})` : 'N/A', alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Tipo de interés' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(financingConfig.interes ?? 0), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Plazo del préstamo' })] }),
+            new TableCell({ children: [new Paragraph({ text: `${financingConfig.plazo_anios} años`, alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Tipo de amortización' })] }),
+            new TableCell({ children: [new Paragraph({ text: financingConfig.tipo_amortizacion === 'frances' ? 'Francesa' : 'Bullet', alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+      ];
+
+      sections.push(
+        new Table({
+          rows: bankMetricsRows,
+          width: { size: 70, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: `El perfil de financiación muestra un LTV inicial del ${fmtPct(financingConfig.ltv ?? 0)} que se reduce hasta ${fmtPct(ltvFinal)} al momento de la salida${minDSCR >= 1.25 ? ', con una cobertura de deuda robusta en todos los períodos' : minDSCR >= 1.0 ? ', manteniendo cobertura positiva en todos los períodos aunque con márgenes ajustados en algunos años' : ', presentando insuficiente cobertura en algunos años que requiere revisión'}. ${financingConfig.tipo_amortizacion === 'bullet' ? 'El préstamo bullet concentra el pago de principal al vencimiento, liberando flujos operativos durante el holding pero requiriendo refinanciación o liquidación completa al exit.' : 'La amortización francesa distribuye el pago de principal de forma constante durante el plazo, reduciendo gradualmente la exposición del financiador.'}`,
+          spacing: { before: 200, after: 400 },
+        }),
+        new Paragraph({
+          text: '',
+          pageBreakBefore: true,
+        })
+      );
+    }
 
     sections.push(
-      new Table({
-        rows: debtRows,
-        width: { size: 70, type: WidthType.PERCENTAGE },
-      }),
-      new Paragraph({
-        text: `El servicio acumulado de deuda suma ${fmt(totalCuota)} durante el holding, de los cuales ${fmt(totalIntereses)} corresponden a intereses y ${fmt(totalAmortizacion)} a amortización de principal. Al momento de la salida en el año ${lastYear}, la deuda pendiente asciende a ${fmt(saldoDeudaFinal)}, importe que será liquidado con cargo al valor de exit antes de distribuir el equity neto.`,
-        spacing: { before: 200, after: 200 },
-      }),
-      new Paragraph({
-        text: '',
-        pageBreakBefore: true,
-      }),
-
       // ========================================
-      // 7. VALORACIÓN DEL ACTIVO Y EXIT
+      // 7/8. VALORACIÓN DEL ACTIVO Y EXIT
       // ========================================
       new Paragraph({
-        text: '7. Valoración del Activo y Exit',
+        text: `${sectionValuation}. Valoración del Activo y Exit`,
         heading: HeadingLevel.HEADING_1,
         spacing: { after: 300 },
       }),
@@ -751,10 +1079,10 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
       }),
 
       // ========================================
-      // 8. ANÁLISIS DE PRECIO DE COMPRA
+      // 8/9. ANÁLISIS DE PRECIO DE COMPRA
       // ========================================
       new Paragraph({
-        text: '8. Análisis de Precio de Compra',
+        text: `${sectionPPA}. Análisis de Precio de Compra`,
         heading: HeadingLevel.HEADING_1,
         spacing: { after: 300 },
       })
@@ -817,11 +1145,11 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     );
 
     // ========================================
-    // 9. FLUJOS AL EQUITY Y RETORNOS
+    // 9/10. FLUJOS AL EQUITY Y RETORNOS
     // ========================================
     sections.push(
       new Paragraph({
-        text: '9. Flujos al Equity y Retornos',
+        text: `${sectionReturns}. Flujos al Equity y Retornos`,
         heading: HeadingLevel.HEADING_1,
         spacing: { after: 300 },
       }),
@@ -905,12 +1233,12 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     );
 
     // ========================================
-    // 10. ANÁLISIS DE SENSIBILIDAD Y ROBUSTEZ DEL PROYECTO
+    // 10/11. ANÁLISIS DE SENSIBILIDAD Y ROBUSTEZ DEL PROYECTO
     // ========================================
     if (vr.sensitivity && vr.sensitivity.scenarios && Array.isArray(vr.sensitivity.scenarios) && vr.sensitivity.scenarios.length > 0) {
       sections.push(
         new Paragraph({
-          text: '10. Análisis de Sensibilidad y Robustez del Proyecto',
+          text: `${sectionSensitivity}. Análisis de Sensibilidad y Robustez del Proyecto`,
           heading: HeadingLevel.HEADING_1,
           spacing: { after: 300 },
         }),
@@ -1028,11 +1356,14 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     }
 
     // ========================================
-    // 11. CONCLUSIONES E INSIGHTS FINALES
+    // 10/11/12. CONCLUSIONES E INSIGHTS FINALES
     // ========================================
+    const hasSensitivity = vr.sensitivity && vr.sensitivity.scenarios && Array.isArray(vr.sensitivity.scenarios) && vr.sensitivity.scenarios.length > 0;
+    const conclusionSection = hasSensitivity ? sectionSensitivity + 1 : sectionConclusions;
+
     sections.push(
       new Paragraph({
-        text: vr.sensitivity && vr.sensitivity.scenarios && Array.isArray(vr.sensitivity.scenarios) && vr.sensitivity.scenarios.length > 0 ? '11. Conclusiones e Insights Finales' : '10. Conclusiones e Insights Finales',
+        text: `${conclusionSection}. Conclusiones e Insights Finales`,
         heading: HeadingLevel.HEADING_1,
         spacing: { after: 300 },
       }),
