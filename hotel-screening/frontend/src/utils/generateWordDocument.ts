@@ -38,6 +38,10 @@ function fmtPct(n: number, decimals: number = 2): string {
   return `${fmtDecimal(n * 100, decimals)}%`;
 }
 
+function fmtCurrency(n: number, decimals: number = 2): string {
+  return `${fmtDecimal(n, decimals)} €`;
+}
+
 interface GenerateWordDocumentParams {
   basicInfo: any;
   operationConfig: any;
@@ -359,12 +363,12 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
           children: [
             new TableCell({ children: [new Paragraph({ text: year.anio.toString() })] }),
             new TableCell({ children: [new Paragraph({ text: occupancy > 0 ? fmtPct(occupancy) : 'N/A', alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: adr > 0 ? fmt(adr) : 'N/A', alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: revPAR > 0 ? fmt(revPAR) : 'N/A', alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: tRevPAR > 0 ? fmt(tRevPAR) : 'N/A', alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(revenuePerRN), alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(gopPerRN), alignment: AlignmentType.RIGHT })] }),
-            new TableCell({ children: [new Paragraph({ text: fmt(ebitdaFFEPerRN), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: adr > 0 ? fmtCurrency(adr) : 'N/A', alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: revPAR > 0 ? fmtCurrency(revPAR) : 'N/A', alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: tRevPAR > 0 ? fmtCurrency(tRevPAR) : 'N/A', alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtCurrency(revenuePerRN), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtCurrency(gopPerRN), alignment: AlignmentType.RIGHT })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtCurrency(ebitdaFFEPerRN), alignment: AlignmentType.RIGHT })] }),
           ],
         })
       );
