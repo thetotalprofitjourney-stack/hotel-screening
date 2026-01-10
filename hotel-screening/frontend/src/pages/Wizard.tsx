@@ -1562,7 +1562,7 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       })()}
 
       {/* Sección de decisión después del Paso 3 */}
-      {accepted && calc && usaliSaved && projectionSaved && showDecisionSection && (
+      {accepted && calc && usaliSaved && projectionSaved && showDecisionSection && !snapshotFinalizado && (
         <section className="border-2 border-blue-500 rounded-lg p-6 bg-blue-50">
           <h3 className="text-xl font-bold mb-3">¿Cómo deseas continuar?</h3>
           <p className="text-gray-700 mb-5">
