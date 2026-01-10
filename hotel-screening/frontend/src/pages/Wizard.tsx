@@ -1737,8 +1737,10 @@ export default function Wizard({ projectId, onBack }:{ projectId:string; onBack:
       {/* PASO 5 guardado: Valoración y Retornos */}
       {accepted && calc && usaliSaved && projectionSaved && financingConfigSaved && vr && (() => {
         const keys = basicInfo.habitaciones;
-        const base = Number(financingConfig.precio_compra ?? 0) + Number(financingConfig.capex_inicial ?? 0);
-        const costs_buy = Number(financingConfig.coste_tx_compra_pct ?? 0.03) * base;
+        const precio_compra = Number(financingConfig.precio_compra ?? 0);
+        const capex_inicial = Number(financingConfig.capex_inicial ?? 0);
+        const base = precio_compra + capex_inicial;
+        const costs_buy = Number(financingConfig.coste_tx_compra_pct ?? 0.03) * precio_compra; // Costes de transacción solo sobre precio de compra
         const loan0 = Number(financingConfig.ltv ?? 0) * base;
         const equity0 = vr.returns.levered.equity0;
 

@@ -105,8 +105,10 @@ router.get('/v1/projects/:id/valuation-and-returns', async (req, res) => {
       [req.params.id]
     );
 
-    const base = Number(ft?.precio_compra ?? 0) + Number(ft?.capex_inicial ?? 0);
-    const costs_buy = Number(ps?.coste_tx_compra_pct ?? 0) * base;
+    const precio_compra = Number(ft?.precio_compra ?? 0);
+    const capex_inicial = Number(ft?.capex_inicial ?? 0);
+    const base = precio_compra + capex_inicial;
+    const costs_buy = Number(ps?.coste_tx_compra_pct ?? 0) * precio_compra; // Costes de transacción solo sobre precio de compra
     const loan0 = Number(ft?.ltv ?? 0) * base;
     const equity0 = base + costs_buy - loan0;
 
@@ -116,7 +118,7 @@ router.get('/v1/projects/:id/valuation-and-returns', async (req, res) => {
         valor_salida_neto: Number(valuation.valor_salida_neto),
         noi_estabilizado: Number(valuation.noi_estabilizado ?? 0),
         precio_compra_implicito: Number(valuation.precio_compra_implicito ?? 0),
-        precio_compra_real: base,
+        precio_compra_real: precio_compra,
         discount_rate: Number(valuation.discount_rate ?? 0)
       },
       returns: {

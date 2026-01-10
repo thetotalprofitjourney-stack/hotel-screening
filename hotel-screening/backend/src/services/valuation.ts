@@ -110,8 +110,9 @@ export async function valuationAndReturns(project_id:string) {
   const precio_compra_implicito = (pv_flujos_operativos + pv_exit - capex_inicial) / (1 + pct_tx_compra);
 
   // Equity inicial (t0)
-  const base = Number(ft.precio_compra ?? 0) + Number(ft.capex_inicial ?? 0);
-  const costs_buy = Number(ps.coste_tx_compra_pct ?? 0) * base;
+  const precio_compra = Number(ft.precio_compra ?? 0);
+  const base = precio_compra + Number(ft.capex_inicial ?? 0);
+  const costs_buy = Number(ps.coste_tx_compra_pct ?? 0) * precio_compra; // Costes de transacción solo sobre precio de compra
   const loan0 = Number(ft.ltv ?? 0) * base;
   const equity0 = base + costs_buy - loan0;
 
