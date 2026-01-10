@@ -257,7 +257,9 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
         spacing: { after: 200 },
       }),
       new Paragraph({
-        text: `La estructura de financiación contempla un apalancamiento del ${fmtPct(financingConfig.ltv ?? 0)} (${fmt(loan0)}) mediante un préstamo ${financingConfig.tipo_amortizacion === 'frances' ? 'con amortización francesa' : 'bullet'} a ${financingConfig.plazo_anios} años al ${fmtPct(financingConfig.interes ?? 0)} de interés, lo que requiere una aportación de equity de ${fmt(equity0)} (${fmt(equity0 / keys)} por habitación).`,
+        text: (financingConfig.ltv ?? 0) > 0
+          ? `La estructura de financiación contempla un apalancamiento del ${fmtPct(financingConfig.ltv ?? 0)} (${fmt(loan0)}) mediante un préstamo ${financingConfig.tipo_amortizacion === 'frances' ? 'con amortización francesa' : 'bullet'} a ${financingConfig.plazo_anios} años al ${fmtPct(financingConfig.interes ?? 0)} de interés, lo que requiere una aportación de equity de ${fmt(equity0)} (${fmt(equity0 / keys)} por habitación). El informe incluye un análisis detallado de la viabilidad de financiación, con métricas clave de cobertura de deuda (DSCR) y evolución del apalancamiento.`
+          : `El proyecto se financia íntegramente con equity, requiriendo una aportación de ${fmt(equity0)} (${fmt(equity0 / keys)} por habitación), sin contemplar apalancamiento bancario.`,
         spacing: { after: 200 },
       }),
       new Paragraph({
@@ -269,6 +271,24 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
         spacing: { after: 200 },
       })
     );
+
+    // Mención de secciones adicionales según configuración
+    const additionalSections = [];
+    if (operationConfig.operacion_tipo !== 'gestion_propia') {
+      additionalSections.push('análisis detallado de la remuneración del operador');
+    }
+    if ((financingConfig.ltv ?? 0) > 0) {
+      additionalSections.push('viabilidad de financiación bancaria con métricas DSCR');
+    }
+
+    if (additionalSections.length > 0) {
+      sections.push(
+        new Paragraph({
+          text: `El presente informe incluye ${additionalSections.join(' y ')}, proporcionando una visión integral del proyecto que permite evaluar la oportunidad desde múltiples perspectivas: inversores equity, entidades financieras y operadores hoteleros.`,
+          spacing: { after: 200 },
+        })
+      );
+    }
 
     // Agregar análisis de precio implícito en resumen ejecutivo si existe
     if (precioImplicito > 0) {
@@ -477,13 +497,185 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
       new Paragraph({
         text: `Durante el horizonte completo de ${holdingYears} años, el activo genera un EBITDA acumulado de ${fmt(totals.ebitda)} y un EBITDA-FF&E de ${fmt(totals.ebitda_less_ffe)} (${fmt(totals.ebitda_less_ffe / keys)} por habitación). La evolución de los flujos refleja la maduración operativa del activo y la estabilización de márgenes conforme se consolida el posicionamiento de mercado. La capacidad de generación de caja del proyecto constituye la base para el servicio de deuda y la rentabilidad del equity.`,
         spacing: { before: 200, after: 400 },
-      }),
+      })
+    );
 
+    // ========================================
+    // 4B. REMUNERACIÓN DEL OPERADOR (CONDICIONAL)
+    // ========================================
+    // Solo mostrar si operacion_tipo !== 'gestion_propia'
+    if (operationConfig.operacion_tipo !== 'gestion_propia') {
+      sections.push(
+        new Paragraph({
+          text: '5. Remuneración del Operador',
+          heading: HeadingLevel.HEADING_1,
+          spacing: { after: 300 },
+        }),
+        new Paragraph({
+          text: 'El proyecto contempla un contrato de gestión con operador externo. La estructura de remuneración del operador se detalla a continuación, incluyendo la proyección de fees durante el período de holding.',
+          spacing: { after: 200 },
+        })
+      );
+
+      // Tabla de estructura de fees
+      const operatorFeeStructureRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Componente', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Valor', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Fee base anual' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(operationConfig.fee_base_anual ?? 0), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Fee % sobre Revenue Total' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(operationConfig.fee_pct_total_rev ?? 0), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Fee % sobre GOP' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(operationConfig.fee_pct_gop ?? 0), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Fee incentivo % (si GOP/Revenue ≥ hurdle)' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(operationConfig.fee_incentive_pct ?? 0), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Hurdle GOP margin para incentivo' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(operationConfig.fee_hurdle_gop_margin ?? 0), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+      ];
+
+      sections.push(
+        new Table({
+          rows: operatorFeeStructureRows,
+          width: { size: 70, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: '',
+          spacing: { before: 200, after: 300 },
+        })
+      );
+
+      // Tabla anual de fees proyectados
+      const operatorFeesYearlyRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Año', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Fees (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Fees €/hab', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: '% Revenue', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: '% GOP', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+      ];
+
+      annuals.forEach((year: any) => {
+        const feesPerKey = (year.fees ?? 0) / keys;
+        const feesPctRevenue = year.operating_revenue > 0 ? (year.fees ?? 0) / year.operating_revenue : 0;
+        const feesPctGop = year.gop > 0 ? (year.fees ?? 0) / year.gop : 0;
+
+        operatorFeesYearlyRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph({ text: year.anio.toString() })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(year.fees ?? 0), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(feesPerKey), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmtPct(feesPctRevenue), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmtPct(feesPctGop), alignment: AlignmentType.RIGHT })] }),
+            ],
+          })
+        );
+      });
+
+      // Fila de totales
+      const totalFeesPerKey = totals.fees / keys;
+      const totalFeesPctRevenue = totals.operating_revenue > 0 ? totals.fees / totals.operating_revenue : 0;
+      const totalFeesPctGop = totals.gop > 0 ? totals.fees / totals.gop : 0;
+
+      operatorFeesYearlyRows.push(
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'TOTAL', bold: true })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totals.fees), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totalFeesPerKey), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(totalFeesPctRevenue), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(totalFeesPctGop), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+          ],
+        })
+      );
+
+      sections.push(
+        new Table({
+          rows: operatorFeesYearlyRows,
+          width: { size: 100, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: `Los fees totales del operador durante el período de ${holdingYears} años ascienden a ${fmt(totals.fees)}, equivalente a ${fmt(totalFeesPerKey)} por habitación (${fmt(totalFeesPerKey / holdingYears)} por habitación y año). Los fees representan aproximadamente el ${fmtPct(totalFeesPctRevenue)} de los ingresos totales y el ${fmtPct(totalFeesPctGop)} del GOP generado durante el período.`,
+          spacing: { before: 200, after: 200 },
+        }),
+        new Paragraph({
+          text: 'Análisis de Alineación de Incentivos',
+          bold: true,
+          spacing: { after: 150 },
+        }),
+        new Paragraph({
+          text: (() => {
+            // Calcular componentes de fees para análisis
+            const feeBase = (operationConfig.fee_base_anual ?? 0) * holdingYears;
+            const feePctRev = (operationConfig.fee_pct_total_rev ?? 0);
+            const feePctGop = (operationConfig.fee_pct_gop ?? 0);
+            const feeIncentive = (operationConfig.fee_incentive_pct ?? 0);
+
+            // Determinar peso de fees fijos vs variables
+            const fixedComponent = feeBase / totals.fees;
+            const variableComponent = 1 - fixedComponent;
+
+            let alignment = '';
+            if (variableComponent > 0.7) {
+              alignment = 'La estructura de remuneración está fuertemente orientada a performance (más del 70% variable), maximizando la alineación de intereses entre operador e inversor. El operador tiene incentivos claros para optimizar ingresos y márgenes operativos, asumiendo parte significativa del riesgo comercial del activo.';
+            } else if (variableComponent > 0.4) {
+              alignment = 'La estructura de remuneración presenta un balance equilibrado entre fees fijos y variables, proporcionando al operador estabilidad base mientras mantiene incentivos significativos para maximizar el desempeño operativo. Este esquema es típico en contratos de gestión hotelera de mercado.';
+            } else {
+              alignment = 'La estructura de remuneración tiene un componente fijo predominante, proporcionando alta predictibilidad de costes para el inversor pero limitando la exposición del operador al desempeño real del activo. Los incentivos variables representan una fracción minoritaria de la remuneración total.';
+            }
+
+            // Análisis de hurdle si existe fee incentivo
+            let hurdleAnalysis = '';
+            if (feeIncentive > 0 && (operationConfig.fee_hurdle_gop_margin ?? 0) > 0) {
+              const hurdle = operationConfig.fee_hurdle_gop_margin ?? 0;
+              const avgGopMargin = totals.gop / totals.operating_revenue;
+              if (avgGopMargin >= hurdle) {
+                hurdleAnalysis = ` El fee incentivo del ${fmtPct(feeIncentive)} sobre GOP se activa cuando el margen GOP supera el ${fmtPct(hurdle)}. Con un margen GOP promedio proyectado del ${fmtPct(avgGopMargin)}, el operador alcanzaría sistemáticamente este umbral, generando alineación adicional en la búsqueda de eficiencia operativa.`;
+              } else {
+                hurdleAnalysis = ` El fee incentivo del ${fmtPct(feeIncentive)} se activa con margen GOP superior al ${fmtPct(hurdle)}, umbral que según las proyecciones actuales (margen promedio ${fmtPct(avgGopMargin)}) no se alcanzaría de forma recurrente, limitando la potencia de este incentivo en la estructura actual.`;
+              }
+            }
+
+            return alignment + hurdleAnalysis + ' Esta configuración de fees debe evaluarse en el contexto del riesgo operativo del proyecto, benchmarks de mercado para el segmento y experiencia del operador en activos similares.';
+          })(),
+          spacing: { after: 400 },
+        })
+      );
+    }
+
+    sections.push(
       // ========================================
-      // 5. ESTRUCTURA DE LA INVERSIÓN (FUENTES & USOS)
+      // 5 o 6. ESTRUCTURA DE LA INVERSIÓN (FUENTES & USOS)
       // ========================================
       new Paragraph({
-        text: '5. Estructura de la Inversión',
+        text: operationConfig.operacion_tipo !== 'gestion_propia' ? '6. Estructura de la Inversión' : '5. Estructura de la Inversión',
         heading: HeadingLevel.HEADING_1,
         spacing: { after: 300 },
       })
@@ -550,6 +742,16 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
       }),
     ];
 
+    // Calcular número de sección dinámicamente
+    const hasOperatorSection = operationConfig.operacion_tipo !== 'gestion_propia';
+    const sectionInvestment = hasOperatorSection ? 6 : 5;
+    const sectionFinancing = hasOperatorSection ? 7 : 6;
+    const sectionValuation = hasOperatorSection ? 8 : 7;
+    const sectionPPA = hasOperatorSection ? 9 : 8;
+    const sectionReturns = hasOperatorSection ? 10 : 9;
+    const sectionSensitivity = hasOperatorSection ? 11 : 10;
+    const sectionConclusions = hasOperatorSection ? 12 : 11;
+
     sections.push(
       new Table({
         rows: investmentRows,
@@ -558,80 +760,315 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
       new Paragraph({
         text: `La estructura de capital contempla un apalancamiento del ${fmtPct(financingConfig.ltv ?? 0)} sobre la inversión total, requiriendo una aportación de equity de ${fmt(equity0)}, equivalente a ${fmt(equity0 / keys)} por habitación. Esta configuración busca optimizar el retorno al capital mediante el uso eficiente de deuda senior.`,
         spacing: { before: 200, after: 400 },
-      }),
-
-      // ========================================
-      // 6. FINANCIACIÓN Y PERFIL DE DEUDA
-      // ========================================
-      new Paragraph({
-        text: '6. Financiación y Perfil de Deuda',
-        heading: HeadingLevel.HEADING_1,
-        spacing: { after: 300 },
-      }),
-      new Paragraph({
-        text: `El proyecto contempla financiación mediante préstamo ${financingConfig.tipo_amortizacion === 'frances' ? 'con amortización francesa' : 'bullet'} a ${financingConfig.plazo_anios} años, con tipo de interés del ${fmtPct(financingConfig.interes ?? 0)}. El principal inicial asciende a ${fmt(loan0)}, sobre el cual se calcula el servicio de deuda durante el período de holding.`,
-        spacing: { after: 200 },
       })
     );
 
-    const debtRows = [
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Concepto', bold: true })], shading: { fill: 'E7E6E6' } }),
-          new TableCell({ children: [new Paragraph({ text: 'Importe (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Principal inicial' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(loan0), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: `Deuda pendiente año ${lastYear}` })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(saldoDeudaFinal), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Intereses pagados (holding)' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(totalIntereses), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Principal amortizado (holding)' })] }),
-          new TableCell({ children: [new Paragraph({ text: fmt(totalAmortizacion), alignment: AlignmentType.RIGHT })] }),
-        ],
-      }),
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph({ text: 'Servicio total de deuda', bold: true })], shading: { fill: 'F2F2F2' } }),
-          new TableCell({ children: [new Paragraph({ text: fmt(totalCuota), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
-        ],
-      }),
-    ];
+    // ========================================
+    // 6 o 7. FINANCIACIÓN Y PERFIL DE DEUDA (CONDICIONAL - SOLO SI LTV > 0)
+    // ========================================
+    if ((financingConfig.ltv ?? 0) > 0) {
+      sections.push(
+        new Paragraph({
+          text: `${sectionFinancing}. Financiación y Perfil de Deuda`,
+          heading: HeadingLevel.HEADING_1,
+          spacing: { after: 300 },
+        }),
+        new Paragraph({
+          text: `El proyecto contempla financiación mediante préstamo ${financingConfig.tipo_amortizacion === 'frances' ? 'con amortización francesa' : 'bullet'} a ${financingConfig.plazo_anios} años, con tipo de interés del ${fmtPct(financingConfig.interes ?? 0)}. El principal inicial asciende a ${fmt(loan0)}, sobre el cual se calcula el servicio de deuda durante el período de holding.`,
+          spacing: { after: 200 },
+        })
+      );
+
+      // Tabla de resumen de deuda
+      const debtRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Concepto', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Importe (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Principal inicial' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(loan0), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: `Deuda pendiente año ${lastYear}` })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(saldoDeudaFinal), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Intereses pagados (holding)' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totalIntereses), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Principal amortizado (holding)' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totalAmortizacion), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Servicio total de deuda', bold: true })], shading: { fill: 'F2F2F2' } }),
+            new TableCell({ children: [new Paragraph({ text: fmt(totalCuota), bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'F2F2F2' } }),
+          ],
+        }),
+      ];
+
+      sections.push(
+        new Table({
+          rows: debtRows,
+          width: { size: 70, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: `El servicio acumulado de deuda suma ${fmt(totalCuota)} durante el holding, de los cuales ${fmt(totalIntereses)} corresponden a intereses y ${fmt(totalAmortizacion)} a amortización de principal. Al momento de la salida en el año ${lastYear}, la deuda pendiente asciende a ${fmt(saldoDeudaFinal)}, importe que será liquidado con cargo al valor de exit antes de distribuir el equity neto.`,
+          spacing: { before: 200, after: 300 },
+        })
+      );
+
+      // Tabla de amortización anual completa
+      sections.push(
+        new Paragraph({
+          text: 'Cuadro de Amortización Anual',
+          bold: true,
+          spacing: { after: 200 },
+        })
+      );
+
+      const debtScheduleRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Año', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Intereses (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Amortización (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Cuota Total (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Saldo Final (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+      ];
+
+      // Iterar sobre el debt schedule para construir la tabla
+      if (debt?.schedule && Array.isArray(debt.schedule)) {
+        debt.schedule.forEach((row: any) => {
+          debtScheduleRows.push(
+            new TableRow({
+              children: [
+                new TableCell({ children: [new Paragraph({ text: row.anio?.toString() ?? '' })] }),
+                new TableCell({ children: [new Paragraph({ text: fmt(row.intereses ?? 0), alignment: AlignmentType.RIGHT })] }),
+                new TableCell({ children: [new Paragraph({ text: fmt(row.amortizacion ?? 0), alignment: AlignmentType.RIGHT })] }),
+                new TableCell({ children: [new Paragraph({ text: fmt(row.cuota ?? 0), alignment: AlignmentType.RIGHT })] }),
+                new TableCell({ children: [new Paragraph({ text: fmt(row.saldo_final ?? 0), alignment: AlignmentType.RIGHT })] }),
+              ],
+            })
+          );
+        });
+      }
+
+      sections.push(
+        new Table({
+          rows: debtScheduleRows,
+          width: { size: 100, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: 'El cuadro de amortización muestra la evolución anual del servicio de deuda, permitiendo identificar el perfil de pagos y la reducción progresiva del saldo pendiente durante el período de holding.',
+          spacing: { before: 200, after: 300 },
+        })
+      );
+
+      // Cálculo de DSCR (Debt Service Coverage Ratio)
+      sections.push(
+        new Paragraph({
+          text: 'Cobertura de Servicio de Deuda (DSCR)',
+          bold: true,
+          spacing: { after: 200 },
+        }),
+        new Paragraph({
+          text: 'El DSCR (Debt Service Coverage Ratio) es la métrica fundamental para evaluar la capacidad del activo de atender el servicio de deuda con flujos operativos. Se calcula como EBITDA-FF&E dividido por el servicio de deuda anual (intereses + amortización). Los umbrales de referencia en financiación hotelera son: DSCR ≥ 1.25x (cobertura robusta), 1.0x-1.25x (cobertura ajustada), < 1.0x (insuficiente).',
+          spacing: { after: 200 },
+        })
+      );
+
+      const dscrRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Año', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'EBITDA-FF&E (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Servicio Deuda (€)', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'DSCR', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+      ];
+
+      let minDSCR = Infinity;
+      let minDSCRYear = 0;
+
+      // Calcular DSCR para cada año
+      annuals.forEach((year: any, idx: number) => {
+        const ebitdaLessFfe = year.ebitda_less_ffe ?? 0;
+        const debtRow = debt?.schedule?.find((d: any) => d.anio === year.anio);
+        const debtService = debtRow?.cuota ?? 0;
+        const dscr = debtService > 0 ? ebitdaLessFfe / debtService : 0;
+
+        if (dscr > 0 && dscr < minDSCR) {
+          minDSCR = dscr;
+          minDSCRYear = year.anio;
+        }
+
+        dscrRows.push(
+          new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph({ text: year.anio.toString() })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(ebitdaLessFfe), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: fmt(debtService), alignment: AlignmentType.RIGHT })] }),
+              new TableCell({ children: [new Paragraph({ text: debtService > 0 ? `${fmtDecimal(dscr, 2)}x` : 'N/A', alignment: AlignmentType.RIGHT })] }),
+            ],
+          })
+        );
+      });
+
+      sections.push(
+        new Table({
+          rows: dscrRows,
+          width: { size: 90, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: minDSCR < Infinity
+            ? `El DSCR mínimo se registra en el año ${minDSCRYear} con ${fmtDecimal(minDSCR, 2)}x. ${minDSCR >= 1.25 ? 'El proyecto muestra cobertura robusta en todos los años, superando el umbral típico de 1.25x exigido por entidades financieras.' : minDSCR >= 1.0 ? 'El proyecto mantiene cobertura positiva en todos los años, aunque en algunos períodos se sitúa por debajo del umbral típico de 1.25x exigido por entidades financieras.' : 'Atención: El proyecto presenta años con DSCR inferior a 1.0x, indicando insuficiente capacidad de cobertura del servicio de deuda con flujos operativos. Se recomienda revisar los supuestos o la estructura de financiación.'}`
+            : 'No se pudo calcular el DSCR para los años analizados.',
+          spacing: { before: 200, after: 300 },
+        })
+      );
+
+      // Métricas clave para bancos
+      sections.push(
+        new Paragraph({
+          text: 'Métricas Clave para Financiadores',
+          bold: true,
+          spacing: { after: 200 },
+        })
+      );
+
+      // Calcular LTV final
+      const ltvFinal = vr.valuation.valor_salida_neto > 0 ? saldoDeudaFinal / vr.valuation.valor_salida_neto : 0;
+
+      const bankMetricsRows = [
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Métrica', bold: true })], shading: { fill: 'E7E6E6' } }),
+            new TableCell({ children: [new Paragraph({ text: 'Valor', bold: true, alignment: AlignmentType.RIGHT })], shading: { fill: 'E7E6E6' } }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'LTV inicial' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(financingConfig.ltv ?? 0), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: `LTV al exit (sobre valor año ${lastYear})` })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(ltvFinal), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'DSCR mínimo (período)' })] }),
+            new TableCell({ children: [new Paragraph({ text: minDSCR < Infinity ? `${fmtDecimal(minDSCR, 2)}x (año ${minDSCRYear})` : 'N/A', alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Tipo de interés' })] }),
+            new TableCell({ children: [new Paragraph({ text: fmtPct(financingConfig.interes ?? 0), alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Plazo del préstamo' })] }),
+            new TableCell({ children: [new Paragraph({ text: `${financingConfig.plazo_anios} años`, alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ text: 'Tipo de amortización' })] }),
+            new TableCell({ children: [new Paragraph({ text: financingConfig.tipo_amortizacion === 'frances' ? 'Francesa' : 'Bullet', alignment: AlignmentType.RIGHT })] }),
+          ],
+        }),
+      ];
+
+      sections.push(
+        new Table({
+          rows: bankMetricsRows,
+          width: { size: 70, type: WidthType.PERCENTAGE },
+        }),
+        new Paragraph({
+          text: 'Valoración del Perfil de Riesgo para Financiadores',
+          bold: true,
+          spacing: { before: 300, after: 150 },
+        }),
+        new Paragraph({
+          text: (() => {
+            // Análisis integral del perfil de riesgo
+            let riskProfile = '';
+
+            // 1. Análisis de LTV
+            const ltvInicial = financingConfig.ltv ?? 0;
+            const ltvAnalysis = ltvInicial > 0.75
+              ? `El LTV inicial del ${fmtPct(ltvInicial)} se sitúa en el rango alto del espectro, reflejando un apalancamiento significativo que maximiza la eficiencia del capital pero incrementa el perfil de riesgo para el financiador.`
+              : ltvInicial > 0.60
+              ? `El LTV inicial del ${fmtPct(ltvInicial)} se encuentra en el rango medio-alto, representando un balance razonable entre apalancamiento y prudencia financiera, típico en financiación hotelera senior.`
+              : `El LTV inicial del ${fmtPct(ltvInicial)} se sitúa en el rango conservador, proporcionando un colchón de protección significativo para el financiador ante potenciales deterioros de valor del activo.`;
+
+            // 2. Evolución del LTV
+            const ltvEvolution = ltvFinal < ltvInicial * 0.7
+              ? ` La reducción hasta ${fmtPct(ltvFinal)} al momento de la salida (desapalancamiento del ${fmtPct((ltvInicial - ltvFinal) / ltvInicial)}) refleja una amortización efectiva de principal que mejora sustancialmente el perfil de riesgo durante el holding.`
+              : ltvFinal < ltvInicial * 0.9
+              ? ` La reducción moderada hasta ${fmtPct(ltvFinal)} al exit mejora el perfil de riesgo, aunque la desaceleración del desapalancamiento sugiere una estructura de amortización back-loaded o tipo bullet.`
+              : ` El LTV se mantiene relativamente estable en ${fmtPct(ltvFinal)} al exit, indicando estructura bullet con pago de principal concentrado al vencimiento, lo que requiere capacidad de refinanciación o liquidación del activo para cancelar la deuda.`;
+
+            // 3. Análisis de DSCR
+            let dscrAnalysis = '';
+            if (minDSCR >= 1.25) {
+              dscrAnalysis = ` El DSCR mínimo de ${fmtDecimal(minDSCR, 2)}x supera el umbral típico de 1.25x exigido por entidades financieras, confirmando capacidad de cobertura robusta incluso en el año más adverso del holding. Este perfil reduce significativamente el riesgo de default operativo.`;
+            } else if (minDSCR >= 1.0) {
+              dscrAnalysis = ` El DSCR mínimo de ${fmtDecimal(minDSCR, 2)}x se sitúa por debajo del umbral típico de 1.25x aunque mantiene cobertura positiva. Esta métrica sugiere márgenes ajustados que requieren vigilancia activa de la evolución operativa y potencialmente covenants reforzados o reservas de caja.`;
+            } else {
+              dscrAnalysis = ` CRÍTICO: El DSCR mínimo de ${fmtDecimal(minDSCR, 2)}x indica insuficiente capacidad de cobertura en algunos períodos. Esta situación sugiere que los flujos operativos proyectados no serían suficientes para atender el servicio de deuda, requiriendo revisión de supuestos operativos, reducción de apalancamiento o reestructuración de términos de financiación.`;
+            }
+
+            // 4. Tipo de amortización
+            const amortizationAnalysis = financingConfig.tipo_amortizacion === 'bullet'
+              ? ` La estructura bullet maximiza la caja disponible durante el holding (evitando amortización de principal) pero concentra el riesgo de refinanciación al vencimiento. El financiador asume exposición completa al riesgo de mercado al momento de exit, requiriendo confianza en la liquidez del activo o capacidad de refinanciación del prestatario.`
+              : ` La amortización francesa proporciona una trayectoria de desapalancamiento predecible, reduciendo gradualmente la exposición del financiador y el riesgo de refinanciación. Este esquema es preferido por entidades conservadoras y facilita la gestión del riesgo de crédito a lo largo del plazo.`;
+
+            // 5. Conclusión integral
+            const conclusion = minDSCR >= 1.25 && ltvInicial <= 0.70
+              ? ' En conjunto, el perfil de riesgo crediticio del proyecto es favorable para financiación senior conservadora, con métricas de cobertura robustas y apalancamiento prudente.'
+              : minDSCR >= 1.0 && ltvInicial <= 0.75
+              ? ' El perfil de riesgo es aceptable para financiación senior estándar, aunque requiere due diligence exhaustiva de supuestos operativos y potencialmente covenants financieros de protección.'
+              : ' El perfil de riesgo presenta desafíos significativos que requerirían condiciones especiales: tasa más alta, covenants estrictos, reservas de caja, o reducción de apalancamiento para ser viable en financiación senior convencional.';
+
+            return ltvAnalysis + ltvEvolution + dscrAnalysis + amortizationAnalysis + conclusion;
+          })(),
+          spacing: { after: 400 },
+        }),
+        new Paragraph({
+          text: '',
+          pageBreakBefore: true,
+        })
+      );
+    }
 
     sections.push(
-      new Table({
-        rows: debtRows,
-        width: { size: 70, type: WidthType.PERCENTAGE },
-      }),
-      new Paragraph({
-        text: `El servicio acumulado de deuda suma ${fmt(totalCuota)} durante el holding, de los cuales ${fmt(totalIntereses)} corresponden a intereses y ${fmt(totalAmortizacion)} a amortización de principal. Al momento de la salida en el año ${lastYear}, la deuda pendiente asciende a ${fmt(saldoDeudaFinal)}, importe que será liquidado con cargo al valor de exit antes de distribuir el equity neto.`,
-        spacing: { before: 200, after: 200 },
-      }),
-      new Paragraph({
-        text: '',
-        pageBreakBefore: true,
-      }),
-
       // ========================================
-      // 7. VALORACIÓN DEL ACTIVO Y EXIT
+      // 7/8. VALORACIÓN DEL ACTIVO Y EXIT
       // ========================================
       new Paragraph({
-        text: '7. Valoración del Activo y Exit',
+        text: `${sectionValuation}. Valoración del Activo y Exit`,
         heading: HeadingLevel.HEADING_1,
         spacing: { after: 300 },
       }),
@@ -751,10 +1188,10 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
       }),
 
       // ========================================
-      // 8. ANÁLISIS DE PRECIO DE COMPRA
+      // 8/9. ANÁLISIS DE PRECIO DE COMPRA
       // ========================================
       new Paragraph({
-        text: '8. Análisis de Precio de Compra',
+        text: `${sectionPPA}. Análisis de Precio de Compra`,
         heading: HeadingLevel.HEADING_1,
         spacing: { after: 300 },
       })
@@ -817,11 +1254,11 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     );
 
     // ========================================
-    // 9. FLUJOS AL EQUITY Y RETORNOS
+    // 9/10. FLUJOS AL EQUITY Y RETORNOS
     // ========================================
     sections.push(
       new Paragraph({
-        text: '9. Flujos al Equity y Retornos',
+        text: `${sectionReturns}. Flujos al Equity y Retornos`,
         heading: HeadingLevel.HEADING_1,
         spacing: { after: 300 },
       }),
@@ -905,12 +1342,12 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     );
 
     // ========================================
-    // 10. ANÁLISIS DE SENSIBILIDAD Y ROBUSTEZ DEL PROYECTO
+    // 10/11. ANÁLISIS DE SENSIBILIDAD Y ROBUSTEZ DEL PROYECTO
     // ========================================
     if (vr.sensitivity && vr.sensitivity.scenarios && Array.isArray(vr.sensitivity.scenarios) && vr.sensitivity.scenarios.length > 0) {
       sections.push(
         new Paragraph({
-          text: '10. Análisis de Sensibilidad y Robustez del Proyecto',
+          text: `${sectionSensitivity}. Análisis de Sensibilidad y Robustez del Proyecto`,
           heading: HeadingLevel.HEADING_1,
           spacing: { after: 300 },
         }),
@@ -1028,11 +1465,14 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
     }
 
     // ========================================
-    // 11. CONCLUSIONES E INSIGHTS FINALES
+    // 10/11/12. CONCLUSIONES E INSIGHTS FINALES
     // ========================================
+    const hasSensitivity = vr.sensitivity && vr.sensitivity.scenarios && Array.isArray(vr.sensitivity.scenarios) && vr.sensitivity.scenarios.length > 0;
+    const conclusionSection = hasSensitivity ? sectionSensitivity + 1 : sectionConclusions;
+
     sections.push(
       new Paragraph({
-        text: vr.sensitivity && vr.sensitivity.scenarios && Array.isArray(vr.sensitivity.scenarios) && vr.sensitivity.scenarios.length > 0 ? '11. Conclusiones e Insights Finales' : '10. Conclusiones e Insights Finales',
+        text: `${conclusionSection}. Conclusiones e Insights Finales`,
         heading: HeadingLevel.HEADING_1,
         spacing: { after: 300 },
       }),
@@ -1070,6 +1510,52 @@ export async function generateWordDocument(params: GenerateWordDocumentParams) {
       sections.push(
         new Paragraph({
           text: `El análisis de sensibilidad indica que el IRR levered podría oscilar entre ${fmtPct(minIRR)} y ${fmtPct(maxIRR)} según distintos escenarios de mercado, sugiriendo ${maxIRR - minIRR < 0.05 ? 'una alta robustez estructural del proyecto' : maxIRR - minIRR < 0.10 ? 'una sensibilidad moderada a variaciones de mercado' : 'una elevada sensibilidad a las condiciones de mercado'}.`,
+          spacing: { after: 200 },
+        })
+      );
+    }
+
+    // Añadir insights de operador si aplica
+    if (operationConfig.operacion_tipo !== 'gestion_propia') {
+      const feeBase = (operationConfig.fee_base_anual ?? 0) * holdingYears;
+      const fixedComponent = totals.fees > 0 ? feeBase / totals.fees : 0;
+      const variableComponent = 1 - fixedComponent;
+
+      sections.push(
+        new Paragraph({
+          text: `El proyecto contempla gestión con operador externo, con fees totales proyectados de ${fmt(totals.fees)} (${fmtPct(totals.fees / totals.gop)} del GOP). La estructura de remuneración presenta ${variableComponent > 0.7 ? 'un perfil fuertemente orientado a performance' : variableComponent > 0.4 ? 'un balance equilibrado entre componentes fijos y variables' : 'un perfil con predominio de fees fijos'}, ${variableComponent > 0.5 ? 'maximizando la alineación de incentivos entre operador e inversor' : 'proporcionando predictibilidad de costes aunque limitando la exposición del operador al desempeño real'}.`,
+          spacing: { after: 200 },
+        })
+      );
+    }
+
+    // Añadir insights de financiación si aplica
+    if ((financingConfig.ltv ?? 0) > 0 && debt?.schedule && Array.isArray(debt.schedule)) {
+      // Recalcular DSCR mínimo para conclusiones
+      let minDSCRConclusion = Infinity;
+      annuals.forEach((year: any) => {
+        const ebitdaLessFfe = year.ebitda_less_ffe ?? 0;
+        const debtRow = debt?.schedule?.find((d: any) => d.anio === year.anio);
+        const debtService = debtRow?.cuota ?? 0;
+        const dscr = debtService > 0 ? ebitdaLessFfe / debtService : 0;
+        if (dscr > 0 && dscr < minDSCRConclusion) {
+          minDSCRConclusion = dscr;
+        }
+      });
+
+      const ltvInicial = financingConfig.ltv ?? 0;
+      const ltvFinalConclusion = vr.valuation.valor_salida_neto > 0 ? saldoDeudaFinal / vr.valuation.valor_salida_neto : 0;
+
+      sections.push(
+        new Paragraph({
+          text: `La estructura de financiación (LTV ${fmtPct(ltvInicial)}, ${financingConfig.tipo_amortizacion === 'bullet' ? 'bullet' : 'amortización francesa'}) ${minDSCRConclusion >= 1.25 ? 'presenta un perfil de riesgo crediticio favorable, con DSCR mínimo de ' + fmtDecimal(minDSCRConclusion, 2) + 'x que supera umbrales típicos de financiación hotelera senior' : minDSCRConclusion >= 1.0 ? 'muestra cobertura positiva en todos los períodos (DSCR mínimo ' + fmtDecimal(minDSCRConclusion, 2) + 'x), aunque los márgenes ajustados sugieren necesidad de monitorización activa' : 'presenta desafíos de cobertura (DSCR mínimo ' + fmtDecimal(minDSCRConclusion, 2) + 'x inferior a 1.0x), requiriendo revisión de supuestos o ajuste de términos de financiación'}. El desapalancamiento ${ltvFinalConclusion < ltvInicial * 0.7 ? 'significativo' : 'moderado'} hasta LTV ${fmtPct(ltvFinalConclusion)} al exit ${ltvFinalConclusion < ltvInicial * 0.7 ? 'mejora sustancialmente el perfil de riesgo' : 'proporciona cierta reducción de exposición'} para el financiador.`,
+          spacing: { after: 300 },
+        })
+      );
+    } else if ((financingConfig.ltv ?? 0) === 0) {
+      sections.push(
+        new Paragraph({
+          text: 'El proyecto se estructura sin apalancamiento bancario, financiándose íntegramente con equity. Esta configuración elimina el riesgo de refinanciación y maximiza la flexibilidad operativa, aunque renuncia al potencial apalancamiento de retornos que proporcionaría una estructura de capital optimizada.',
           spacing: { after: 300 },
         })
       );
