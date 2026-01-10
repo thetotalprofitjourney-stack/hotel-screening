@@ -748,12 +748,16 @@ router.get('/v1/projects/:id/operador-data', async (req, res) => {
       gop: acc.gop + (year.gop || 0),
       fees: acc.fees + (year.fees || 0),
       ebitda: acc.ebitda + (year.ebitda || 0),
+      ffe: acc.ffe + (year.ffe || 0),
+      ebitda_less_ffe: acc.ebitda_less_ffe + (year.ebitda_less_ffe || 0),
       rn: acc.rn + (year.rn || 0),
     }), {
       operating_revenue: 0,
       gop: 0,
       fees: 0,
       ebitda: 0,
+      ffe: 0,
+      ebitda_less_ffe: 0,
       rn: 0,
     });
 
